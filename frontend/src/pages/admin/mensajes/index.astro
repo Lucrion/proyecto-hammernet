@@ -1,0 +1,337 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Gestión de Mensajes">
+    <div class="mb-6 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-800">Mensajes de Contacto</h1>
+    </div>
+
+    <!-- Estado de carga -->
+    <div id="loadingState" class="hidden">
+        <div class="flex justify-center items-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-2 text-gray-600">Cargando mensajes...</span>
+        </div>
+    </div>
+
+    <!-- Estado vacío -->
+    <div id="emptyState" class="hidden">
+        <div class="text-center py-8">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No hay mensajes</h3>
+            <p class="mt-1 text-sm text-gray-500">Aún no se han recibido mensajes de contacto.</p>
+        </div>
+    </div>
+
+    <!-- Tabla de mensajes -->
+    <div id="tableContainer" class="bg-white rounded-lg shadow-md overflow-hidden hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asunto</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaMensajes" class="bg-white divide-y divide-gray-200">
+                <!-- Los mensajes se cargarán aquí dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal para ver mensaje -->
+    <div id="modalMensaje" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center pb-3">
+                <h3 id="modalTitle" class="text-xl font-semibold">Detalles del Mensaje</h3>
+                <button id="closeModal" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="modalContent" class="mt-4">
+                <!-- El contenido del mensaje se cargará aquí -->
+            </div>
+            <div class="flex justify-end mt-4">
+                <button id="closeModalBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</AdminLayout>
+
+<script>
+    import { getData, deleteData, updateData } from '../../../scripts/api.js';
+    import { API_URL } from '../../../scripts/config.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const tablaMensajes = document.getElementById('tablaMensajes');
+        const modal = document.getElementById('modalMensaje');
+        const closeModal = document.getElementById('closeModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const modalContent = document.getElementById('modalContent');
+
+        let mensajes = [];
+
+        // Función para obtener todos los mensajes
+        async function obtenerMensajes() {
+            try {
+                mensajes = await getData('/mensajes');
+                if (mensajes && Array.isArray(mensajes)) {
+                    cargarMensajes();
+                } else {
+                    console.error('Error: La respuesta no es un array de mensajes');
+                    mostrarError('Error al cargar los mensajes. La respuesta del servidor no es válida.');
+                }
+            } catch (error) {
+                console.error('Error al obtener mensajes:', error);
+                if (error.message.includes('401')) {
+                    mostrarError('Sesión expirada. Por favor, inicie sesión nuevamente.');
+                    window.location.href = '/login';
+                } else if (error.message.includes('403')) {
+                    mostrarError('No tiene permisos para ver los mensajes.');
+                } else {
+                    mostrarError('Error al cargar los mensajes. Por favor, intente nuevamente.');
+                }
+            }
+        }
+
+        // Función para mostrar mensajes de error
+        function mostrarError(mensaje) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4';
+            errorDiv.innerHTML = `
+                <span class="block sm:inline">${mensaje}</span>
+                <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" onclick="this.parentElement.remove()">
+                    <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <title>Cerrar</title>
+                        <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+                    </svg>
+                </span>
+            `;
+            document.querySelector('.mb-6').after(errorDiv);
+        }
+
+        // Función para formatear fecha
+        function formatearFecha(fecha) {
+            return new Date(fecha).toLocaleString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Función para cargar mensajes en la tabla
+        function cargarMensajes() {
+            const loadingState = document.getElementById('loadingState');
+            const emptyState = document.getElementById('emptyState');
+            const tableContainer = document.getElementById('tableContainer');
+            
+            // Mostrar estado de carga
+            loadingState.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            tableContainer.classList.add('hidden');
+            
+            tablaMensajes.innerHTML = '';
+            
+            if (!mensajes || mensajes.length === 0) {
+                // Mostrar estado vacío
+                loadingState.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                tableContainer.classList.add('hidden');
+                return;
+            }
+            
+            // Mostrar tabla y cargar mensajes
+            loadingState.classList.add('hidden');
+            emptyState.classList.add('hidden');
+            tableContainer.classList.remove('hidden');
+            
+            mensajes.forEach(mensaje => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatearFecha(mensaje.fecha_envio)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${mensaje.nombre} ${mensaje.apellido}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${mensaje.email}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 truncate max-w-xs">${mensaje.asunto}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${mensaje.leido ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                            ${mensaje.leido ? 'Leído' : 'No leído'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-id="${mensaje.id}" class="btn-ver text-blue-600 hover:text-blue-900 mr-3 transition-colors">Ver</button>
+                        <button data-id="${mensaje.id}" class="btn-eliminar text-red-600 hover:text-red-900 transition-colors">Eliminar</button>
+                    </td>
+                `;
+                tablaMensajes.appendChild(tr);
+            });
+
+            // Agregar eventos a los botones
+            document.querySelectorAll('.btn-ver').forEach(btn => {
+                btn.addEventListener('click', verMensaje);
+            });
+
+            document.querySelectorAll('.btn-eliminar').forEach(btn => {
+                btn.addEventListener('click', eliminarMensaje);
+            });
+        }
+
+        // Función para ver un mensaje
+        async function verMensaje(e) {
+            try {
+                const button = e.target;
+                const id = parseInt(button.dataset.id);
+                const mensaje = mensajes.find(m => m.id === id);
+
+                if (!mensaje) {
+                    mostrarError('No se encontró el mensaje solicitado.');
+                    return;
+                }
+
+                // Mostrar estado de carga en el botón
+                const originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = 'Cargando...';
+
+                modalContent.innerHTML = `
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500">Remitente</h4>
+                            <p class="mt-1 text-gray-900">${mensaje.nombre} ${mensaje.apellido}</p>
+                            <p class="mt-1 text-gray-600">${mensaje.email}</p>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500">Asunto</h4>
+                            <p class="mt-1 text-gray-900">${mensaje.asunto}</p>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500">Mensaje</h4>
+                            <p class="mt-1 text-gray-900 whitespace-pre-wrap leading-relaxed">${mensaje.mensaje}</p>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500">Fecha de envío</h4>
+                            <p class="mt-1 text-gray-600">${formatearFecha(mensaje.fecha_envio)}</p>
+                        </div>
+                        <div class="pt-4 border-t border-gray-200">
+                            <p class="text-sm text-gray-500">
+                                Estado: <span class="${mensaje.leido ? 'text-green-600' : 'text-yellow-600'} font-medium">
+                                    ${mensaje.leido ? 'Leído' : 'No leído'}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                `;
+                modal.classList.remove('hidden');
+
+                // Si el mensaje no está leído, marcarlo como leído
+                if (!mensaje.leido) {
+                    try {
+                        await updateData(`/mensajes/${id}/leer`, {});
+                        obtenerMensajes(); // Actualizar la lista de mensajes
+                        mostrarNotificacion('Mensaje marcado como leído', 'success');
+                    } catch (error) {
+                        console.error('Error al marcar mensaje como leído:', error);
+                        if (error.message.includes('401')) {
+                            mostrarError('Sesión expirada. Por favor, inicie sesión nuevamente.');
+                            window.location.href = '/login';
+                        } else if (error.message.includes('403')) {
+                            mostrarError('No tiene permisos para marcar mensajes como leídos.');
+                        } else {
+                            mostrarError('Error al marcar el mensaje como leído.');
+                        }
+                    }
+                }
+
+                // Restaurar el estado del botón
+                button.disabled = false;
+                button.textContent = originalText;
+            } catch (error) {
+                console.error('Error al mostrar el mensaje:', error);
+                mostrarError('Error al mostrar el mensaje. Por favor, intente nuevamente.');
+            }
+        }
+
+        // Función para eliminar un mensaje
+        async function eliminarMensaje(e) {
+            const id = parseInt(e.target.dataset.id);
+            const mensaje = mensajes.find(m => m.id === id);
+            
+            if (confirm(`¿Está seguro de eliminar el mensaje de ${mensaje.nombre} ${mensaje.apellido}?`)) {
+                try {
+                    const button = e.target;
+                    button.disabled = true;
+                    button.textContent = 'Eliminando...';
+                    
+                    await deleteData(`/mensajes/${id}`);
+                    mostrarNotificacion('Mensaje eliminado correctamente', 'success');
+                    obtenerMensajes(); // Actualizar la lista de mensajes
+                } catch (error) {
+                    console.error('Error al eliminar mensaje:', error);
+                    if (error.message.includes('401')) {
+                        mostrarError('Sesión expirada. Por favor, inicie sesión nuevamente.');
+                        window.location.href = '/login';
+                    } else if (error.message.includes('403')) {
+                        mostrarError('No tiene permisos para eliminar mensajes.');
+                    } else {
+                        mostrarError('Error al eliminar el mensaje. Por favor, inténtelo de nuevo.');
+                    }
+                    const button = e.target;
+                    button.disabled = false;
+                    button.textContent = 'Eliminar';
+                }
+            }
+        }
+
+        // Función para mostrar notificaciones
+        function mostrarNotificacion(mensaje, tipo) {
+            const notifDiv = document.createElement('div');
+            const bgColor = tipo === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
+            notifDiv.className = `${bgColor} border px-4 py-3 rounded relative mb-4`;
+            notifDiv.innerHTML = `
+                <span class="block sm:inline">${mensaje}</span>
+                <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" onclick="this.parentElement.remove()">
+                    <svg class="fill-current h-6 w-6" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <title>Cerrar</title>
+                        <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+                    </svg>
+                </span>
+            `;
+            document.querySelector('.mb-6').after(notifDiv);
+            
+            // Eliminar la notificación después de 5 segundos
+            setTimeout(() => {
+                if (notifDiv.parentElement) {
+                    notifDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Eventos para cerrar el modal
+        closeModal.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+
+        // Cerrar modal al hacer clic fuera de él
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+
+        // Cargar mensajes al iniciar
+        obtenerMensajes();
+    });
+</script>

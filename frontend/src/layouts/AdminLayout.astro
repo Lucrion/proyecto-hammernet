@@ -1,0 +1,146 @@
+---
+interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="Panel de Administración - Ferretería Patricio">
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/logo_bn.webp" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<script src="https://unpkg.com/htmx.org@1.9.9" integrity="sha384-QFjmbokDn2DjBjq+fM+8LUIVrAgqcNW2s0PjAxHETgRn9l4fvX31ZxDxvwQnyMOX" crossorigin="anonymous"></script>
+	</head>
+	<body class="min-h-screen bg-gray-100 flex">
+		<!-- Sidebar de navegación -->
+		<aside class="w-60 bg-white shadow-lg min-h-screen p-4 flex flex-col">
+			<div class="mb-8">
+				<img src="/hammernet.webp" alt="Hammernet" class="h-12 mx-auto">
+			</div>
+			
+			<nav class="flex-1">
+				<ul class="space-y-2">
+					<li>
+						<a href="/admin" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+							</svg>
+							Inicio
+						</a>
+					</li>
+					<li>
+						<a href="/admin/usuarios" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+							</svg>
+							Usuarios
+						</a>
+					</li>
+					<li>
+						<a href="/admin/catalogo" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+							</svg>
+							Catálogo
+						</a>
+					</li>
+					<li>
+						<a href="/admin/mensajes" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+							</svg>
+							Mensajes
+						</a>
+					</li>
+					<!-- Sección de ventas oculta temporalmente
+					<li>
+						<a href="/admin/ventas" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+							</svg>
+							Ventas
+						</a>
+					</li>
+					-->
+				</ul>
+			</nav>
+			
+			<div class="mt-auto">
+			<button id="btnLogout" class="w-full flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+				</svg>
+				Cerrar Sesión
+			</button>
+		</div>
+		</aside>
+
+		<!-- Contenido principal -->
+		<main class="flex-1 p-8">
+			<div class="flex justify-between items-center mb-8">
+				<h1 class="text-2xl font-semibold text-gray-900">{title}</h1>
+				<div class="flex items-center space-x-4">
+					<button class="text-gray-500 hover:text-gray-700">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+						</svg>
+					</button>
+					<div class="flex items-center space-x-2">
+						<img src="/logo_bn.webp" alt="Usuario" class="h-8 w-8 rounded-full bg-gray-200">
+						<span class="text-gray-700" id="nombreUsuario">Administrador</span>
+					</div>
+				</div>
+			</div>
+			
+			<slot />
+		</main>
+	</body>
+</html>
+
+<script>
+// Script para obtener el nombre del usuario desde localStorage y manejar el logout
+document.addEventListener('DOMContentLoaded', () => {
+	const nombreUsuarioElement = document.getElementById('nombreUsuario');
+	const nombreUsuario = localStorage.getItem('nombreUsuario');
+	const btnLogout = document.getElementById('btnLogout');
+	
+	// Verificar si el usuario está autenticado
+	const isLoggedIn = localStorage.getItem('isLoggedIn');
+	const token = localStorage.getItem('token');
+	console.log('AdminLayout - Estado de autenticación:', isLoggedIn);
+	console.log('AdminLayout - Token:', token ? 'Token presente' : 'Token ausente');
+	
+	if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
+		console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
+		// Redirigir al login si no está autenticado o no tiene token
+		window.location.href = '/login';
+		return;
+	}
+	
+	// Mostrar el nombre del usuario
+	if (nombreUsuario && nombreUsuarioElement) {
+		nombreUsuarioElement.textContent = nombreUsuario;
+	}
+	
+	// Manejar el evento de logout
+	if (btnLogout) {
+		btnLogout.addEventListener('click', () => {
+			// Limpiar datos de autenticación
+			localStorage.removeItem('isLoggedIn');
+			localStorage.removeItem('nombreUsuario');
+			localStorage.removeItem('token');
+			localStorage.removeItem('userId');
+			localStorage.removeItem('role');
+			
+			// Redirigir al login
+			window.location.href = '/login';
+		});
+	}
+});
+</script>

@@ -1,0 +1,134 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<script is:inline src="/scripts/productos.js"></script>
+
+<Layout title="Productos - Ferretería Patricio">
+	<div class="container mx-auto px-4 py-8">
+		<!-- Barra de búsqueda -->
+		<div class="mb-8" data-aos="fade-down" data-aos-duration="800">
+			<div class="relative max-w-2xl mx-auto">
+				<input
+					type="text"
+					placeholder="Buscar Producto"
+					class="w-full p-4 pl-12 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+				/>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+			</div>
+		</div>
+
+		<div class="flex flex-col md:flex-row gap-8">
+			<!-- Filtros -->
+			<div class="w-full md:w-64 bg-white p-6 rounded-xl shadow-lg h-fit sticky top-24 transition-all duration-300" data-aos="fade-right" data-aos-duration="1000">
+				<h2 class="text-xl font-bold mb-6 text-gray-800">Filtrar</h2>
+				
+				<div class="space-y-8">
+					<!-- Rango de precio -->
+					<div class="border-b pb-6">
+						<h3 class="font-semibold mb-4 text-gray-700">Precio</h3>
+						<div class="space-y-3">
+							<input type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" min="0" max="100000" step="1000">
+							<div class="flex justify-between text-sm text-gray-600">
+								<span>$0</span>
+								<span>$100.000+</span>
+							</div>
+						</div>
+					</div>
+
+					<!-- Categorías -->
+					<div class="border-b pb-6">
+						<h3 class="font-semibold mb-4 text-gray-700">Categorías</h3>
+						<div class="space-y-3">
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Herramientas</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Construcción</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Jardinería y Exteriores</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Electricidad</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Plomería</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Seguridad</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Hogar y Limpieza</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Pinturas</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="checkbox" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Tornillos y Clavos</span>
+							</label>
+						</div>
+					</div>
+
+
+
+					<!-- Disponibilidad -->
+					<div>
+						<h3 class="font-semibold mb-4 text-gray-700">Disponibilidad</h3>
+						<div class="space-y-3">
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="radio" name="disponibilidad" class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">En stock</span>
+							</label>
+							<label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+								<input type="radio" name="disponibilidad" class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+								<span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">Todos los productos</span>
+							</label>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Productos -->
+			<div class="flex-1 grid grid-cols-4 gap-6">
+				<!-- Los productos se cargarán dinámicamente desde la API -->
+				<div class="col-span-full text-center py-8">
+					<div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+					<p class="text-gray-500 mt-4">Cargando productos...</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Paginación -->
+		<div class="mt-12 flex justify-center items-center gap-4">
+			<button class="px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors duration-200">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+				</svg>
+			</button>
+			<div class="flex gap-2">
+				<button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">1</button>
+				<button class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">2</button>
+				<button class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">3</button>
+				<span class="px-4 py-2">...</span>
+				<button class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">8</button>
+			</div>
+			<button class="px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors duration-200">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+				</svg>
+			</button>
+		</div>
+	</div>
+</Layout>

@@ -1,0 +1,251 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Gestión de Usuarios">
+    <div class="mb-6 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-800">Gestión de Usuarios</h1>
+        <button id="btnNuevoUsuario" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Nuevo Usuario
+        </button>
+    </div>
+
+    <!-- Formulario para crear/editar usuario (oculto por defecto) -->
+    <div id="formUsuario" class="bg-white rounded-lg shadow-md p-6 mb-6 hidden">
+        <h2 id="formTitle" class="text-xl font-semibold mb-4">Nuevo Usuario</h2>
+        <form id="usuarioForm" class="space-y-4">
+            <input type="hidden" id="userId" value="">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                    <input type="text" id="nombre" name="nombre" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="usuario" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                    <input type="text" id="usuario" name="usuario" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                    <input type="password" id="password" name="password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="rol" class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                    <select id="rol" name="rol" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <option value="administrador">Administrador</option>
+                        <option value="vendedor">Vendedor</option>
+                        <option value="bodeguero">Bodeguero</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="btnCancelar" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla de usuarios -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Creación</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaUsuarios" class="bg-white divide-y divide-gray-200">
+                <!-- Los usuarios se cargarán aquí dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+</AdminLayout>
+
+<script>
+    // Importar funciones de API con autenticación
+    import { getData, postData, updateData, deleteData } from '../../../scripts/api.js';
+    import { API_URL } from '../../../scripts/config.js';
+
+    // Esperar a que el DOM esté completamente cargado
+    window.addEventListener('DOMContentLoaded', async () => {
+
+        // Verificar si el usuario está autenticado
+        const isLoggedIn = localStorage.getItem('isLoggedIn');
+        const token = localStorage.getItem('token');
+        
+        console.log('Usuarios Index - Estado de autenticación:', isLoggedIn);
+        console.log('Usuarios Index - Token:', token ? 'Token presente' : 'Token ausente');
+        
+        if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
+            console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
+            // Redirigir al login si no está autenticado o no tiene token
+            window.location.href = '/login';
+            return;
+        }
+
+        // Elementos del DOM
+        const btnNuevoUsuario = document.getElementById('btnNuevoUsuario');
+        const formUsuario = document.getElementById('formUsuario');
+        const formTitle = document.getElementById('formTitle');
+        const usuarioForm = document.getElementById('usuarioForm');
+        const btnCancelar = document.getElementById('btnCancelar');
+        const tablaUsuarios = document.getElementById('tablaUsuarios');
+        const userId = document.getElementById('userId');
+
+        let usuarios = [];
+
+        // Función para obtener todos los usuarios desde la API
+        async function obtenerUsuarios() {
+            try {
+                usuarios = await getData('/usuarios');
+                if (usuarios) {
+                    cargarUsuarios();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                // Mostrar mensaje de error al usuario
+                alert('Error al obtener usuarios. Por favor, intente nuevamente.');
+            }
+        }
+
+        // Cargar usuarios en la tabla
+        function cargarUsuarios() {
+            tablaUsuarios.innerHTML = '';
+            
+            usuarios.forEach(usuario => {
+                const username = usuario.username || usuario.usuario;
+                const role = usuario.role || usuario.rol;
+                const fechaCreacion = usuario.fecha_creacion || usuario.fechaCreacion;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${username}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-${role === 'administrador' ? 'green' : role === 'vendedor' ? 'blue' : 'yellow'}-100 text-${role === 'administrador' ? 'green' : role === 'vendedor' ? 'blue' : 'yellow'}-800">
+                            ${role === 'administrador' ? 'Administrador' : role === 'vendedor' ? 'Vendedor' : 'Bodeguero'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(fechaCreacion).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-id="${usuario.id}" class="btn-editar text-blue-600 hover:text-blue-900 mr-3">Editar</button>
+                        <button data-id="${usuario.id}" class="btn-eliminar text-red-600 hover:text-red-900">Eliminar</button>
+                    </td>
+                `;
+                tablaUsuarios.appendChild(tr);
+            });
+
+            // Agregar eventos a los botones de editar y eliminar
+            document.querySelectorAll('.btn-editar').forEach(btn => {
+                btn.addEventListener('click', editarUsuario);
+            });
+
+            document.querySelectorAll('.btn-eliminar').forEach(btn => {
+                btn.addEventListener('click', eliminarUsuario);
+            });
+        }
+
+        // Mostrar formulario para nuevo usuario
+        btnNuevoUsuario.addEventListener('click', () => {
+            formTitle.textContent = 'Nuevo Usuario';
+            usuarioForm.reset();
+            userId.value = '';
+            formUsuario.classList.remove('hidden');
+        });
+
+        // Cancelar formulario
+        btnCancelar.addEventListener('click', () => {
+            formUsuario.classList.add('hidden');
+            usuarioForm.reset();
+        });
+
+        // Guardar usuario
+        usuarioForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                nombre: document.getElementById('nombre').value,
+                username: document.getElementById('usuario').value,
+                password: document.getElementById('password').value,
+                role: document.getElementById('rol').value
+            };
+
+            try {
+                if (userId.value) {
+                    // Actualizar usuario existente
+                    // Si la contraseña está vacía, no la enviamos para actualizar
+                    if (!formData.password) {
+                        delete formData.password;
+                    }
+                    await updateData(`/usuarios/${userId.value}`, formData);
+                    alert('Usuario actualizado exitosamente');
+                } else {
+                    // Crear nuevo usuario
+                    await postData('/usuarios', formData);
+                    alert('Usuario creado exitosamente');
+                }
+                formUsuario.classList.add('hidden');
+                usuarioForm.reset();
+                obtenerUsuarios(); // Recargar la lista
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`Error al guardar el usuario: ${error.message}`);
+            }
+        });
+
+        // Editar usuario
+        async function editarUsuario(e) {
+            const id = parseInt(e.target.dataset.id);
+            try {
+                const usuario = await getData(`/usuarios/${id}`);
+                if (usuario) {
+                    formTitle.textContent = 'Editar Usuario';
+                    userId.value = usuario.id;
+                    document.getElementById('nombre').value = usuario.nombre;
+                    document.getElementById('usuario').value = usuario.username || usuario.usuario;
+                    document.getElementById('password').value = ''; // No mostrar contraseña por seguridad
+                    document.getElementById('rol').value = usuario.role || usuario.rol;
+                    
+                    formUsuario.classList.remove('hidden');
+                } else {
+                    throw new Error('No se pudo obtener la información del usuario');
+                }
+            } catch (error) {
+                console.error('Error al obtener usuario:', error);
+                alert(`Error al obtener el usuario: ${error.message}`);
+            }
+        }
+
+        // Eliminar usuario
+        async function eliminarUsuario(e) {
+            const id = parseInt(e.target.dataset.id);
+            if (confirm('¿Está seguro de eliminar este usuario?')) {
+                try {
+                    // Intentar eliminar el usuario a través de la API con autenticación
+                    const response = await deleteData(`/usuarios/${id}`);
+                    
+                    // Verificar si la respuesta fue exitosa
+                    if (response) {
+                        // Actualizar la lista de usuarios
+                        await obtenerUsuarios();
+                        alert('Usuario eliminado correctamente');
+                    } else {
+                        throw new Error('No se pudo eliminar el usuario');
+                    }
+                } catch (error) {
+                    console.error('Error al eliminar usuario:', error);
+                    alert(`Error al eliminar: ${error.message}`);
+                }
+            }
+        }
+
+        // Cargar usuarios al iniciar
+        await obtenerUsuarios();
+    });
+</script>

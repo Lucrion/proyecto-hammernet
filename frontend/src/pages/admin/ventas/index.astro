@@ -1,0 +1,314 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Reporte de Ventas">
+    <div class="mb-6 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-800">Reporte de Ventas</h1>
+        <div class="flex space-x-2">
+            <select id="filtroMes" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos los meses</option>
+                <option value="0">Enero</option>
+                <option value="1">Febrero</option>
+                <option value="2">Marzo</option>
+                <option value="3">Abril</option>
+                <option value="4">Mayo</option>
+                <option value="5">Junio</option>
+                <option value="6">Julio</option>
+                <option value="7">Agosto</option>
+                <option value="8">Septiembre</option>
+                <option value="9">Octubre</option>
+                <option value="10">Noviembre</option>
+                <option value="11">Diciembre</option>
+            </select>
+            <button id="btnExportar" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Exportar
+            </button>
+        </div>
+    </div>
+
+    <!-- Tarjetas de resumen -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-700">Ventas Totales</h3>
+                <span class="p-2 bg-blue-100 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </span>
+            </div>
+            <p id="ventasTotales" class="text-3xl font-bold text-gray-800">$0.00</p>
+            <p class="text-sm text-gray-500 mt-2">Ingresos totales</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-700">Pedidos</h3>
+                <span class="p-2 bg-green-100 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                </span>
+            </div>
+            <p id="totalPedidos" class="text-3xl font-bold text-gray-800">0</p>
+            <p class="text-sm text-gray-500 mt-2">Número de pedidos</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-700">Ticket Promedio</h3>
+                <span class="p-2 bg-yellow-100 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                </span>
+            </div>
+            <p id="ticketPromedio" class="text-3xl font-bold text-gray-800">$0.00</p>
+            <p class="text-sm text-gray-500 mt-2">Valor promedio por pedido</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-700">Productos Vendidos</h3>
+                <span class="p-2 bg-purple-100 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
+                </span>
+            </div>
+            <p id="productosVendidos" class="text-3xl font-bold text-gray-800">0</p>
+            <p class="text-sm text-gray-500 mt-2">Unidades vendidas</p>
+        </div>
+    </div>
+
+    <!-- Gráfico de ventas -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-6">Ventas por Mes</h2>
+        <div class="h-80">
+            <canvas id="graficoVentas"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabla de ventas recientes -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold">Ventas Recientes</h2>
+        </div>
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Pedido</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Productos</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaVentas" class="bg-white divide-y divide-gray-200">
+                <!-- Las ventas se cargarán aquí dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+</AdminLayout>
+
+<script>
+    import { API_URL } from '../../../scripts/config.js';
+
+    // Verificar si el usuario está autenticado
+    document.addEventListener('DOMContentLoaded', () => {
+        const isLoggedIn = localStorage.getItem('isLoggedIn');
+        
+        if (!isLoggedIn || isLoggedIn !== 'true') {
+            // Redirigir al login si no está autenticado
+            window.location.href = '/login';
+            return;
+        }
+
+        // Cargar Chart.js desde CDN
+        const chartScript = document.createElement('script');
+        chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        chartScript.onload = inicializarDashboard;
+        document.head.appendChild(chartScript);
+
+        async function inicializarDashboard() {
+            // Elementos del DOM
+            const ventasTotales = document.getElementById('ventasTotales');
+            const totalPedidos = document.getElementById('totalPedidos');
+            const ticketPromedio = document.getElementById('ticketPromedio');
+            const productosVendidos = document.getElementById('productosVendidos');
+            const tablaVentas = document.getElementById('tablaVentas');
+            const filtroMes = document.getElementById('filtroMes');
+            const btnExportar = document.getElementById('btnExportar');
+            const graficoVentas = document.getElementById('graficoVentas');
+
+            // Obtener ventas de la API
+            let ventas = [];
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/ventas`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error('Error al obtener las ventas');
+                }
+                ventas = await response.json();
+
+                // Inicializar componentes con los datos
+                actualizarResumen(ventas);
+                cargarVentas(ventas);
+                inicializarGrafico(ventas);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cargar los datos de ventas.');
+            }
+
+            // Actualizar resumen de ventas
+            function actualizarResumen(ventasFiltradas = ventas) {
+                const total = ventasFiltradas.reduce((sum, venta) => sum + venta.total, 0);
+                const numPedidos = ventasFiltradas.length;
+                const promedio = numPedidos > 0 ? total / numPedidos : 0;
+                const totalProductos = ventasFiltradas.reduce((sum, venta) => sum + venta.totalItems, 0);
+                
+                ventasTotales.textContent = `$${total.toFixed(2)}`;
+                totalPedidos.textContent = numPedidos;
+                ticketPromedio.textContent = `$${promedio.toFixed(2)}`;
+                productosVendidos.textContent = totalProductos;
+            }
+
+            // Cargar ventas en la tabla
+            function cargarVentas(ventasFiltradas = ventas) {
+                tablaVentas.innerHTML = '';
+                
+                // Ordenar ventas por fecha (más recientes primero)
+                const ventasOrdenadas = [...ventasFiltradas].sort((a, b) => 
+                    new Date(b.fecha) - new Date(a.fecha)
+                );
+                
+                ventasOrdenadas.forEach(venta => {
+                    const fecha = new Date(venta.fecha);
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#${venta.id}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${venta.cliente}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fecha.toLocaleDateString()}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${venta.totalItems} items</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${venta.total.toFixed(2)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-${venta.estado === 'Completado' ? 'green' : 'yellow'}-100 text-${venta.estado === 'Completado' ? 'green' : 'yellow'}-800">
+                                ${venta.estado}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button data-id="${venta.id}" class="btn-ver text-blue-600 hover:text-blue-900">Ver detalles</button>
+                        </td>
+                    `;
+                    tablaVentas.appendChild(tr);
+                });
+
+                // Agregar eventos a los botones de ver detalles
+                document.querySelectorAll('.btn-ver').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = parseInt(e.target.dataset.id);
+                        const venta = ventas.find(v => v.id === id);
+                        if (venta) {
+                            alert(`Detalles del pedido #${venta.id}:\n\nCliente: ${venta.cliente}\nFecha: ${new Date(venta.fecha).toLocaleDateString()}\n\nProductos:\n${venta.items.map(item => `- ${item.nombre} x${item.cantidad}: $${item.subtotal.toFixed(2)}`).join('\n')}\n\nTotal: $${venta.total.toFixed(2)}`);
+                        }
+                    });
+                });
+            }
+
+            // Inicializar gráfico de ventas
+            function inicializarGrafico(ventasFiltradas = ventas) {
+                // Agrupar ventas por mes
+                const ventasPorMes = {};
+                const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                
+                // Inicializar todos los meses en 0
+                meses.forEach((mes, index) => {
+                    ventasPorMes[index] = 0;
+                });
+                
+                // Sumar ventas por mes
+                ventasFiltradas.forEach(venta => {
+                    const fecha = new Date(venta.fecha);
+                    const mes = fecha.getMonth();
+                    ventasPorMes[mes] += venta.total;
+                });
+                
+                // Crear el gráfico
+                const ctx = graficoVentas.getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: meses,
+                        datasets: [{
+                            label: 'Ventas ($)',
+                            data: Object.values(ventasPorMes),
+                            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Filtrar ventas por mes
+            filtroMes.addEventListener('change', () => {
+                const mesSeleccionado = filtroMes.value;
+                let ventasFiltradas = ventas;
+                
+                if (mesSeleccionado !== '') {
+                    const mes = parseInt(mesSeleccionado);
+                    ventasFiltradas = ventas.filter(venta => {
+                        const fecha = new Date(venta.fecha);
+                        return fecha.getMonth() === mes;
+                    });
+                }
+                
+                actualizarResumen(ventasFiltradas);
+                cargarVentas(ventasFiltradas);
+                // Nota: No actualizamos el gráfico al filtrar para mantener la vista general
+            });
+
+            // Exportar datos
+            btnExportar.addEventListener('click', () => {
+                const mesSeleccionado = filtroMes.value;
+                let titulo = 'Reporte de Ventas - Todos los meses';
+                
+                if (mesSeleccionado !== '') {
+                    const mes = parseInt(mesSeleccionado);
+                    titulo = `Reporte de Ventas - ${meses[mes]}`;
+                }
+                
+                alert(`Exportando ${titulo}...\n\nEsta funcionalidad generaría un archivo CSV o Excel con los datos de ventas.`);
+            });
+
+            // Inicializar dashboard
+            actualizarResumen();
+            cargarVentas();
+            inicializarGrafico();
+        }
+    });
+</script>

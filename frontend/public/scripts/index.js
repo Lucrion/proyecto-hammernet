@@ -1,0 +1,244 @@
+// Estado global
+const state = {
+    token: localStorage.getItem('token'),
+    user: JSON.parse(localStorage.getItem('user')),
+    carrito: JSON.parse(localStorage.getItem('carrito')) || [],
+    productos: []
+};
+
+// Configuración de la API
+const API_URL = (typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+    ? 'http://localhost:8000'
+    : 'https://hammernet.onrender.com';
+
+// Función para formatear precios con puntos como separador de miles (formato chileno)
+function formatearPrecio(precio) {
+    return precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// Inicializar AOS si está disponible
+if (typeof AOS !== 'undefined') {
+    AOS.init({
+        duration: 1000,
+        once: true
+    });
+}
+
+// Función para cargar productos
+async function cargarProductosDestacados() {
+    try {
+        const response = await fetch(`${API_URL}/productos`);
+        const productos = await response.json();
+        
+        // Guardar productos en el estado global
+        state.productos = productos;
+        
+        const contenedor = document.getElementById('productos-destacados');
+        if (!contenedor) {
+            console.error('Elemento productos-destacados no encontrado');
+            return;
+        }
+        
+        contenedor.innerHTML = '';
+        
+        // Limitar a solo 4 productos destacados
+        const productosDestacados = productos.slice(0, 4);
+        
+        productosDestacados.forEach(producto => {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300';
+            card.setAttribute('data-aos', 'fade-up');
+            
+            card.innerHTML = `
+                <div class="relative h-48 overflow-hidden bg-gray-100 flex items-center justify-center">
+                    <img class="max-h-full max-w-full object-contain transform hover:scale-110 transition-all duration-500" 
+                         src="${producto.imagen}" 
+                         alt="${producto.nombre}">
+                </div>
+                <div class="p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
+                    <p class="text-gray-600 text-sm mb-2">${producto.descripcion}</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-blue-600 font-bold">$${formatearPrecio(producto.precio)}</span>
+                    </div>
+                </div>
+            `;
+            
+            // Hacer la tarjeta clickeable
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', () => {
+                window.location.href = `/productos/${producto.nombre.toLowerCase().replace(/\s+/g, '-')}`;
+            });
+            
+            contenedor.appendChild(card);
+        });
+    } catch (error) {
+        console.error('Error al cargar productos destacados:', error);
+        const contenedor = document.getElementById('productos-destacados');
+        if (contenedor) {
+            contenedor.innerHTML = `
+                <div class="col-span-full text-center py-8">
+                    <p class="text-red-500">Error al cargar los productos destacados. Por favor, intente más tarde.</p>
+                </div>
+            `;
+        }
+    }
+}
+
+// Función para enviar mensaje de contacto
+async function enviarMensaje(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch(`${API_URL}/mensajes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                nombre: formData.get('nombre'),
+                apellido: formData.get('apellido'),
+                email: formData.get('email'),
+                asunto: formData.get('asunto'),
+                mensaje: formData.get('mensaje')
+            })
+        });
+        
+        if (response.ok) {
+            form.reset();
+            mostrarNotificacion('Mensaje enviado correctamente');
+        } else {
+            throw new Error('Error al enviar el mensaje');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarNotificacion('Error al enviar el mensaje', 'error');
+    }
+}
+
+// Función para iniciar sesión
+async function login(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                'username': formData.get('username'),
+                'password': formData.get('password')
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Guardar token y datos del usuario
+            state.token = data.access_token;
+            state.user = {
+                id: data.id,
+                nombre: data.nombre,
+                username: data.username,
+                role: data.role
+            };
+            
+            localStorage.setItem('token', state.token);
+            localStorage.setItem('user', JSON.stringify(state.user));
+            
+            // Actualizar UI
+            actualizarUI();
+            mostrarNotificacion('Sesión iniciada correctamente');
+        } else {
+            throw new Error(data.detail || 'Error al iniciar sesión');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarNotificacion('Error al iniciar sesión', 'error');
+    }
+}
+
+// Función para cerrar sesión
+function logout() {
+    state.token = null;
+    state.user = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    actualizarUI();
+    mostrarNotificacion('Sesión cerrada correctamente');
+    // Redirigir a la página de inicio
+    window.location.href = '/';
+}
+
+// Función para actualizar la UI según el estado de autenticación
+function actualizarUI() {
+    const userSection = document.getElementById('user-section');
+    const adminSection = document.getElementById('admin-section');
+    
+    // Ocultar secciones de usuario y admin en todas las páginas excepto login
+    if (window.location.pathname !== '/login') {
+        if (userSection) userSection.classList.add('hidden');
+        if (adminSection) adminSection.classList.add('hidden');
+        return;
+    }
+    
+    // Solo mostrar elementos de autenticación en la página de login
+    if (state.user && window.location.pathname === '/login') {
+        // Usuario autenticado
+        if (userSection) {
+            userSection.classList.remove('hidden');
+            const userName = document.getElementById('user-name');
+            if (userName) userName.textContent = state.user.nombre;
+        }
+        
+        // Mostrar panel de admin si el rol es admin
+        if (adminSection && state.user.role === 'admin') {
+            adminSection.classList.remove('hidden');
+        }
+    } else {
+        // Usuario no autenticado
+        if (userSection) userSection.classList.add('hidden');
+        if (adminSection) adminSection.classList.add('hidden');
+    }
+}
+
+// Función para actualizar el contador del carrito (deshabilitada)
+function actualizarContadorCarrito() {
+    const contador = document.getElementById('carrito-contador');
+    if (contador) {
+        // Ocultar el contador del carrito
+        contador.classList.add('hidden');
+    }
+    
+    // Ocultar cualquier elemento relacionado con el carrito
+    const elementosCarrito = document.querySelectorAll('.carrito-elemento');
+    elementosCarrito.forEach(elemento => {
+        elemento.classList.add('hidden');
+    });
+}
+
+// Función para mostrar notificaciones
+function mostrarNotificacion(mensaje, tipo = 'success') {
+    const notificacion = document.createElement('div');
+    notificacion.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50 ${tipo === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
+    notificacion.textContent = mensaje;
+    
+    document.body.appendChild(notificacion);
+    
+    setTimeout(() => {
+        notificacion.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+        setTimeout(() => {
+            document.body.removeChild(notificacion);
+        }, 500);
+    }, 3000);
+}
+
+// Exponer funciones al objeto window para acceso desde scripts inline
+window.enviarMensaje = enviarMensaje;
+window.cargarProductosDestacados = cargarProductosDestacados;

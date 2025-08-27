@@ -1,0 +1,292 @@
+---
+// No importamos el Layout para evitar superposición
+---
+
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="Ferretería Patricio - Herramientas y materiales de construcción">
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/logo_bn.webp" />
+		<title>Iniciar Sesión - Ferretería Patricio</title>
+		<script src="https://unpkg.com/htmx.org@1.9.9" integrity="sha384-QFjmbokDn2DjBjq+fM+8LUIVrAgqcNW2s0PjAxHETgRn9l4fvX31ZxDxvwQnyMOX" crossorigin="anonymous"></script>
+		<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+	</head>
+	<body class="min-h-screen bg-gray-100">
+		<div class="min-h-screen flex relative">
+		<!-- Botón de retorno -->
+		<a href="/" class="absolute top-6 left-6 text-gray-600 hover:text-gray-900 transition-colors duration-200">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+			</svg>
+		</a>
+		<!-- Logo Section -->
+		<div class="w-1/2 bg-[#2B5BA9] flex items-center justify-center">
+			<img src="/logo_bn.webp" alt="Ferretería Patricio" class="w-164 h-164">
+		</div>
+
+		<!-- Login Form Section -->
+		<div class="w-1/2 bg-white flex items-center justify-center p-12">
+			<div class="w-full max-w-md">
+				<div class="flex justify mb-8">
+					<img src="/hammernet.webp" alt="Hammernet" class="h-20">
+				</div>
+
+				<h2 class="text-2xl font-semibold text-gray-900 mb-8">Inicio de sesión</h2>
+
+				<form id="loginForm" class="space-y-6">
+					<div class="space-y-4">
+						<div>
+							<label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+								<input
+								id="username"
+								name="username"
+								type="text"
+								required
+								class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+								placeholder="usuario"
+							>
+						</div>
+						<div>
+							<label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+							<input
+								id="password"
+								name="password"
+								type="password"
+								required
+								class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+								placeholder="****************"
+							>
+						</div>
+					</div>
+
+					<div>
+						<button
+							id="loginButton"
+							type="submit"
+							class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+						>
+							<span>Iniciar</span>
+							<span id="loadingSpinner" class="hidden ml-2">
+								<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+							</span>
+						</button>
+					</div>
+					<div id="statusMessage" class="mt-2 text-sm text-center hidden"></div>
+					
+
+				</form>
+			</div>
+		</div>
+	</div>
+	</body>
+</html>
+
+<script>
+	import { API_URL, corsConfig, handleApiError, checkServerAvailability } from '../scripts/config.js';
+
+
+	document.addEventListener('DOMContentLoaded', async () => {
+		const loginForm = document.getElementById('loginForm');
+		
+		// Verificar disponibilidad del servidor al cargar la página
+		const serverStatus = await checkServerAvailability();
+		if (!serverStatus.available) {
+			console.warn('Servidor no disponible:', serverStatus.message);
+			// Mostrar mensaje de error al usuario
+			showStatus('El servidor no está disponible. Por favor, intente más tarde.', 'error');
+			return;
+		}
+		
+		// Elementos de la UI
+		const loginButton = document.getElementById('loginButton');
+		const loadingSpinner = document.getElementById('loadingSpinner');
+		const statusMessage = document.getElementById('statusMessage');
+		
+		// Función para mostrar mensajes de estado
+		function showStatus(message, type = 'info') {
+			statusMessage.textContent = message;
+			statusMessage.className = 'mt-2 text-sm text-center';
+			
+			switch(type) {
+				case 'error':
+					statusMessage.classList.add('text-red-600');
+					break;
+				case 'success':
+					statusMessage.classList.add('text-green-600');
+					break;
+				case 'warning':
+					statusMessage.classList.add('text-yellow-600');
+					break;
+				default:
+					statusMessage.classList.add('text-gray-600');
+			}
+			
+			statusMessage.classList.remove('hidden');
+		}
+		
+		// Función para mostrar el indicador de carga
+		function showLoading(isLoading) {
+			if (isLoading) {
+				loadingSpinner.classList.remove('hidden');
+				loginButton.disabled = true;
+				loginButton.classList.add('opacity-75');
+			} else {
+				loadingSpinner.classList.add('hidden');
+				loginButton.disabled = false;
+				loginButton.classList.remove('opacity-75');
+			}
+		}
+		
+		loginForm.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			
+			// Obtener los valores del formulario
+			const username = document.getElementById('username').value;
+			const password = document.getElementById('password').value;
+			
+			if (!username || !password) {
+				showStatus('Por favor, ingrese usuario y contraseña', 'error');
+				return;
+			}
+			
+			// Mostrar indicador de carga
+			showLoading(true);
+			showStatus('Verificando credenciales...', 'info');
+			
+			// Verificar disponibilidad del servidor antes de intentar autenticar
+			const serverAvailable = await checkServerAvailability();
+			if (!serverAvailable.available) {
+				showStatus('El servidor no está disponible. Por favor, intente más tarde.', 'error');
+				return;
+			}
+			
+			try {
+				// Crear un controlador de tiempo de espera
+				const controller = new AbortController();
+				const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos de timeout
+
+				// Intentar autenticar a través de la API
+				console.log('Intentando conectar a:', `${API_URL}/login`);
+				showStatus('Conectando con el servidor...', 'info');
+				
+				// Configurar opciones de fetch para OAuth2 password flow
+				// FastAPI OAuth2 espera exactamente 'username' y 'password' como campos de formulario
+				const formData = new URLSearchParams();
+				formData.append('username', username);
+				formData.append('password', password);
+				formData.append('grant_type', 'password'); // Requerido por el estándar OAuth2
+				console.log('Datos del formulario:', formData.toString());
+				
+				const fetchOptions = {
+					method: 'POST',
+					body: formData,
+					signal: controller.signal,
+					...corsConfig
+				};
+				
+				const response = await fetch(`${API_URL}/login`, fetchOptions);
+				
+				// Limpiar el timeout ya que la solicitud se completó
+				clearTimeout(timeoutId);
+				
+				if (!response.ok) {
+					console.error('Error en la respuesta:', response.status, response.statusText);
+					const errorText = await response.text();
+					console.error('Contenido de la respuesta de error:', errorText);
+					
+					// Mostrar información detallada para depuración
+					console.error('Detalles completos del error:');
+					console.error('- Status:', response.status);
+					console.error('- Status Text:', response.statusText);
+					console.error('- URL:', response.url);
+					console.error('- Headers:', [...response.headers.entries()]);
+					
+					// Información específica para error 422
+				if (response.status === 422) {
+					console.error('Error 422 (Unprocessable Content): FastAPI está rechazando los datos enviados');
+					console.error('Datos enviados:', formData.toString());
+					console.error('Headers enviados:', fetchOptions.headers);
+					console.error('URL completa:', `${API_URL}/login`);
+					
+					// Intentar obtener más información sobre el error
+					console.error('Método HTTP:', fetchOptions.method);
+					console.error('Cuerpo de la solicitud:', fetchOptions.body);
+				}
+					
+					let errorMessage = `Error de autenticación (${response.status})`;
+					try {
+						const errorData = JSON.parse(errorText);
+						console.error('Error parseado:', errorData);
+						
+						// Manejar diferentes formatos de error
+						if (errorData.detail) {
+							errorMessage = typeof errorData.detail === 'string' 
+								? errorData.detail 
+								: JSON.stringify(errorData.detail);
+						} else if (errorData.message) {
+							errorMessage = errorData.message;
+						} else {
+							errorMessage = JSON.stringify(errorData);
+						}
+					} catch (e) {
+						console.error('No se pudo parsear la respuesta como JSON:', e);
+						errorMessage += ` - Respuesta: ${errorText.substring(0, 100)}${errorText.length > 100 ? '...' : ''}`;
+					}
+					
+					// Para error 422, añadir información más específica
+					if (response.status === 422) {
+						errorMessage = `Error 422: Datos no procesables. ${errorMessage}. Verifique la consola para más detalles.`;
+					}
+					
+					showStatus(`Error: ${errorMessage}`, 'error');
+					showLoading(false);
+					return; // Detener la ejecución en lugar de lanzar un error
+				}
+				
+				const data = await response.json();
+				console.log('Respuesta de autenticación:', JSON.stringify(data));
+				
+				// Guardar estado de autenticación y token
+				localStorage.setItem('isLoggedIn', 'true');
+				localStorage.setItem('nombreUsuario', username);
+				localStorage.setItem('token', data.access_token);
+				console.log('Token guardado:', data.access_token ? 'Token presente' : 'Token ausente');
+				console.log('Autenticación exitosa');
+				
+				// Mostrar mensaje de éxito
+				showStatus('Autenticación exitosa. Redirigiendo...', 'success');
+				
+				// Redirigir al panel de administración después de un breve retraso
+				setTimeout(() => {
+					window.location.href = '/admin';
+				}, 1000);
+			} catch (error) {
+				// Limpiar el timeout si existe
+				if (typeof timeoutId !== 'undefined') {
+					clearTimeout(timeoutId);
+				}
+				
+				// Ocultar indicador de carga
+				showLoading(false);
+				
+				console.error('Error de autenticación:', error);
+				
+				// Procesar el error para obtener información detallada
+				const errorInfo = handleApiError(error);
+				
+				// Mostrar mensaje de error específico
+				if (error.message && (error.message.includes('credenciales') || error.message.includes('credentials'))) {
+					showStatus('Las credenciales son incorrectas. Por favor verifique su usuario y contraseña.', 'error');
+				} else {
+					showStatus('Error de autenticación: ' + errorInfo.message, 'error');
+				}
+			}
+		});
+		
+
+	});
+</script>
