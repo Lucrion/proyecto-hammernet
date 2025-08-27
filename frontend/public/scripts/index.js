@@ -1,3 +1,7 @@
+// Importar configuración de la API
+// Nota: En el contexto de public, necesitamos replicar la lógica de config.js
+// ya que no podemos usar imports ES6 directamente
+
 // Estado global
 const state = {
     token: localStorage.getItem('token'),
@@ -6,11 +10,25 @@ const state = {
     productos: []
 };
 
-// Configuración de la API
-const API_URL = (typeof window !== 'undefined' && 
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-    ? 'http://localhost:8000'
-    : 'https://hammernet.onrender.com';
+// Configuración de la API usando la misma lógica que config.js
+const isDevelopment = typeof window !== 'undefined' 
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    : false;
+
+// Obtener variables de entorno de Astro (disponibles como import.meta.env en el cliente)
+const getEnvVar = (name) => {
+    // En el contexto del navegador, las variables están disponibles como window.__ENV__ si se configuran
+    if (typeof window !== 'undefined' && window.__ENV__) {
+        return window.__ENV__[name];
+    }
+    return undefined;
+};
+
+const API_URL = isDevelopment 
+    ? getEnvVar('PUBLIC_API_URL')
+    : getEnvVar('PUBLIC_API_URL_PRODUCTION');
+
+const API_TIMEOUT = parseInt(getEnvVar('PUBLIC_API_TIMEOUT'));
 
 // Función para formatear precios con puntos como separador de miles (formato chileno)
 function formatearPrecio(precio) {
@@ -25,10 +43,26 @@ if (typeof AOS !== 'undefined') {
     });
 }
 
-// Función para cargar productos
+// Función para cargar productos destacados
 async function cargarProductosDestacados() {
     try {
-        const response = await fetch(`${API_URL}/productos`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+        
+        const response = await fetch(`${API_URL}/productos`, {
+            signal: controller.signal,
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const productos = await response.json();
         
         // Guardar productos en el estado global
@@ -45,6 +79,15 @@ async function cargarProductosDestacados() {
         // Limitar a solo 4 productos destacados
         const productosDestacados = productos.slice(0, 4);
         
+        if (productosDestacados.length === 0) {
+            contenedor.innerHTML = `
+                <div class="col-span-full text-center py-8">
+                    <p class="text-gray-500">No hay productos disponibles en este momento.</p>
+                </div>
+            `;
+            return;
+        }
+        
         productosDestacados.forEach(producto => {
             const card = document.createElement('div');
             card.className = 'bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300';
@@ -54,13 +97,17 @@ async function cargarProductosDestacados() {
                 <div class="relative h-48 overflow-hidden bg-gray-100 flex items-center justify-center">
                     <img class="max-h-full max-w-full object-contain transform hover:scale-110 transition-all duration-500" 
                          src="${producto.imagen}" 
-                         alt="${producto.nombre}">
+                         alt="${producto.nombre}"
+                         onerror="this.src='/logo.webp'; this.onerror=null;">
                 </div>
                 <div class="p-4">
                     <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
-                    <p class="text-gray-600 text-sm mb-2">${producto.descripcion}</p>
+                    <p class="text-gray-600 text-sm mb-2">${producto.descripcion || ''}</p>
                     <div class="flex items-center justify-between">
                         <span class="text-blue-600 font-bold">$${formatearPrecio(producto.precio)}</span>
+                        <span class="text-sm ${producto.stock > 0 ? 'text-green-600' : 'text-red-600'}">
+                            ${producto.stock > 0 ? 'En stock' : 'Agotado'}
+                        </span>
                     </div>
                 </div>
             `;
@@ -68,7 +115,8 @@ async function cargarProductosDestacados() {
             // Hacer la tarjeta clickeable
             card.style.cursor = 'pointer';
             card.addEventListener('click', () => {
-                window.location.href = `/productos/${producto.nombre.toLowerCase().replace(/\s+/g, '-')}`;
+                const slug = producto.nombre.toLowerCase().replace(/\s+/g, '-');
+                window.location.href = `/productos/${slug}`;
             });
             
             contenedor.appendChild(card);
@@ -77,9 +125,20 @@ async function cargarProductosDestacados() {
         console.error('Error al cargar productos destacados:', error);
         const contenedor = document.getElementById('productos-destacados');
         if (contenedor) {
+            let errorMessage = 'Error al cargar los productos destacados.';
+            
+            if (error.name === 'AbortError') {
+                errorMessage = 'Tiempo de espera agotado al cargar productos.';
+            } else if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'No se pudo conectar con el servidor.';
+            }
+            
             contenedor.innerHTML = `
                 <div class="col-span-full text-center py-8">
-                    <p class="text-red-500">Error al cargar los productos destacados. Por favor, intente más tarde.</p>
+                    <p class="text-red-500">${errorMessage}</p>
+                    <button onclick="cargarProductosDestacados()" class="mt-2 text-blue-600 hover:text-blue-800 underline">
+                        Intentar de nuevo
+                    </button>
                 </div>
             `;
         }
@@ -93,6 +152,9 @@ async function enviarMensaje(event) {
     const formData = new FormData(form);
     
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+        
         const response = await fetch(`${API_URL}/mensajes`, {
             method: 'POST',
             headers: {
@@ -104,8 +166,11 @@ async function enviarMensaje(event) {
                 email: formData.get('email'),
                 asunto: formData.get('asunto'),
                 mensaje: formData.get('mensaje')
-            })
+            }),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         if (response.ok) {
             form.reset();
@@ -115,7 +180,13 @@ async function enviarMensaje(event) {
         }
     } catch (error) {
         console.error('Error:', error);
-        mostrarNotificacion('Error al enviar el mensaje', 'error');
+        let errorMessage = 'Error al enviar el mensaje';
+        
+        if (error.name === 'AbortError') {
+            errorMessage = 'Tiempo de espera agotado';
+        }
+        
+        mostrarNotificacion(errorMessage, 'error');
     }
 }
 
@@ -126,6 +197,9 @@ async function login(event) {
     const formData = new FormData(form);
     
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+        
         const response = await fetch(`${API_URL}/login`, {
             method: 'POST',
             headers: {
@@ -134,8 +208,11 @@ async function login(event) {
             body: new URLSearchParams({
                 'username': formData.get('username'),
                 'password': formData.get('password')
-            })
+            }),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         const data = await response.json();
         
@@ -160,7 +237,13 @@ async function login(event) {
         }
     } catch (error) {
         console.error('Error:', error);
-        mostrarNotificacion('Error al iniciar sesión', 'error');
+        let errorMessage = 'Error al iniciar sesión';
+        
+        if (error.name === 'AbortError') {
+            errorMessage = 'Tiempo de espera agotado';
+        }
+        
+        mostrarNotificacion(errorMessage, 'error');
     }
 }
 
@@ -234,7 +317,9 @@ function mostrarNotificacion(mensaje, tipo = 'success') {
     setTimeout(() => {
         notificacion.classList.add('opacity-0', 'transition-opacity', 'duration-500');
         setTimeout(() => {
-            document.body.removeChild(notificacion);
+            if (document.body.contains(notificacion)) {
+                document.body.removeChild(notificacion);
+            }
         }, 500);
     }, 3000);
 }
@@ -242,3 +327,26 @@ function mostrarNotificacion(mensaje, tipo = 'success') {
 // Exponer funciones al objeto window para acceso desde scripts inline
 window.enviarMensaje = enviarMensaje;
 window.cargarProductosDestacados = cargarProductosDestacados;
+window.login = login;
+window.logout = logout;
+window.actualizarUI = actualizarUI;
+window.mostrarNotificacion = mostrarNotificacion;
+
+// Inicializar cuando el DOM esté listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        // Cargar productos destacados si estamos en la página principal
+        if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+            cargarProductosDestacados();
+        }
+        
+        // Actualizar UI de autenticación
+        actualizarUI();
+    });
+} else {
+    // El DOM ya está cargado
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        cargarProductosDestacados();
+    }
+    actualizarUI();
+}

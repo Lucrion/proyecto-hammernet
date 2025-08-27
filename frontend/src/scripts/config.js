@@ -7,21 +7,21 @@ const isDevelopment = typeof window !== 'undefined'
 
 // URL base de la API desde variables de entorno
 export const API_URL = isDevelopment 
-    ? (import.meta.env.PUBLIC_API_URL || 'http://localhost:8000')
-    : (import.meta.env.PUBLIC_API_URL_PRODUCTION || 'https://hammernet.onrender.com');
+    ? import.meta.env.PUBLIC_API_URL
+    : import.meta.env.PUBLIC_API_URL_PRODUCTION;
 
 // Configuración CORS para las peticiones fetch desde variables de entorno
 export const corsConfig = {
-    credentials: import.meta.env.PUBLIC_CORS_CREDENTIALS || 'include',
+    credentials: import.meta.env.PUBLIC_CORS_CREDENTIALS,
     headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
     },
-    mode: import.meta.env.PUBLIC_CORS_MODE || 'cors'
+    mode: import.meta.env.PUBLIC_CORS_MODE
 };
 
 // Timeout para peticiones desde variables de entorno
-export const API_TIMEOUT = parseInt(import.meta.env.PUBLIC_API_TIMEOUT) || 10000;
+export const API_TIMEOUT = parseInt(import.meta.env.PUBLIC_API_TIMEOUT);
 
 /**
  * Función para verificar si el servidor está disponible

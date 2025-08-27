@@ -1,0 +1,69 @@
+---
+// Componente para generar dinámicamente el script env-loader
+// Lee las variables de entorno reales y las inyecta en el navegador
+
+// Obtener variables de entorno
+const PUBLIC_API_URL = import.meta.env.PUBLIC_API_URL;
+const PUBLIC_API_URL_PRODUCTION = import.meta.env.PUBLIC_API_URL_PRODUCTION;
+const PUBLIC_CORS_CREDENTIALS = import.meta.env.PUBLIC_CORS_CREDENTIALS;
+const PUBLIC_CORS_MODE = import.meta.env.PUBLIC_CORS_MODE;
+const PUBLIC_API_TIMEOUT = import.meta.env.PUBLIC_API_TIMEOUT;
+const PUBLIC_ENVIRONMENT = import.meta.env.PUBLIC_ENVIRONMENT;
+
+// Detectar si estamos en desarrollo
+const isDevelopment = PUBLIC_ENVIRONMENT === 'development';
+---
+
+<script is:inline define:vars={{ 
+  PUBLIC_API_URL, 
+  PUBLIC_API_URL_PRODUCTION, 
+  PUBLIC_CORS_CREDENTIALS, 
+  PUBLIC_CORS_MODE, 
+  PUBLIC_API_TIMEOUT, 
+  PUBLIC_ENVIRONMENT,
+  isDevelopment 
+}}>
+  // Script para cargar variables de entorno en el navegador
+  // Este script se genera dinámicamente desde las variables del .env
+  
+  (function() {
+    'use strict';
+    
+    // Detectar si estamos en desarrollo o producción
+    const isDevEnvironment = typeof window !== 'undefined' 
+      ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      : false;
+    
+    // Configuración de variables de entorno (generadas automáticamente desde .env)
+    const envConfig = {
+      // URLs de API
+      PUBLIC_API_URL: isDevEnvironment ? PUBLIC_API_URL : PUBLIC_API_URL_PRODUCTION,
+      PUBLIC_API_URL_PRODUCTION: PUBLIC_API_URL_PRODUCTION,
+      
+      // Configuración de CORS
+      PUBLIC_CORS_CREDENTIALS: PUBLIC_CORS_CREDENTIALS,
+      PUBLIC_CORS_MODE: PUBLIC_CORS_MODE,
+      
+      // Timeout de API
+      PUBLIC_API_TIMEOUT: PUBLIC_API_TIMEOUT,
+      
+      // Entorno
+      PUBLIC_ENVIRONMENT: isDevEnvironment ? 'development' : 'production'
+    };
+    
+    // Hacer las variables disponibles globalmente
+    if (typeof window !== 'undefined') {
+      window.__ENV__ = envConfig;
+      
+      // También crear una función helper para acceder a las variables
+      window.getEnvVar = function(name, defaultValue = undefined) {
+        return window.__ENV__[name] || defaultValue;
+      };
+      
+      // Log para debugging (solo en desarrollo)
+      if (isDevEnvironment) {
+        console.log('Variables de entorno cargadas desde .env:', window.__ENV__);
+      }
+    }
+  })();
+</script>

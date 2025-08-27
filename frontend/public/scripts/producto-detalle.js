@@ -1,8 +1,21 @@
-// Configuración de la API
-const API_URL = (typeof window !== 'undefined' && 
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-    ? 'http://localhost:8000'
-    : 'https://hammernet.onrender.com';
+// Configuración de la API usando variables de entorno
+const isDevelopment = typeof window !== 'undefined' 
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    : false;
+
+// Obtener variables de entorno
+const getEnvVar = (name) => {
+    if (typeof window !== 'undefined' && window.__ENV__) {
+        return window.__ENV__[name];
+    }
+    return undefined;
+};
+
+const API_URL = isDevelopment 
+    ? getEnvVar('PUBLIC_API_URL')
+    : getEnvVar('PUBLIC_API_URL_PRODUCTION');
+
+const API_TIMEOUT = parseInt(getEnvVar('PUBLIC_API_TIMEOUT'));
 
 // Función para formatear precios con puntos como separador de miles (formato chileno)
 function formatearPrecio(precio) {
