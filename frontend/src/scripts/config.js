@@ -3,22 +3,25 @@
 // Detectar automáticamente el entorno (desarrollo o producción)
 const isDevelopment = typeof window !== 'undefined' 
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    : process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+    : import.meta.env.MODE === 'development' || import.meta.env.PUBLIC_ENVIRONMENT === 'development';
 
-// URL base de la API según el entorno
+// URL base de la API desde variables de entorno
 export const API_URL = isDevelopment 
-    ? 'http://localhost:8000' 
-    : 'https://hammernet.onrender.com';
+    ? (import.meta.env.PUBLIC_API_URL || 'http://localhost:8000')
+    : (import.meta.env.PUBLIC_API_URL_PRODUCTION || 'https://hammernet.onrender.com');
 
-// Configuración CORS para las peticiones fetch
+// Configuración CORS para las peticiones fetch desde variables de entorno
 export const corsConfig = {
-    credentials: 'include',
+    credentials: import.meta.env.PUBLIC_CORS_CREDENTIALS || 'include',
     headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
     },
-    mode: 'cors'
+    mode: import.meta.env.PUBLIC_CORS_MODE || 'cors'
 };
+
+// Timeout para peticiones desde variables de entorno
+export const API_TIMEOUT = parseInt(import.meta.env.PUBLIC_API_TIMEOUT) || 10000;
 
 /**
  * Función para verificar si el servidor está disponible
@@ -27,7 +30,7 @@ export const corsConfig = {
 export async function checkServerAvailability() {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos de timeout
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT / 2); // Usar la mitad del timeout configurado
         
         const response = await fetch(`${API_URL}/docs`, {
             method: 'HEAD',
