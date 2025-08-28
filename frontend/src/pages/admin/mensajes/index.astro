@@ -68,7 +68,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
 <script>
     import { getData, deleteData, updateData } from '../../../scripts/api.js';
-    import { API_URL } from '../../../scripts/config.js';
+    // Obtener la URL de la API desde las variables de entorno
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
 
     document.addEventListener('DOMContentLoaded', () => {
         const tablaMensajes = document.getElementById('tablaMensajes');

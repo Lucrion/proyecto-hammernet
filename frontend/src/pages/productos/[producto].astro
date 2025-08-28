@@ -3,8 +3,8 @@ export const prerender = false; // Habilitar SSR para esta página
 
 import Layout from '../../layouts/Layout.astro';
 
-// Importar la configuración de la API
-import { API_URL } from '../../scripts/config.js';
+// Obtener la URL de la API desde las variables de entorno
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
 
 // Obtener el parámetro de la URL
 const { producto: productoSlug } = Astro.params;

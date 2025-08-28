@@ -118,7 +118,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 </AdminLayout>
 
 <script>
-    import { API_URL } from '../../../scripts/config.js';
+    // Obtener la URL de la API desde las variables de entorno
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
 
     // Verificar si el usuario está autenticado
     document.addEventListener('DOMContentLoaded', () => {
