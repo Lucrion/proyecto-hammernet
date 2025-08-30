@@ -86,19 +86,19 @@ if (!producto) {
 				<!-- Imagen del producto -->
 				<div class="space-y-4">
 					<div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
-						<div class="aspect-square rounded-lg overflow-hidden">
+						<div class="aspect-square rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
 						{producto.imagen ? (
 							<img 
 								src={producto.imagen} 
 								alt={producto.nombre}
-								class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+								class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
 								onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
 							/>
 						) : (
 							<img 
 								src="/herramientas.webp" 
 								alt={producto.nombre}
-								class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+								class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
 								onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
 							/>
 						)}
