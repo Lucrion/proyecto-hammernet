@@ -48,17 +48,48 @@ document.addEventListener('DOMContentLoaded', () => {
 // Función para cargar los detalles del producto
 async function cargarDetalleProducto() {
     try {
+        // Debug: Mostrar información del slug
+        console.log('🔍 Iniciando carga de detalle del producto');
+        console.log('📍 Slug del producto:', state.productoSlug);
+        console.log('🌐 API URL:', API_URL);
+        
+        // Verificar que API_URL esté definida
+        if (!API_URL) {
+            console.error('❌ API_URL no está definida');
+            console.log('Variables de entorno disponibles:', window.__ENV__);
+            mostrarError('Error de configuración: URL de la API no definida');
+            return;
+        }
+        
         // Obtener todos los productos
+        console.log('📡 Obteniendo productos desde:', `${API_URL}/productos`);
         const response = await fetch(`${API_URL}/productos`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const productos = await response.json();
+        console.log('✅ Productos obtenidos:', productos.length);
+        
+        // Debug: Mostrar todos los slugs disponibles
+        console.log('🏷️ Slugs disponibles:');
+        productos.forEach((p, index) => {
+            const slug = p.nombre.toLowerCase().replace(/\s+/g, '-');
+            console.log(`  ${index + 1}. "${p.nombre}" -> "${slug}"`);
+        });
         
         // Encontrar el producto actual por su slug
-        const productoActual = productos.find(p => 
-            p.nombre.toLowerCase().replace(/\s+/g, '-') === state.productoSlug
-        );
+        const productoActual = productos.find(p => {
+            const slugProducto = p.nombre.toLowerCase().replace(/\s+/g, '-');
+            return slugProducto === state.productoSlug;
+        });
+        
+        console.log('🎯 Producto encontrado:', productoActual ? productoActual.nombre : 'No encontrado');
         
         if (!productoActual) {
-            mostrarError('Producto no encontrado');
+            console.error('❌ Producto no encontrado:', state.productoSlug);
+            mostrarError(`Producto no encontrado: "${state.productoSlug}"`);
             return;
         }
         
@@ -83,9 +114,12 @@ async function cargarDetalleProducto() {
         
         // Mostrar productos similares
         mostrarProductosSimilares(productosSimilares);
+        
+        console.log('✅ Detalle del producto cargado exitosamente');
     } catch (error) {
-        console.error('Error al cargar detalles del producto:', error);
-        mostrarError('Error al cargar los detalles del producto. Por favor, intente más tarde.');
+        console.error('❌ Error al cargar detalles del producto:', error);
+        console.error('Stack trace:', error.stack);
+        mostrarError(`Error al cargar los detalles del producto: ${error.message}`);
     }
 }
 

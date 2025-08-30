@@ -4,7 +4,14 @@ export const prerender = false; // Habilitar SSR para esta página
 import Layout from '../../layouts/Layout.astro';
 
 // Obtener la URL de la API desde las variables de entorno
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+// Detectar si estamos en desarrollo o producción basándose en el hostname
+const isDevEnvironment = typeof Astro !== 'undefined' 
+  ? (Astro.url.hostname === 'localhost' || Astro.url.hostname === '127.0.0.1')
+  : false;
+
+const API_URL = isDevEnvironment 
+  ? (import.meta.env.PUBLIC_API_URL || 'http://localhost:8000')
+  : (import.meta.env.PUBLIC_API_URL_PRODUCTION || 'https://tu-dominio-produccion.com/api');
 
 // Obtener el parámetro de la URL
 const { producto: productoSlug } = Astro.params;
