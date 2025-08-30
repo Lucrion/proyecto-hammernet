@@ -27,7 +27,11 @@ if DATABASE_URL and "postgres" in DATABASE_URL:
 else:
     # Configuración para MySQL en desarrollo local
     engine = create_engine(
-        DATABASE_URL or "mysql://root:@localhost/ferreteria"
+        DATABASE_URL or "mysql+pymysql://root:@localhost:3306/ferreteria",
+        pool_size=5,
+        max_overflow=10,
+        pool_timeout=30,
+        pool_recycle=1800
     )
 
 # Configurar la fábrica de sesiones
