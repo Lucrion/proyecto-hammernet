@@ -1,0 +1,396 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Gestión de Proveedores">
+	<main class="container mx-auto px-4 py-8">
+		<div class="bg-white rounded-lg shadow-lg p-6">
+			<div class="flex justify-between items-center mb-6">
+				<h1 class="text-3xl font-bold text-gray-800">Gestión de Proveedores</h1>
+				<button id="btnNuevoProveedor" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+					<i class="fas fa-plus mr-2"></i>Nuevo Proveedor
+				</button>
+			</div>
+
+			<!-- Filtros -->
+			<div class="mb-6 bg-gray-50 p-4 rounded-lg">
+				<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-2">Buscar por nombre</label>
+						<input type="text" id="filtroNombre" placeholder="Nombre del proveedor" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+					</div>
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-2">Buscar por contacto</label>
+						<input type="text" id="filtroContacto" placeholder="Nombre del contacto" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+					</div>
+					<div class="flex items-end">
+						<button id="btnBuscar" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2">
+							<i class="fas fa-search mr-2"></i>Buscar
+						</button>
+						<button id="btnLimpiar" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+							<i class="fas fa-eraser mr-2"></i>Limpiar
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Tabla de proveedores -->
+			<div class="overflow-x-auto">
+				<table class="min-w-full bg-white border border-gray-200">
+					<thead class="bg-gray-50">
+						<tr>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RUT</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Razón Social</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+						</tr>
+					</thead>
+					<tbody id="tablaProveedores" class="bg-white divide-y divide-gray-200">
+						<!-- Los proveedores se cargarán aquí dinámicamente -->
+					</tbody>
+				</table>
+			</div>
+
+			<!-- Paginación -->
+			<div id="paginacion" class="mt-6 flex justify-center">
+				<!-- La paginación se generará dinámicamente -->
+			</div>
+		</div>
+
+		<!-- Modal para nuevo/editar proveedor -->
+		<div id="modalProveedor" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+			<div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+				<div class="mt-3">
+					<div class="flex justify-between items-center mb-4">
+						<h3 id="tituloModal" class="text-lg font-medium text-gray-900">Nuevo Proveedor</h3>
+						<button id="btnCerrarModal" class="text-gray-400 hover:text-gray-600">
+							<i class="fas fa-times"></i>
+						</button>
+					</div>
+					<form id="formProveedor">
+						<input type="hidden" id="proveedorId">
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div class="mb-4">
+								<label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+								<input type="text" id="nombre" name="nombre" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+							</div>
+							<div class="mb-4">
+								<label for="rut" class="block text-sm font-medium text-gray-700 mb-2">RUT *</label>
+								<input type="text" id="rut" name="rut" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+							</div>
+							<div class="mb-4">
+								<label for="razon_social" class="block text-sm font-medium text-gray-700 mb-2">Razón Social *</label>
+								<input type="text" id="razon_social" name="razon_social" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+							</div>
+							<div class="mb-4">
+								<label for="sucursal" class="block text-sm font-medium text-gray-700 mb-2">Sucursal</label>
+								<input type="text" id="sucursal" name="sucursal" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+							</div>
+							<div class="mb-4">
+								<label for="ciudad" class="block text-sm font-medium text-gray-700 mb-2">Ciudad</label>
+								<input type="text" id="ciudad" name="ciudad" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+							</div>
+							<div class="mb-4">
+								<label for="contacto" class="block text-sm font-medium text-gray-700 mb-2">Contacto</label>
+								<input type="text" id="contacto" name="contacto" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+							</div>
+							<div class="mb-4">
+								<label for="celular" class="block text-sm font-medium text-gray-700 mb-2">Celular</label>
+								<input type="tel" id="celular" name="celular" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+							</div>
+							<div class="mb-4">
+								<label for="correo" class="block text-sm font-medium text-gray-700 mb-2">Correo</label>
+								<input type="email" id="correo" name="correo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+							</div>
+						</div>
+						<div class="mb-4">
+							<label for="direccion" class="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+							<textarea id="direccion" name="direccion" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+						</div>
+						<div class="flex justify-end space-x-2">
+							<button type="button" id="btnCancelar" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+								Cancelar
+							</button>
+							<button type="submit" id="btnGuardar" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+								Guardar
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal de confirmación para eliminar -->
+		<div id="modalConfirmar" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+			<div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+				<div class="mt-3 text-center">
+					<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+						<i class="fas fa-exclamation-triangle text-red-600"></i>
+					</div>
+					<h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Confirmar eliminación</h3>
+					<div class="mt-2 px-7 py-3">
+						<p class="text-sm text-gray-500">¿Está seguro que desea eliminar este proveedor? Esta acción no se puede deshacer.</p>
+					</div>
+					<div class="flex justify-center space-x-2 mt-4">
+						<button id="btnCancelarEliminar" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+							Cancelar
+						</button>
+						<button id="btnConfirmarEliminar" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+							Eliminar
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+
+	<script type="module">
+		// Importar funciones de API
+		import { getData, postData, updateData, deleteData } from '/src/scripts/api.js';
+
+		// Variables globales
+		let proveedores = [];
+		let paginaActual = 1;
+		const itemsPorPagina = 10;
+		let proveedorAEliminar = null;
+
+		// Elementos del DOM
+		const tablaProveedores = document.getElementById('tablaProveedores');
+		const modalProveedor = document.getElementById('modalProveedor');
+		const modalConfirmar = document.getElementById('modalConfirmar');
+		const formProveedor = document.getElementById('formProveedor');
+		const btnNuevoProveedor = document.getElementById('btnNuevoProveedor');
+		const btnCerrarModal = document.getElementById('btnCerrarModal');
+		const btnCancelar = document.getElementById('btnCancelar');
+		const btnBuscar = document.getElementById('btnBuscar');
+		const btnLimpiar = document.getElementById('btnLimpiar');
+		const btnCancelarEliminar = document.getElementById('btnCancelarEliminar');
+		const btnConfirmarEliminar = document.getElementById('btnConfirmarEliminar');
+		const filtroNombre = document.getElementById('filtroNombre');
+		const filtroContacto = document.getElementById('filtroContacto');
+
+		// Event listeners
+		btnNuevoProveedor.addEventListener('click', abrirModalNuevo);
+		btnCerrarModal.addEventListener('click', cerrarModal);
+		btnCancelar.addEventListener('click', cerrarModal);
+		btnBuscar.addEventListener('click', buscarProveedores);
+		btnLimpiar.addEventListener('click', limpiarFiltros);
+		btnCancelarEliminar.addEventListener('click', cerrarModalConfirmar);
+		btnConfirmarEliminar.addEventListener('click', confirmarEliminar);
+		formProveedor.addEventListener('submit', guardarProveedor);
+
+		// Funciones principales
+		async function cargarProveedores() {
+			try {
+				proveedores = await getData('/proveedores');
+				mostrarProveedores();
+			} catch (error) {
+				console.error('Error al cargar proveedores:', error);
+				alert('Error al cargar los proveedores: ' + error.message);
+			}
+		}
+
+		function mostrarProveedores() {
+			const inicio = (paginaActual - 1) * itemsPorPagina;
+			const fin = inicio + itemsPorPagina;
+			const proveedoresPagina = proveedores.slice(inicio, fin);
+
+			tablaProveedores.innerHTML = '';
+
+			if (proveedoresPagina.length === 0) {
+				tablaProveedores.innerHTML = `
+					<tr>
+						<td colspan="6" class="px-6 py-4 text-center text-gray-500">
+							No se encontraron proveedores
+						</td>
+					</tr>
+				`;
+				return;
+			}
+
+			proveedoresPagina.forEach(proveedor => {
+				const fila = document.createElement('tr');
+				fila.innerHTML = `
+					<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${proveedor.id_proveedor}</td>
+					<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${proveedor.nombre || ''}</td>
+					<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${proveedor.rut || ''}</td>
+					<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${proveedor.razon_social || ''}</td>
+					<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${proveedor.contacto || ''}</td>
+					<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+						<button onclick="editarProveedor(${proveedor.id_proveedor})" class="text-blue-600 hover:text-blue-900 mr-3">
+							<i class="fas fa-edit"></i> Editar
+						</button>
+						<button onclick="eliminarProveedor(${proveedor.id_proveedor})" class="text-red-600 hover:text-red-900">
+							<i class="fas fa-trash"></i> Eliminar
+						</button>
+					</td>
+				`;
+				tablaProveedores.appendChild(fila);
+			});
+
+			generarPaginacion();
+		}
+
+		function generarPaginacion() {
+			const totalPaginas = Math.ceil(proveedores.length / itemsPorPagina);
+			const paginacion = document.getElementById('paginacion');
+
+			if (totalPaginas <= 1) {
+				paginacion.innerHTML = '';
+				return;
+			}
+
+			let html = '';
+
+			// Botón anterior
+			if (paginaActual > 1) {
+				html += `<button onclick="cambiarPagina(${paginaActual - 1})" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-l">Anterior</button>`;
+			}
+
+			// Números de página
+			for (let i = 1; i <= totalPaginas; i++) {
+				const clase = i === paginaActual ? 'bg-blue-500 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-800';
+				html += `<button onclick="cambiarPagina(${i})" class="${clase} font-bold py-2 px-4">${i}</button>`;
+			}
+
+			// Botón siguiente
+			if (paginaActual < totalPaginas) {
+				html += `<button onclick="cambiarPagina(${paginaActual + 1})" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-r">Siguiente</button>`;
+			}
+
+			paginacion.innerHTML = html;
+		}
+
+		function cambiarPagina(pagina) {
+			paginaActual = pagina;
+			mostrarProveedores();
+		}
+
+		function abrirModalNuevo() {
+			document.getElementById('tituloModal').textContent = 'Nuevo Proveedor';
+			formProveedor.reset();
+			document.getElementById('proveedorId').value = '';
+			modalProveedor.classList.remove('hidden');
+		}
+
+		function editarProveedor(id) {
+			const proveedor = proveedores.find(p => p.id_proveedor === id);
+			if (proveedor) {
+				document.getElementById('tituloModal').textContent = 'Editar Proveedor';
+				document.getElementById('proveedorId').value = proveedor.id_proveedor;
+				document.getElementById('nombre').value = proveedor.nombre || '';
+				document.getElementById('rut').value = proveedor.rut || '';
+				document.getElementById('razon_social').value = proveedor.razon_social || '';
+				document.getElementById('sucursal').value = proveedor.sucursal || '';
+				document.getElementById('ciudad').value = proveedor.ciudad || '';
+				document.getElementById('contacto').value = proveedor.contacto || '';
+				document.getElementById('celular').value = proveedor.celular || '';
+				document.getElementById('correo').value = proveedor.correo || '';
+				document.getElementById('direccion').value = proveedor.direccion || '';
+				modalProveedor.classList.remove('hidden');
+			}
+		}
+
+		function eliminarProveedor(id) {
+			proveedorAEliminar = id;
+			modalConfirmar.classList.remove('hidden');
+		}
+
+		// Hacer las funciones globales para que puedan ser accedidas desde onclick
+		window.editarProveedor = editarProveedor;
+		window.eliminarProveedor = eliminarProveedor;
+		window.cambiarPagina = cambiarPagina;
+
+		function cerrarModal() {
+			modalProveedor.classList.add('hidden');
+		}
+
+		function cerrarModalConfirmar() {
+			modalConfirmar.classList.add('hidden');
+			proveedorAEliminar = null;
+		}
+
+		async function guardarProveedor(e) {
+			e.preventDefault();
+
+			const id = document.getElementById('proveedorId').value;
+			const nombre = document.getElementById('nombre').value;
+			const rut = document.getElementById('rut').value;
+			const razon_social = document.getElementById('razon_social').value;
+			const sucursal = document.getElementById('sucursal').value;
+			const ciudad = document.getElementById('ciudad').value;
+			const contacto = document.getElementById('contacto').value;
+			const celular = document.getElementById('celular').value;
+			const correo = document.getElementById('correo').value;
+			const direccion = document.getElementById('direccion').value;
+
+			const datos = {
+				nombre: nombre,
+				rut: rut,
+				razon_social: razon_social,
+				sucursal: sucursal,
+				ciudad: ciudad,
+				contacto: contacto,
+				celular: celular,
+				correo: correo,
+				direccion: direccion
+			};
+
+			try {
+				if (id) {
+					await updateData(`/proveedores/${id}`, datos);
+					alert('Proveedor actualizado exitosamente');
+				} else {
+					await postData('/proveedores', datos);
+					alert('Proveedor creado exitosamente');
+				}
+				cerrarModal();
+				cargarProveedores();
+			} catch (error) {
+				console.error('Error:', error);
+				alert('Error al guardar el proveedor: ' + error.message);
+			}
+		}
+
+		async function confirmarEliminar() {
+			if (!proveedorAEliminar) return;
+
+			try {
+				await deleteData(`/proveedores/${proveedorAEliminar}`);
+				alert('Proveedor eliminado exitosamente');
+				cerrarModalConfirmar();
+				cargarProveedores();
+			} catch (error) {
+				console.error('Error:', error);
+				alert('Error al eliminar el proveedor: ' + error.message);
+			}
+		}
+
+		function buscarProveedores() {
+			const filtroNom = filtroNombre.value.toLowerCase();
+			const filtroCont = filtroContacto.value.toLowerCase();
+			
+			if (filtroNom || filtroCont) {
+				proveedores = proveedores.filter(proveedor => {
+					const coincideNombre = !filtroNom || proveedor.nombre.toLowerCase().includes(filtroNom);
+					const coincideContacto = !filtroCont || (proveedor.contacto && proveedor.contacto.toLowerCase().includes(filtroCont));
+					return coincideNombre && coincideContacto;
+				});
+			}
+			paginaActual = 1;
+			mostrarProveedores();
+		}
+
+		function limpiarFiltros() {
+			filtroNombre.value = '';
+			filtroContacto.value = '';
+			paginaActual = 1;
+			cargarProveedores();
+		}
+
+		// Cargar proveedores al iniciar la página
+		document.addEventListener('DOMContentLoaded', cargarProveedores);
+	</script>
+</AdminLayout>

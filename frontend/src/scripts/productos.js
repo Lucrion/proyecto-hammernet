@@ -97,14 +97,39 @@ async function cargarProductos() {
         // Mostrar indicador de carga
         mostrarCargando();
 
-        // Obtener productos de la API
-        const response = await fetch(`${API_URL}/productos`);
-        if (!response.ok) {
-            throw new Error(`Error al obtener productos: ${response.status}`);
+        // Cargar datos de productos, categorías e inventario por separado
+        const [productosResponse, categoriasResponse, inventarioResponse] = await Promise.all([
+            fetch(`${API_URL}/productos`),
+            fetch(`${API_URL}/categorias`),
+            fetch(`${API_URL}/inventario`)
+        ]);
+        
+        if (!productosResponse.ok || !categoriasResponse.ok || !inventarioResponse.ok) {
+            throw new Error('Error al cargar datos de productos');
         }
-
-        const productos = await response.json();
-        state.productos = productos;
+        
+        const productos = await productosResponse.json();
+        const categorias = await categoriasResponse.json();
+        const inventario = await inventarioResponse.json();
+        
+        // Combinar datos para crear productos completos
+        const productosCompletos = productos.map(producto => {
+            const categoria = categorias.find(c => c.id_categoria === producto.id_categoria);
+            const stock = inventario.find(i => i.id_producto === producto.id_producto);
+            
+            return {
+                id: producto.id_producto,
+                nombre: producto.nombre,
+                descripcion: producto.descripcion,
+                imagen: '/logo.webp', // Imagen por defecto
+                precio: stock ? stock.precio : 0,
+                stock: stock ? stock.cantidad : 0,
+                categoria: categoria ? categoria.nombre : 'Sin categoría',
+                codigo_barras: producto.codigo_barras
+            };
+        }).filter(p => p.stock > 0); // Solo productos con stock
+        
+        state.productos = productosCompletos;
 
         // Calcular total de páginas
         state.paginacion.totalPaginas = Math.ceil(productos.length / state.paginacion.productosPorPagina);

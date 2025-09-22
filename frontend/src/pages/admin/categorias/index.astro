@@ -1,0 +1,330 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Gestión de Categorías">
+	<main class="container mx-auto px-4 py-8">
+		<div class="bg-white rounded-lg shadow-lg p-6">
+			<div class="flex justify-between items-center mb-6">
+				<h1 class="text-3xl font-bold text-gray-800">Gestión de Categorías</h1>
+				<button id="btnNuevaCategoria" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+					<i class="fas fa-plus mr-2"></i>Nueva Categoría
+				</button>
+			</div>
+
+			<!-- Filtros -->
+			<div class="mb-6 bg-gray-50 p-4 rounded-lg">
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-2">Buscar por nombre</label>
+						<input type="text" id="filtroNombre" placeholder="Nombre de la categoría" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+					</div>
+					<div class="flex items-end">
+						<button id="btnBuscar" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2">
+							<i class="fas fa-search mr-2"></i>Buscar
+						</button>
+						<button id="btnLimpiar" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+							<i class="fas fa-eraser mr-2"></i>Limpiar
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Tabla de categorías -->
+			<div class="overflow-x-auto">
+				<table class="min-w-full bg-white border border-gray-200">
+					<thead class="bg-gray-50">
+						<tr>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+						</tr>
+					</thead>
+					<tbody id="tablaCategorias" class="bg-white divide-y divide-gray-200">
+						<!-- Las categorías se cargarán aquí dinámicamente -->
+					</tbody>
+				</table>
+			</div>
+
+			<!-- Paginación -->
+			<div id="paginacion" class="mt-6 flex justify-center">
+				<!-- La paginación se generará dinámicamente -->
+			</div>
+		</div>
+
+		<!-- Modal para nueva/editar categoría -->
+		<div id="modalCategoria" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+			<div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+				<div class="mt-3">
+					<div class="flex justify-between items-center mb-4">
+						<h3 id="tituloModal" class="text-lg font-medium text-gray-900">Nueva Categoría</h3>
+						<button id="btnCerrarModal" class="text-gray-400 hover:text-gray-600">
+							<i class="fas fa-times"></i>
+						</button>
+					</div>
+					<form id="formCategoria">
+						<input type="hidden" id="categoriaId">
+						<div class="mb-4">
+							<label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+							<input type="text" id="nombre" name="nombre" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+						</div>
+						<div class="mb-4">
+							<label for="descripcion" class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+							<textarea id="descripcion" name="descripcion" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+						</div>
+						<div class="flex justify-end space-x-2">
+							<button type="button" id="btnCancelar" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+								Cancelar
+							</button>
+							<button type="submit" id="btnGuardar" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+								Guardar
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal de confirmación para eliminar -->
+		<div id="modalConfirmar" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+			<div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+				<div class="mt-3 text-center">
+					<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+						<i class="fas fa-exclamation-triangle text-red-600"></i>
+					</div>
+					<h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Confirmar eliminación</h3>
+					<div class="mt-2 px-7 py-3">
+						<p class="text-sm text-gray-500">¿Está seguro que desea eliminar esta categoría? Esta acción no se puede deshacer.</p>
+					</div>
+					<div class="flex justify-center space-x-2 mt-4">
+						<button id="btnCancelarEliminar" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+							Cancelar
+						</button>
+						<button id="btnConfirmarEliminar" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+							Eliminar
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+
+	<script type="module">
+		// Importar funciones de API
+		import { getData, postData, updateData, deleteData } from '/src/scripts/api.js';
+
+		// Variables globales
+		let categorias = [];
+		let paginaActual = 1;
+		const itemsPorPagina = 10;
+		let categoriaAEliminar = null;
+
+		// Elementos del DOM
+		const tablaCategorias = document.getElementById('tablaCategorias');
+		const modalCategoria = document.getElementById('modalCategoria');
+		const modalConfirmar = document.getElementById('modalConfirmar');
+		const formCategoria = document.getElementById('formCategoria');
+		const btnNuevaCategoria = document.getElementById('btnNuevaCategoria');
+		const btnCerrarModal = document.getElementById('btnCerrarModal');
+		const btnCancelar = document.getElementById('btnCancelar');
+		const btnBuscar = document.getElementById('btnBuscar');
+		const btnLimpiar = document.getElementById('btnLimpiar');
+		const btnCancelarEliminar = document.getElementById('btnCancelarEliminar');
+		const btnConfirmarEliminar = document.getElementById('btnConfirmarEliminar');
+		const filtroNombre = document.getElementById('filtroNombre');
+
+		// Event listeners
+		btnNuevaCategoria.addEventListener('click', abrirModalNueva);
+		btnCerrarModal.addEventListener('click', cerrarModal);
+		btnCancelar.addEventListener('click', cerrarModal);
+		btnBuscar.addEventListener('click', buscarCategorias);
+		btnLimpiar.addEventListener('click', limpiarFiltros);
+		btnCancelarEliminar.addEventListener('click', cerrarModalConfirmar);
+		btnConfirmarEliminar.addEventListener('click', confirmarEliminar);
+		formCategoria.addEventListener('submit', guardarCategoria);
+
+		// Funciones principales
+		async function cargarCategorias() {
+			try {
+				categorias = await getData('/categorias');
+				mostrarCategorias();
+			} catch (error) {
+				console.error('Error al cargar categorías:', error);
+				alert('Error al cargar las categorías: ' + error.message);
+			}
+		}
+
+		function mostrarCategorias() {
+			const inicio = (paginaActual - 1) * itemsPorPagina;
+			const fin = inicio + itemsPorPagina;
+			const categoriasPagina = categorias.slice(inicio, fin);
+
+			tablaCategorias.innerHTML = '';
+
+			if (categoriasPagina.length === 0) {
+				tablaCategorias.innerHTML = `
+					<tr>
+						<td colspan="4" class="px-6 py-4 text-center text-gray-500">
+							No se encontraron categorías
+						</td>
+					</tr>
+				`;
+				return;
+			}
+
+			categoriasPagina.forEach(categoria => {
+				const fila = document.createElement('tr');
+				fila.innerHTML = `
+					<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${categoria.id_categoria}</td>
+					<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${categoria.nombre}</td>
+					<td class="px-6 py-4 text-sm text-gray-900">${categoria.descripcion || 'Sin descripción'}</td>
+					<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+						<button onclick="editarCategoria(${categoria.id_categoria})" class="text-blue-600 hover:text-blue-900 mr-3">
+							<i class="fas fa-edit"></i> Editar
+						</button>
+						<button onclick="eliminarCategoria(${categoria.id_categoria})" class="text-red-600 hover:text-red-900">
+							<i class="fas fa-trash"></i> Eliminar
+						</button>
+					</td>
+				`;
+				tablaCategorias.appendChild(fila);
+			});
+
+			generarPaginacion();
+		}
+
+		function generarPaginacion() {
+			const totalPaginas = Math.ceil(categorias.length / itemsPorPagina);
+			const paginacion = document.getElementById('paginacion');
+
+			if (totalPaginas <= 1) {
+				paginacion.innerHTML = '';
+				return;
+			}
+
+			let html = '';
+
+			// Botón anterior
+			if (paginaActual > 1) {
+				html += `<button onclick="cambiarPagina(${paginaActual - 1})" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-l">Anterior</button>`;
+			}
+
+			// Números de página
+			for (let i = 1; i <= totalPaginas; i++) {
+				const clase = i === paginaActual ? 'bg-blue-500 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-800';
+				html += `<button onclick="cambiarPagina(${i})" class="${clase} font-bold py-2 px-4">${i}</button>`;
+			}
+
+			// Botón siguiente
+			if (paginaActual < totalPaginas) {
+				html += `<button onclick="cambiarPagina(${paginaActual + 1})" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-r">Siguiente</button>`;
+			}
+
+			paginacion.innerHTML = html;
+		}
+
+		function cambiarPagina(pagina) {
+			paginaActual = pagina;
+			mostrarCategorias();
+		}
+
+		function abrirModalNueva() {
+			document.getElementById('tituloModal').textContent = 'Nueva Categoría';
+			formCategoria.reset();
+			document.getElementById('categoriaId').value = '';
+			modalCategoria.classList.remove('hidden');
+		}
+
+		function editarCategoria(id) {
+			const categoria = categorias.find(c => c.id_categoria === id);
+			if (categoria) {
+				document.getElementById('tituloModal').textContent = 'Editar Categoría';
+				document.getElementById('categoriaId').value = categoria.id_categoria;
+				document.getElementById('nombre').value = categoria.nombre;
+				document.getElementById('descripcion').value = categoria.descripcion || '';
+				modalCategoria.classList.remove('hidden');
+			}
+		}
+
+		function eliminarCategoria(id) {
+			categoriaAEliminar = id;
+			modalConfirmar.classList.remove('hidden');
+		}
+
+		// Hacer las funciones globales para que puedan ser accedidas desde onclick
+		window.editarCategoria = editarCategoria;
+		window.eliminarCategoria = eliminarCategoria;
+
+		function cerrarModal() {
+			modalCategoria.classList.add('hidden');
+		}
+
+		function cerrarModalConfirmar() {
+			modalConfirmar.classList.add('hidden');
+			categoriaAEliminar = null;
+		}
+
+		async function guardarCategoria(e) {
+			e.preventDefault();
+
+			const id = document.getElementById('categoriaId').value;
+			const nombre = document.getElementById('nombre').value;
+			const descripcion = document.getElementById('descripcion').value;
+
+			const datos = {
+				nombre: nombre,
+				descripcion: descripcion
+			};
+
+			try {
+				if (id) {
+					await updateData(`/categorias/${id}`, datos);
+					alert('Categoría actualizada exitosamente');
+				} else {
+					await postData('/categorias', datos);
+					alert('Categoría creada exitosamente');
+				}
+				cerrarModal();
+				cargarCategorias();
+			} catch (error) {
+				console.error('Error:', error);
+				alert('Error al guardar la categoría: ' + error.message);
+			}
+		}
+
+		async function confirmarEliminar() {
+			if (!categoriaAEliminar) return;
+
+			try {
+				await deleteData(`/categorias/${categoriaAEliminar}`);
+				alert('Categoría eliminada exitosamente');
+				cerrarModalConfirmar();
+				cargarCategorias();
+			} catch (error) {
+				console.error('Error:', error);
+				alert('Error al eliminar la categoría: ' + error.message);
+			}
+		}
+
+		function buscarCategorias() {
+			const filtro = filtroNombre.value.toLowerCase();
+			if (filtro) {
+				categorias = categorias.filter(categoria => 
+					categoria.nombre.toLowerCase().includes(filtro)
+				);
+			}
+			paginaActual = 1;
+			mostrarCategorias();
+		}
+
+		function limpiarFiltros() {
+			filtroNombre.value = '';
+			paginaActual = 1;
+			cargarCategorias();
+		}
+
+		// Cargar categorías al iniciar la página
+		document.addEventListener('DOMContentLoaded', cargarCategorias);
+	</script>
+</AdminLayout>

@@ -137,17 +137,57 @@ async function cargarProductos() {
         // Mostrar indicador de carga
         mostrarCargando();
 
-        // Obtener productos de la API
-        const response = await fetch(`${API_URL}/productos`);
-        if (!response.ok) {
-            throw new Error(`Error al obtener productos: ${response.status}`);
+        // Obtener datos de las nuevas tablas
+        const [responseProductos, responseCategorias, responseInventario] = await Promise.all([
+            fetch(`${API_URL}/productos`),
+            fetch(`${API_URL}/categorias`),
+            fetch(`${API_URL}/inventario`)
+        ]);
+
+        if (!responseProductos.ok) {
+            throw new Error(`Error al obtener productos: ${responseProductos.status}`);
+        }
+        if (!responseCategorias.ok) {
+            throw new Error(`Error al obtener categorías: ${responseCategorias.status}`);
+        }
+        if (!responseInventario.ok) {
+            throw new Error(`Error al obtener inventario: ${responseInventario.status}`);
         }
 
-        const productos = await response.json();
-        state.productos = productos;
+        const productos = await responseProductos.json();
+        const categorias = await responseCategorias.json();
+        const inventario = await responseInventario.json();
+
+        // Combinar datos de productos con categorías e inventario
+        const productosCompletos = productos
+            .filter(producto => producto.precio && producto.precio > 0 && producto.imagen) // Solo productos catalogados
+            .map(producto => {
+                // Obtener información de categoría
+                const categoria = categorias.find(c => c.id_categoria === producto.id_categoria);
+                const nombreCategoria = categoria ? categoria.nombre : 'Sin categoría';
+                
+                // Obtener stock del inventario
+                const itemInventario = inventario.find(i => i.id_producto === producto.id_producto);
+                const stock = itemInventario ? itemInventario.stock_actual : 0;
+                
+                return {
+                    id: producto.id_producto,
+                    nombre: producto.nombre,
+                    descripcion: producto.descripcion || '',
+                    precio: producto.precio,
+                    imagen: producto.imagen,
+                    categoria: nombreCategoria,
+                    caracteristicas: producto.caracteristicas || '',
+                    stock: stock,
+                    origen: 'catalogo'
+                };
+            })
+            .filter(producto => producto.stock > 0); // Solo productos en stock
+
+        state.productos = productosCompletos;
 
         // Calcular total de páginas
-        state.paginacion.totalPaginas = Math.ceil(productos.length / state.paginacion.productosPorPagina);
+        state.paginacion.totalPaginas = Math.ceil(productosCompletos.length / state.paginacion.productosPorPagina);
 
         // Aplicar filtros iniciales
         aplicarFiltros();
@@ -242,7 +282,13 @@ function mostrarProductos(productos) {
         // Hacer la tarjeta clickeable
         card.style.cursor = 'pointer';
         card.addEventListener('click', () => {
-            window.location.href = `/productos/${producto.nombre.toLowerCase().replace(/\s+/g, '-')}`;
+            if (producto.origen === 'inventario') {
+                // Para productos del inventario, mostrar información básica o redirigir a una página genérica
+                alert(`Producto: ${producto.nombre}\nPrecio: $${formatearPrecio(producto.precio)}\nStock: ${producto.stock} unidades\n\nEste producto está disponible desde nuestro inventario.`);
+            } else {
+                // Para productos del catálogo, ir a la página de detalle
+                window.location.href = `/productos/${producto.nombre.toLowerCase().replace(/\s+/g, '-')}`;
+            }
         });
         
         contenedorProductos.appendChild(card);

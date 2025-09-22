@@ -25,18 +25,56 @@ try {
   console.log('Slug del producto:', productoSlug);
   console.log('API_URL:', API_URL);
   
-  // Obtener todos los productos
-  const response = await fetch(`${API_URL}/productos`);
+  // Obtener datos de las nuevas tablas
+  const [responseProductos, responseCategorias, responseInventario] = await Promise.all([
+    fetch(`${API_URL}/productos`),
+    fetch(`${API_URL}/categorias`),
+    fetch(`${API_URL}/inventario`)
+  ]);
   
-  if (!response.ok) {
-    throw new Error(`Error al obtener productos: ${response.status} ${response.statusText}`);
+  if (!responseProductos.ok) {
+    throw new Error(`Error al obtener productos: ${responseProductos.status} ${responseProductos.statusText}`);
+  }
+  if (!responseCategorias.ok) {
+    throw new Error(`Error al obtener categorías: ${responseCategorias.status} ${responseCategorias.statusText}`);
+  }
+  if (!responseInventario.ok) {
+    throw new Error(`Error al obtener inventario: ${responseInventario.status} ${responseInventario.statusText}`);
   }
   
-  const productos = await response.json();
+  const productos = await responseProductos.json();
+  const categorias = await responseCategorias.json();
+  const inventario = await responseInventario.json();
   console.log('Total productos obtenidos:', productos.length);
   
+  // Combinar datos y buscar el producto que coincida con el slug
+  const productosCompletos = productos
+    .filter(p => p.precio && p.precio > 0 && p.imagen) // Solo productos catalogados
+    .map(p => {
+      // Obtener información de categoría
+      const categoria = categorias.find(c => c.id_categoria === p.id_categoria);
+      const nombreCategoria = categoria ? categoria.nombre : 'Sin categoría';
+      
+      // Obtener stock del inventario
+      const itemInventario = inventario.find(i => i.id_producto === p.id_producto);
+      const stock = itemInventario ? itemInventario.stock_actual : 0;
+      
+      return {
+        id: p.id_producto,
+        nombre: p.nombre,
+        descripcion: p.descripcion || '',
+        precio: p.precio,
+        imagen: p.imagen,
+        categoria: nombreCategoria,
+        caracteristicas: p.caracteristicas || '',
+        stock: stock,
+        codigo_barras: p.codigo_barras
+      };
+    })
+    .filter(p => p.stock > 0); // Solo productos en stock
+  
   // Buscar el producto que coincida con el slug
-  producto = productos.find(p => {
+  producto = productosCompletos.find(p => {
     const slug = p.nombre.toLowerCase().replace(/\s+/g, '-');
     console.log(`Comparando: "${slug}" === "${productoSlug}"`);
     return slug === productoSlug;

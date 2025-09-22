@@ -61,26 +61,50 @@ async function cargarDetalleProducto() {
             return;
         }
         
-        // Obtener todos los productos
-        console.log('📡 Obteniendo productos desde:', `${API_URL}/productos`);
-        const response = await fetch(`${API_URL}/productos`);
+        // Cargar datos de productos, categorías e inventario por separado
+        console.log('📡 Obteniendo datos desde endpoints separados');
+        const [productosResponse, categoriasResponse, inventarioResponse] = await Promise.all([
+            fetch(`${API_URL}/productos`),
+            fetch(`${API_URL}/categorias`),
+            fetch(`${API_URL}/inventario`)
+        ]);
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!productosResponse.ok || !categoriasResponse.ok || !inventarioResponse.ok) {
+            throw new Error('Error al cargar datos de productos');
         }
         
-        const productos = await response.json();
-        console.log('✅ Productos obtenidos:', productos.length);
+        const productos = await productosResponse.json();
+        const categorias = await categoriasResponse.json();
+        const inventario = await inventarioResponse.json();
+        
+        // Combinar datos para crear productos completos
+        const productosCompletos = productos.map(producto => {
+            const categoria = categorias.find(c => c.id_categoria === producto.id_categoria);
+            const stock = inventario.find(i => i.id_producto === producto.id_producto);
+            
+            return {
+                id: producto.id_producto,
+                nombre: producto.nombre,
+                descripcion: producto.descripcion,
+                imagen: '/logo.webp', // Imagen por defecto
+                precio: stock ? stock.precio : 0,
+                stock: stock ? stock.cantidad : 0,
+                categoria: categoria ? categoria.nombre : 'Sin categoría',
+                codigo_barras: producto.codigo_barras
+            };
+        }).filter(p => p.stock > 0); // Solo productos con stock
+        
+        console.log('✅ Productos completos obtenidos:', productosCompletos.length);
         
         // Debug: Mostrar todos los slugs disponibles
         console.log('🏷️ Slugs disponibles:');
-        productos.forEach((p, index) => {
+        productosCompletos.forEach((p, index) => {
             const slug = p.nombre.toLowerCase().replace(/\s+/g, '-');
             console.log(`  ${index + 1}. "${p.nombre}" -> "${slug}"`);
         });
         
         // Encontrar el producto actual por su slug
-        const productoActual = productos.find(p => {
+        const productoActual = productosCompletos.find(p => {
             const slugProducto = p.nombre.toLowerCase().replace(/\s+/g, '-');
             return slugProducto === state.productoSlug;
         });
@@ -105,7 +129,7 @@ async function cargarDetalleProducto() {
         mostrarDetalleProducto(productoActual);
         
         // Encontrar productos similares (misma categoría)
-        const productosSimilares = productos
+        const productosSimilares = productosCompletos
             .filter(p => p.categoria === productoActual.categoria && p.id !== productoActual.id)
             .slice(0, 4);
         

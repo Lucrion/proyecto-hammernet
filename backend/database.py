@@ -25,13 +25,12 @@ if DATABASE_URL and "postgres" in DATABASE_URL:
         pool_recycle=1800
     )
 else:
-    # Configuración para MySQL en desarrollo local
+    # Configuración para SQLite en desarrollo local
+    import os
+    db_path = os.path.join(os.path.dirname(__file__), 'ferreteria.db')
     engine = create_engine(
-        DATABASE_URL or "mysql+pymysql://root:@localhost:3306/ferreteria",
-        pool_size=5,
-        max_overflow=10,
-        pool_timeout=30,
-        pool_recycle=1800
+        f"sqlite:///{db_path}",
+        connect_args={"check_same_thread": False}
     )
 
 # Configurar la fábrica de sesiones

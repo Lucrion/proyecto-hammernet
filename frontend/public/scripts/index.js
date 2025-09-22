@@ -49,24 +49,53 @@ async function cargarProductosDestacados() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
         
-        const response = await fetch(`${API_URL}/productos`, {
-            signal: controller.signal,
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
+        // Cargar datos de productos, categorías e inventario por separado
+        const [productosResponse, categoriasResponse, inventarioResponse] = await Promise.all([
+            fetch(`${API_URL}/productos`, {
+                signal: controller.signal,
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            }),
+            fetch(`${API_URL}/categorias`, {
+                signal: controller.signal,
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            }),
+            fetch(`${API_URL}/inventario`, {
+                signal: controller.signal,
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            })
+        ]);
         
         clearTimeout(timeoutId);
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (!productosResponse.ok || !categoriasResponse.ok || !inventarioResponse.ok) {
+            throw new Error('Error al cargar datos');
         }
         
-        const productos = await response.json();
+        const productos = await productosResponse.json();
+        const categorias = await categoriasResponse.json();
+        const inventario = await inventarioResponse.json();
+        
+        // Combinar datos para crear productos completos
+        const productosCompletos = productos.map(producto => {
+            const categoria = categorias.find(c => c.id_categoria === producto.id_categoria);
+            const stock = inventario.find(i => i.id_producto === producto.id_producto);
+            
+            return {
+                id: producto.id_producto,
+                nombre: producto.nombre,
+                descripcion: producto.descripcion,
+                imagen: '/logo.webp', // Imagen por defecto
+                precio: stock ? stock.precio : 0,
+                stock: stock ? stock.cantidad : 0,
+                categoria: categoria ? categoria.nombre : 'Sin categoría'
+            };
+        }).filter(p => p.stock > 0); // Solo productos con stock
         
         // Guardar productos en el estado global
-        state.productos = productos;
+        state.productos = productosCompletos;
         
         const contenedor = document.getElementById('productos-destacados');
         if (!contenedor) {
@@ -77,7 +106,7 @@ async function cargarProductosDestacados() {
         contenedor.innerHTML = '';
         
         // Limitar a solo 4 productos destacados
-        const productosDestacados = productos.slice(0, 4);
+        const productosDestacados = productosCompletos.slice(0, 4);
         
         if (productosDestacados.length === 0) {
             contenedor.innerHTML = `

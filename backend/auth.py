@@ -165,3 +165,50 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user is None:
         raise credentials_exception
     return user
+
+def verificar_permisos_admin(current_user, accion: str = "realizar esta acción"):
+    """Verifica si el usuario actual tiene permisos de administrador.
+    
+    Args:
+        current_user: Usuario actual obtenido de get_current_user
+        accion: Descripción de la acción que se intenta realizar
+        
+    Raises:
+        HTTPException: Si el usuario no tiene permisos de administrador
+    """
+    if current_user.role != "administrador":
+        raise HTTPException(
+            status_code=403,
+            detail=f"No tienes permisos para {accion}"
+        )
+
+def es_administrador(current_user) -> bool:
+    """Verifica si el usuario actual es administrador.
+    
+    Args:
+        current_user: Usuario actual obtenido de get_current_user
+        
+    Returns:
+        bool: True si el usuario es administrador, False en caso contrario
+    """
+    return current_user.role == "administrador"
+
+
+async def require_admin(current_user = Depends(get_current_user)):
+    """Dependencia que requiere que el usuario sea administrador.
+    
+    Args:
+        current_user: Usuario actual obtenido de get_current_user
+        
+    Returns:
+        Usuario actual si es administrador
+        
+    Raises:
+        HTTPException: Si el usuario no es administrador
+    """
+    if current_user.role != "administrador":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos de administrador para realizar esta acción"
+        )
+    return current_user

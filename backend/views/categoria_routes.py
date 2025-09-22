@@ -1,0 +1,124 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Rutas de categorías
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+from database import get_db
+from controllers.categoria_controller import CategoriaController
+from models.categoria import Categoria, CategoriaCreate, CategoriaUpdate
+from auth import get_current_user, require_admin
+
+router = APIRouter(prefix="/categorias", tags=["Categorías"])
+
+
+@router.get("/", response_model=List[Categoria])
+async def obtener_categorias(
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener todas las categorías
+    
+    Args:
+        db: Sesión de base de datos
+        
+    Returns:
+        List[Categoria]: Lista de todas las categorías
+    """
+    return await CategoriaController.obtener_categorias(db)
+
+
+@router.get("/{categoria_id}", response_model=Categoria)
+async def obtener_categoria(
+    categoria_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener una categoría por ID
+    
+    Args:
+        categoria_id: ID de la categoría
+        db: Sesión de base de datos
+        
+    Returns:
+        Categoria: Datos de la categoría
+        
+    Raises:
+        HTTPException: Si la categoría no existe
+    """
+    return await CategoriaController.obtener_categoria(categoria_id, db)
+
+
+@router.post("/", response_model=Categoria)
+async def crear_categoria(
+    categoria: CategoriaCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Crear una nueva categoría (solo administradores)
+    
+    Args:
+        categoria: Datos de la categoría a crear
+        db: Sesión de base de datos
+        current_user: Usuario actual (debe ser admin)
+        
+    Returns:
+        Categoria: Categoría creada
+        
+    Raises:
+        HTTPException: Si hay errores en la creación
+    """
+    return await CategoriaController.crear_categoria(categoria, db)
+
+
+@router.put("/{categoria_id}", response_model=Categoria)
+async def actualizar_categoria(
+    categoria_id: int,
+    categoria: CategoriaUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Actualizar una categoría (solo administradores)
+    
+    Args:
+        categoria_id: ID de la categoría a actualizar
+        categoria: Datos actualizados de la categoría
+        db: Sesión de base de datos
+        current_user: Usuario actual (debe ser admin)
+        
+    Returns:
+        Categoria: Categoría actualizada
+        
+    Raises:
+        HTTPException: Si hay errores en la actualización
+    """
+    return await CategoriaController.actualizar_categoria(categoria_id, categoria, db)
+
+
+@router.delete("/{categoria_id}")
+async def eliminar_categoria(
+    categoria_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Eliminar una categoría (solo administradores)
+    
+    Args:
+        categoria_id: ID de la categoría a eliminar
+        db: Sesión de base de datos
+        current_user: Usuario actual (debe ser admin)
+        
+    Returns:
+        dict: Mensaje de confirmación
+        
+    Raises:
+        HTTPException: Si hay errores en la eliminación
+    """
+    return await CategoriaController.eliminar_categoria(categoria_id, db)
