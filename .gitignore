@@ -40,3 +40,4 @@ yarn-error.log*
 .parcel-cache
 setup_mysql.py
 test_production_api.cjs
+.md
