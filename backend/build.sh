@@ -8,6 +8,7 @@
 #
 # 1. Instala todas las dependencias Python especificadas en requirements.txt
 # 2. Crea la estructura de directorios necesaria para la aplicación
+# 3. Configura la base de datos PostgreSQL para producción
 #
 # El script está configurado para detenerse inmediatamente si cualquier
 # comando falla (set -o errexit), lo que ayuda a identificar problemas
@@ -26,6 +27,8 @@ echo "Creando estructura de directorios necesaria..."
 mkdir -p data  # Directorio para almacenamiento de datos JSON (fallback)
 
 echo "Configurando base de datos PostgreSQL para producción..."
-python setup_postgres.py
+python scripts/setup_postgres.py
+
+echo "=== Proceso de construcción completado exitosamente ==="
 
 echo "=== Construcción completada con éxito ==="

@@ -52,14 +52,18 @@ except Exception as e:
     print(f"Error al crear tablas: {e}")
 
 # Configurar CORS
-origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:4321,http://localhost:8000")
-origins = origins_str.split(",")
+origins_str = os.getenv("ALLOWED_ORIGINS", "https://hammernet-frontend.onrender.com,https://hammernet-backend.onrender.com")
+origins = [origin.strip() for origin in origins_str.split(",")]
+
+# Agregar localhost para desarrollo si no está en producción
+if os.getenv("ENVIRONMENT") != "production":
+    origins.extend(["http://localhost:4321", "http://localhost:8000", "http://127.0.0.1:4321", "http://127.0.0.1:8000"])
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With", "Access-Control-Allow-Origin"],
     expose_headers=["Authorization"],
     max_age=3600
