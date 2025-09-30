@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
             } catch (error) {
                 console.error('Error al enviar mensaje:', error);
-                alert(`Error al enviar el mensaje: ${error.message}. Por favor, intenta nuevamente.`);
+                alert('Error en conexión del servidor');
             } finally {
                 // Restaurar botón
                 submitButton.disabled = false;

@@ -42,8 +42,13 @@ class ProveedorController:
                 nombre=db_proveedor.nombre,
                 contacto=db_proveedor.contacto,
                 telefono=db_proveedor.telefono,
-                email=db_proveedor.email,
-                direccion=db_proveedor.direccion
+                correo=db_proveedor.correo,
+                direccion=db_proveedor.direccion,
+                rut=db_proveedor.rut,
+                razon_social=db_proveedor.razon_social,
+                sucursal=db_proveedor.sucursal,
+                ciudad=db_proveedor.ciudad,
+                celular=db_proveedor.celular
             )
             
         except IntegrityError:
@@ -78,8 +83,13 @@ class ProveedorController:
                     nombre=p.nombre,
                     contacto=p.contacto,
                     telefono=p.telefono,
-                    email=p.email,
-                    direccion=p.direccion
+                    correo=p.correo,  # Usar 'correo' en lugar de 'email'
+                    direccion=p.direccion,
+                    rut=p.rut,
+                    razon_social=p.razon_social,
+                    sucursal=p.sucursal,
+                    ciudad=p.ciudad,
+                    celular=p.celular
                 ) for p in proveedores
             ]
         except Exception as e:
@@ -116,8 +126,13 @@ class ProveedorController:
                 nombre=proveedor.nombre,
                 contacto=proveedor.contacto,
                 telefono=proveedor.telefono,
-                email=proveedor.email,
-                direccion=proveedor.direccion
+                correo=proveedor.correo,
+                direccion=proveedor.direccion,
+                rut=proveedor.rut,
+                razon_social=proveedor.razon_social,
+                sucursal=proveedor.sucursal,
+                ciudad=proveedor.ciudad,
+                celular=proveedor.celular
             )
         except HTTPException:
             raise
@@ -158,10 +173,20 @@ class ProveedorController:
                 proveedor.contacto = proveedor_update.contacto
             if proveedor_update.telefono is not None:
                 proveedor.telefono = proveedor_update.telefono
-            if proveedor_update.email is not None:
-                proveedor.email = proveedor_update.email
+            if proveedor_update.correo is not None:
+                proveedor.correo = proveedor_update.correo
             if proveedor_update.direccion is not None:
                 proveedor.direccion = proveedor_update.direccion
+            if proveedor_update.rut is not None:
+                proveedor.rut = proveedor_update.rut
+            if proveedor_update.razon_social is not None:
+                proveedor.razon_social = proveedor_update.razon_social
+            if proveedor_update.sucursal is not None:
+                proveedor.sucursal = proveedor_update.sucursal
+            if proveedor_update.ciudad is not None:
+                proveedor.ciudad = proveedor_update.ciudad
+            if proveedor_update.celular is not None:
+                proveedor.celular = proveedor_update.celular
             
             db.commit()
             db.refresh(proveedor)
@@ -171,8 +196,13 @@ class ProveedorController:
                 nombre=proveedor.nombre,
                 contacto=proveedor.contacto,
                 telefono=proveedor.telefono,
-                email=proveedor.email,
-                direccion=proveedor.direccion
+                correo=proveedor.correo,
+                direccion=proveedor.direccion,
+                rut=proveedor.rut,
+                razon_social=proveedor.razon_social,
+                sucursal=proveedor.sucursal,
+                ciudad=proveedor.ciudad,
+                celular=proveedor.celular
             )
             
         except HTTPException:

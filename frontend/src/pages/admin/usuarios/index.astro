@@ -104,14 +104,14 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
         // Función para obtener todos los usuarios desde la API
         async function obtenerUsuarios() {
             try {
-                usuarios = await getData('/usuarios');
+                usuarios = await getData('/usuarios/');
                 if (usuarios) {
                     cargarUsuarios();
                 }
             } catch (error) {
                 console.error('Error:', error);
                 // Mostrar mensaje de error al usuario
-                alert('Error al obtener usuarios. Por favor, intente nuevamente.');
+                alert('Error en conexión del servidor');
             }
         }
 
@@ -126,7 +126,7 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
                 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.id_usuario}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${username}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -134,10 +134,10 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
                             ${role === 'administrador' ? 'Administrador' : role === 'vendedor' ? 'Vendedor' : 'Bodeguero'}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(fechaCreacion).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion ? new Date(fechaCreacion).toLocaleDateString() : 'Invalid Date'}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button data-id="${usuario.id}" class="btn-editar text-blue-600 hover:text-blue-900 mr-3">Editar</button>
-                        <button data-id="${usuario.id}" class="btn-eliminar text-red-600 hover:text-red-900">Eliminar</button>
+                        <button data-id="${usuario.id_usuario}" class="btn-editar text-blue-600 hover:text-blue-900 mr-3">Editar</button>
+                        <button data-id="${usuario.id_usuario}" class="btn-eliminar text-red-600 hover:text-red-900">Eliminar</button>
                     </td>
                 `;
                 tablaUsuarios.appendChild(tr);
@@ -184,11 +184,11 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
                     if (!formData.password) {
                         delete formData.password;
                     }
-                    await updateData(`/usuarios/${userId.value}`, formData);
+                    await updateData(`/usuarios/${userId.value}/`, formData);
                     alert('Usuario actualizado exitosamente');
                 } else {
                     // Crear nuevo usuario
-                    await postData('/usuarios', formData);
+                    await postData('/usuarios/', formData);
                     alert('Usuario creado exitosamente');
                 }
                 formUsuario.classList.add('hidden');
@@ -196,7 +196,7 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
                 obtenerUsuarios(); // Recargar la lista
             } catch (error) {
                 console.error('Error:', error);
-                alert(`Error al guardar el usuario: ${error.message}`);
+                alert('Error en conexión del servidor');
             }
         });
 
@@ -204,10 +204,10 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
         async function editarUsuario(e) {
             const id = parseInt(e.target.dataset.id);
             try {
-                const usuario = await getData(`/usuarios/${id}`);
+                const usuario = await getData(`/usuarios/${id}/`);
                 if (usuario) {
                     formTitle.textContent = 'Editar Usuario';
-                    userId.value = usuario.id;
+                    userId.value = usuario.id_usuario;
                     document.getElementById('nombre').value = usuario.nombre;
                     document.getElementById('usuario').value = usuario.username || usuario.usuario;
                     document.getElementById('password').value = ''; // No mostrar contraseña por seguridad
@@ -219,7 +219,7 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
                 }
             } catch (error) {
                 console.error('Error al obtener usuario:', error);
-                alert(`Error al obtener el usuario: ${error.message}`);
+                alert('Error en conexión del servidor');
             }
         }
 
@@ -229,7 +229,7 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
             if (confirm('¿Está seguro de eliminar este usuario?')) {
                 try {
                     // Intentar eliminar el usuario a través de la API con autenticación
-                    const response = await deleteData(`/usuarios/${id}`);
+                    const response = await deleteData(`/usuarios/${id}/`);
                     
                     // Verificar si la respuesta fue exitosa
                     if (response) {
@@ -241,7 +241,7 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
                     }
                 } catch (error) {
                     console.error('Error al eliminar usuario:', error);
-                    alert(`Error al eliminar: ${error.message}`);
+                    alert('Error en conexión del servidor');
                 }
             }
         }

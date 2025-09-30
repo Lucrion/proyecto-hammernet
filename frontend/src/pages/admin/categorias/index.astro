@@ -110,10 +110,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 		</div>
 	</main>
 
-	<script type="module">
-		// Importar funciones de API
-		import { getData, postData, updateData, deleteData } from '/src/scripts/api.js';
-
+	<script type="text/javascript" src="/scripts/config.js"></script>
+	<script type="text/javascript" src="/scripts/api.js"></script>
+	<script>
 		// Variables globales
 		let categorias = [];
 		let paginaActual = 1;
@@ -147,11 +146,11 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 		// Funciones principales
 		async function cargarCategorias() {
 			try {
-				categorias = await getData('/categorias');
+				categorias = await getData('/categorias/');
 				mostrarCategorias();
 			} catch (error) {
 				console.error('Error al cargar categorías:', error);
-				alert('Error al cargar las categorías: ' + error.message);
+				alert('Error en conexión del servidor');
 			}
 		}
 
@@ -279,17 +278,17 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
 			try {
 				if (id) {
-					await updateData(`/categorias/${id}`, datos);
+					await updateData(`/categorias/${id}/`, datos);
 					alert('Categoría actualizada exitosamente');
 				} else {
-					await postData('/categorias', datos);
+					await postData('/categorias/', datos);
 					alert('Categoría creada exitosamente');
 				}
 				cerrarModal();
 				cargarCategorias();
 			} catch (error) {
 				console.error('Error:', error);
-				alert('Error al guardar la categoría: ' + error.message);
+				alert('Error en conexión del servidor');
 			}
 		}
 
@@ -297,13 +296,13 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 			if (!categoriaAEliminar) return;
 
 			try {
-				await deleteData(`/categorias/${categoriaAEliminar}`);
+				await deleteData(`/categorias/${categoriaAEliminar}/`);
 				alert('Categoría eliminada exitosamente');
 				cerrarModalConfirmar();
 				cargarCategorias();
 			} catch (error) {
 				console.error('Error:', error);
-				alert('Error al eliminar la categoría: ' + error.message);
+				alert('Error en conexión del servidor');
 			}
 		}
 

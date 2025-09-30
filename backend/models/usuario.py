@@ -7,6 +7,7 @@ Modelos relacionados con usuarios
 
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -17,12 +18,14 @@ class UsuarioDB(Base):
     """Modelo de base de datos para usuarios"""
     __tablename__ = "usuarios"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id_usuario = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(50), nullable=False)
     username = Column(String(50), unique=True, index=True, nullable=False)
     password = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)
     fecha_creacion = Column(DateTime, default=func.now())
+    
+    # Relaciones
 
 
 # Modelos Pydantic para validación y serialización
@@ -48,8 +51,8 @@ class UsuarioUpdate(BaseModel):
 
 
 class Usuario(UsuarioBase):
-    """Modelo de respuesta para usuario"""
-    id: int
+    """Modelo completo para usuario"""
+    id_usuario: int
     fecha_creacion: Optional[str] = None
     
     class Config:
@@ -66,7 +69,7 @@ class Token(BaseModel):
     """Modelo para token de autenticación"""
     access_token: str
     token_type: str
-    id: int
+    id_usuario: int
     nombre: str
     username: str
     role: str

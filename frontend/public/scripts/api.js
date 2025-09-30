@@ -1,5 +1,5 @@
 // Funciones para comunicación con la API
-import { API_URL, corsConfig, handleApiError } from './config.js';
+// Nota: Este archivo debe cargarse después de config.js
 
 /**
  * Realiza una petición autenticada a la API con soporte para FormData
@@ -7,7 +7,7 @@ import { API_URL, corsConfig, handleApiError } from './config.js';
  * @param {Object} options - Opciones de fetch (method, headers, body, etc.)
  * @returns {Promise<Response>} - Respuesta de la petición
  */
-export async function fetchWithAuth(endpoint, options = {}) {
+async function fetchWithAuth(endpoint, options = {}) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -49,7 +49,7 @@ export async function fetchWithAuth(endpoint, options = {}) {
  * @param {string} endpoint - Endpoint de la API (sin incluir la URL base)
  * @returns {Promise<any>} - Datos de la respuesta
  */
-export async function getData(endpoint) {
+async function getData(endpoint) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -85,7 +85,7 @@ export async function getData(endpoint) {
  * @param {Object} data - Datos a enviar en el cuerpo de la petición
  * @returns {Promise<any>} - Datos de la respuesta
  */
-export async function postData(endpoint, data) {
+async function postData(endpoint, data) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -122,7 +122,7 @@ export async function postData(endpoint, data) {
  * @param {Object} data - Datos a enviar en el cuerpo de la petición
  * @returns {Promise<any>} - Datos de la respuesta
  */
-export async function updateData(endpoint, data) {
+async function updateData(endpoint, data) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -158,7 +158,7 @@ export async function updateData(endpoint, data) {
  * @param {string} endpoint - Endpoint de la API (sin incluir la URL base)
  * @returns {Promise<any>} - Datos de la respuesta
  */
-export async function deleteData(endpoint) {
+async function deleteData(endpoint) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -187,3 +187,10 @@ export async function deleteData(endpoint) {
         throw error;
     }
 }
+
+// Hacer las funciones disponibles globalmente
+window.fetchWithAuth = fetchWithAuth;
+window.getData = getData;
+window.postData = postData;
+window.updateData = updateData;
+window.deleteData = deleteData;

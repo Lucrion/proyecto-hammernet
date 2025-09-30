@@ -1,9 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""
-Rutas de usuarios
-"""
+""" Rutas de usuarios """
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -13,7 +8,7 @@ from controllers.usuario_controller import UsuarioController
 from models.usuario import Usuario, UsuarioCreate, UsuarioUpdate
 from auth import get_current_user, require_admin
 
-router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+router = APIRouter(prefix="/api/usuarios", tags=["Usuarios"])
 
 
 @router.get("/", response_model=List[Usuario])
@@ -21,16 +16,7 @@ async def obtener_usuarios(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
-    """
-    Obtener todos los usuarios (solo administradores)
-    
-    Args:
-        db: Sesión de base de datos
-        current_user: Usuario actual (debe ser admin)
-        
-    Returns:
-        List[Usuario]: Lista de todos los usuarios
-    """
+    """Obtener todos los usuarios (solo administradores)"""
     return await UsuarioController.obtener_usuarios(db)
 
 
@@ -40,20 +26,7 @@ async def obtener_usuario(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Obtener un usuario por ID
-    
-    Args:
-        usuario_id: ID del usuario
-        db: Sesión de base de datos
-        current_user: Usuario actual
-        
-    Returns:
-        Usuario: Datos del usuario
-        
-    Raises:
-        HTTPException: Si el usuario no existe o no tiene permisos
-    """
+    """ Obtener un usuario por ID """
     # Solo admin puede ver otros usuarios, usuarios normales solo pueden verse a sí mismos
     if current_user["rol"] != "admin" and current_user["id"] != usuario_id:
         raise HTTPException(
@@ -70,20 +43,7 @@ async def crear_usuario(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
-    """
-    Crear un nuevo usuario (solo administradores)
-    
-    Args:
-        usuario: Datos del usuario a crear
-        db: Sesión de base de datos
-        current_user: Usuario actual (debe ser admin)
-        
-    Returns:
-        Usuario: Usuario creado
-        
-    Raises:
-        HTTPException: Si hay errores en la creación
-    """
+    """ Crear un nuevo usuario (solo administradores) """
     return await UsuarioController.crear_usuario(usuario, db)
 
 
@@ -94,21 +54,7 @@ async def actualizar_usuario(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Actualizar un usuario
-    
-    Args:
-        usuario_id: ID del usuario a actualizar
-        usuario: Datos actualizados del usuario
-        db: Sesión de base de datos
-        current_user: Usuario actual
-        
-    Returns:
-        Usuario: Usuario actualizado
-        
-    Raises:
-        HTTPException: Si no tiene permisos o hay errores
-    """
+    """ Actualizar un usuario """
     # Solo admin puede actualizar otros usuarios, usuarios normales solo pueden actualizarse a sí mismos
     if current_user["rol"] != "admin" and current_user["id"] != usuario_id:
         raise HTTPException(
@@ -125,18 +71,5 @@ async def eliminar_usuario(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
-    """
-    Eliminar un usuario (solo administradores)
-    
-    Args:
-        usuario_id: ID del usuario a eliminar
-        db: Sesión de base de datos
-        current_user: Usuario actual (debe ser admin)
-        
-    Returns:
-        dict: Mensaje de confirmación
-        
-    Raises:
-        HTTPException: Si hay errores en la eliminación
-    """
+    """ Eliminar un usuario (solo administradores) """
     return await UsuarioController.eliminar_usuario(usuario_id, db)

@@ -12,7 +12,7 @@ const { title } = Astro.props;
 		<meta charset="UTF-8" />
 		<meta name="description" content="Panel de Administración - Ferretería Patricio">
 		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/logo_bn.webp" />
+		<link rel="icon" type="image/svg+xml" href="/images/logos/logo_bn.webp" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
 		<script src="https://unpkg.com/htmx.org@1.9.9" integrity="sha384-QFjmbokDn2DjBjq+fM+8LUIVrAgqcNW2s0PjAxHETgRn9l4fvX31ZxDxvwQnyMOX" crossorigin="anonymous"></script>
@@ -21,7 +21,7 @@ const { title } = Astro.props;
 		<!-- Sidebar de navegación -->
 		<aside class="w-60 bg-white shadow-lg min-h-screen p-4 flex flex-col">
 			<div class="mb-8">
-				<img src="/hammernet.webp" alt="Hammernet" class="h-12 mx-auto">
+				<img src="/images/logos/hammernet.webp" alt="Hammernet" class="h-12 mx-auto">
 			</div>
 			
 			<nav class="flex-1">
@@ -66,6 +66,8 @@ const { title } = Astro.props;
 							Mensajes
 						</a>
 					</li>
+
+
 					<!-- Sección de ventas oculta temporalmente
 					<li>
 						<a href="/admin/ventas" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
@@ -100,7 +102,7 @@ const { title } = Astro.props;
 						</svg>
 					</button>
 					<div class="flex items-center space-x-2">
-						<img src="/logo_bn.webp" alt="Usuario" class="h-8 w-8 rounded-full bg-gray-200">
+						<img src="/images/logos/logo_bn.webp" alt="Usuario" class="h-8 w-8 rounded-full bg-gray-200">
 						<span class="text-gray-700" id="nombreUsuario">Administrador</span>
 					</div>
 				</div>

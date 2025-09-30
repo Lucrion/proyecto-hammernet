@@ -61,13 +61,47 @@ async function cargarDetalleProducto() {
             return;
         }
         
-        // Cargar datos de productos, categorías e inventario por separado
+        // Verificar si hay token de autenticación
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.warn('No hay token de autenticación, redirigiendo al login');
+            window.location.href = '/login';
+            return;
+        }
+        
+        // Cargar datos de productos, categorías e inventario por separado con autenticación
         console.log('📡 Obteniendo datos desde endpoints separados');
         const [productosResponse, categoriasResponse, inventarioResponse] = await Promise.all([
-            fetch(`${API_URL}/productos`),
-            fetch(`${API_URL}/categorias`),
-            fetch(`${API_URL}/inventario`)
+            fetch(`${API_URL}/productos/`, {
+                method: 'GET',
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            }),
+            fetch(`${API_URL}/categorias/`, {
+                method: 'GET',
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            }),
+            fetch(`${API_URL}/productos/inventario`, {
+                method: 'GET',
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
         ]);
+        
+        // Verificar si alguna respuesta indica token expirado
+        if (productosResponse.status === 401 || categoriasResponse.status === 401 || inventarioResponse.status === 401) {
+            console.warn('Token expirado, redirigiendo al login');
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            return;
+        }
         
         if (!productosResponse.ok || !categoriasResponse.ok || !inventarioResponse.ok) {
             throw new Error('Error al cargar datos de productos');
@@ -88,9 +122,8 @@ async function cargarDetalleProducto() {
                 descripcion: producto.descripcion,
                 imagen: '/logo.webp', // Imagen por defecto
                 precio: stock ? stock.precio : 0,
-                stock: stock ? stock.cantidad : 0,
-                categoria: categoria ? categoria.nombre : 'Sin categoría',
-                codigo_barras: producto.codigo_barras
+                stock: stock ? stock.cantidad_disponible : 0,
+                categoria: categoria ? categoria.nombre : 'Sin categoría'
             };
         }).filter(p => p.stock > 0); // Solo productos con stock
         

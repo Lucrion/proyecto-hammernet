@@ -56,6 +56,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código Interno</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad Actual</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponible</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -99,10 +100,6 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                                     <input type="text" id="nombreProducto" name="nombreProducto" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Código Interno</label>
-                                    <input type="text" id="codigoBarras" name="codigoBarras" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Categoría <span class="text-red-500">*</span></label>
                                     <select id="categoriaProducto" name="categoriaProducto" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                         <option value="">Seleccionar categoría</option>
@@ -135,19 +132,15 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo</label>
                                     <input type="number" id="stockMinimo" name="stockMinimo" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
-                                <div class="col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                                    <textarea id="descripcionProducto" name="descripcionProducto" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad Disponible *</label>
+                                    <input type="number" id="cantidadDisponible" name="cantidadDisponible" min="0" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Precio *</label>
+                                    <input type="number" id="precio" name="precio" min="0" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
                             </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Precio *</label>
-                            <input type="number" id="precio" name="precio" min="0" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad *</label>
-                            <input type="number" id="cantidad" name="cantidad" min="0" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                     </div>
                     <div class="flex justify-end space-x-3 mt-6">
@@ -184,16 +177,20 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     </div>
 
     <script>
-        let paginaActual = 0;
-        const registrosPorPagina = 10;
-        let totalRegistros = 0;
-        let inventarioEditando = null;
-        let inventarioAEliminar = null;
+        // Obtener la URL de la API desde las variables de entorno
+        const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+
+        // Variables globales
+        let inventarios = [];
         let productos = [];
         let categorias = [];
         let proveedores = [];
+        let paginaActual = 0;
+        const registrosPorPagina = 10;
+        let inventarioEditando = null;
+        let inventarioAEliminar = null;
 
-        // Elementos del DOM
+        // Referencias a elementos del DOM
         const tablaInventario = document.getElementById('tablaInventario');
         const modalInventario = document.getElementById('modalInventario');
         const modalEliminar = document.getElementById('modalEliminar');
@@ -211,10 +208,6 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         function getAuthToken() {
             const token = localStorage.getItem('token');
             console.log('Token de autenticación:', token ? 'Presente' : 'No encontrado');
-            if (!token) {
-                console.log('No hay token de autenticación. Redirigiendo a login...');
-                window.location.href = '/login';
-            }
             return token;
         }
 
@@ -239,7 +232,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     return;
                 }
                 
-                const response = await fetch('http://localhost:8000/productos', {
+                const response = await fetch(`${API_URL}/productos/`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -264,7 +257,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         async function cargarCategorias() {
             try {
                 console.log('Cargando categorías...');
-                const response = await fetch('http://localhost:8000/categorias', {
+                const response = await fetch(`${API_URL}/categorias/`, {
                     headers: {
                         'Authorization': `Bearer ${getAuthToken()}`
                     }
@@ -307,7 +300,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         async function cargarProveedores() {
             try {
                 console.log('Cargando proveedores...');
-                const response = await fetch('http://localhost:8000/proveedores', {
+                const response = await fetch(`${API_URL}/proveedores/`, {
                     headers: {
                         'Authorization': `Bearer ${getAuthToken()}`
                     }
@@ -348,7 +341,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 const filtroStock = document.getElementById('filtroStock').value;
                 const filtroCategoria = document.getElementById('filtroCategoria').value;
                 
-                let url = `http://localhost:8000/inventario?skip=${paginaActual * registrosPorPagina}&limit=${registrosPorPagina}`;
+                let url = `${API_URL}/productos/inventario?skip=${paginaActual * registrosPorPagina}&limit=${registrosPorPagina}`;
                 
                 const response = await fetch(url, {
                     headers: {
@@ -372,9 +365,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     }
                     
                     if (filtroStock === 'bajo') {
-                        inventario = inventario.filter(item => item.cantidad <= 5 && item.cantidad > 0);
+                        inventario = inventario.filter(item => item.cantidad_disponible <= 5 && item.cantidad_disponible > 0);
                     } else if (filtroStock === 'agotado') {
-                        inventario = inventario.filter(item => item.cantidad === 0);
+                        inventario = inventario.filter(item => item.cantidad_disponible === 0);
                     }
                     
                     if (filtroCategoria) {
@@ -424,7 +417,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 fila.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${codigoInterno}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreProducto}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.cantidad}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.cantidad_actual || 0}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.cantidad_disponible || 0}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreProveedor}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreCategoria}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -554,7 +548,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     return;
                 }
                 
-                const response = await fetch(`http://localhost:8000/inventario/${id}`, {
+                const response = await fetch(`${API_URL}/productos/inventario/${id}/`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -571,7 +565,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     
                     // Llenar el formulario
                     document.getElementById('precio').value = inventario.precio;
-                    document.getElementById('cantidad').value = inventario.cantidad;
+                    document.getElementById('cantidad').value = inventario.cantidad_actual || inventario.cantidad_disponible;
+                    document.getElementById('cantidadDisponible').value = inventario.cantidad_disponible || 0;
                     
                     // Usar los datos del producto que vienen en la respuesta del inventario
                     const producto = inventario.producto;
@@ -579,7 +574,6 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     if (producto) {
                         // Llenar campos del producto
                         document.getElementById('nombreProducto').value = producto.nombre || '';
-                        document.getElementById('codigoBarras').value = producto.codigo_barras || '';
                         document.getElementById('descripcionProducto').value = producto.descripcion || '';
                         
                         // Llenar nuevos campos
@@ -613,11 +607,11 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     if (error.detail) {
                         errorMsg += ': ' + error.detail;
                     }
-                    alert(errorMsg);
+                    alert('Error en conexión del servidor');
                 }
             } catch (error) {
                 console.error('Error al cargar inventario:', error);
-                alert('Error al cargar datos del inventario: ' + error.message);
+                alert('Error en conexión del servidor');
             }
         }
 
@@ -636,7 +630,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     return;
                 }
                 
-                const response = await fetch(`http://localhost:8000/inventario/${inventarioAEliminar}`, {
+                const response = await fetch(`${API_URL}/productos/inventario/${inventarioAEliminar}/`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -668,7 +662,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     }
                     
                     console.error('Error de respuesta al eliminar inventario:', error);
-                    alert(errorMsg);
+                    alert('Error en conexión del servidor');
                 }
             } catch (error) {
                 console.error('Error al eliminar inventario:', error);
@@ -681,7 +675,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     errorMessage += ': ' + JSON.stringify(error);
                 }
                 
-                alert(errorMessage);
+                alert('Error en conexión del servidor');
             }
         }
 
@@ -692,7 +686,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             const formData = new FormData(formInventario);
             
             // Validar campos requeridos
-            const camposRequeridos = ['nombreProducto', 'categoriaProducto', 'proveedorProducto', 'precio', 'cantidad'];
+            const camposRequeridos = ['nombreProducto', 'categoriaProducto', 'proveedorProducto', 'precio', 'cantidadDisponible'];
             const camposFaltantes = [];
             
             for (const campo of camposRequeridos) {
@@ -713,13 +707,13 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     // Crear objeto de actualización para el inventario
                     const inventarioActualizado = {
                         precio: parseInt(formData.get('precio')),
-                        cantidad: parseInt(formData.get('cantidad'))
+                        cantidad: parseInt(formData.get('cantidadDisponible'))
                     };
                     
                     console.log('Actualizando inventario:', inventarioActualizado);
                     
                     // Llamar al endpoint PUT para actualizar el inventario
-                    const response = await fetch(`http://localhost:8000/inventario/${inventarioEditando.id_inventario}`, {
+                    const response = await fetch(`${API_URL}/productos/inventario/${inventarioEditando.id_inventario}/`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
@@ -733,11 +727,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     const producto = inventarioEditando.producto;
                     
                     if (producto) {
-                        const codigoBarrasUpdate = formData.get('codigoBarras');
                         const productoActualizado = {
                             nombre: nombreProducto,
                             descripcion: formData.get('descripcionProducto') || producto.descripcion,
-                            codigo_barras: codigoBarrasUpdate && codigoBarrasUpdate.trim() !== '' ? codigoBarrasUpdate.trim() : (producto.codigo_barras || null),
                             id_categoria: parseInt(formData.get('categoriaProducto')) || producto.id_categoria,
                             id_proveedor: parseInt(formData.get('proveedorProducto')) || producto.id_proveedor,
                             costo_bruto: parseInt(formData.get('costoBruto')) || producto.costo_bruto || 0,
@@ -750,7 +742,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                         console.log('Actualizando producto:', productoActualizado);
                         
                         // Llamar al endpoint PUT para actualizar el producto
-                        const productoResponse = await fetch(`http://localhost:8000/productos/${producto.id_producto}`, {
+                        const productoResponse = await fetch(`${API_URL}/productos/${producto.id_producto}/`, {
                             method: 'PUT',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -790,7 +782,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                         }
                         
                         console.error('Error de respuesta:', error);
-                        alert(errorMsg);
+                        alert('Error en conexión del servidor');
                         return;
                     }
                     
@@ -804,26 +796,25 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     // Mostrar mensaje de éxito
                     alert(`Inventario actualizado exitosamente.`);
                 } else {
-                    // Crear nuevo producto según el modelo ProductoCreate/ProductoBase actualizado
-                    const codigoBarras = formData.get('codigoBarras');
+                    // Primero crear el producto
                     const nuevoProducto = {
                         nombre: formData.get('nombreProducto'),
-                        descripcion: formData.get('descripcionProducto') || '',
-                        codigo_barras: codigoBarras && codigoBarras.trim() !== '' ? codigoBarras.trim() : null,
+                        descripcion: null,
                         id_categoria: parseInt(formData.get('categoriaProducto')) || null,
                         id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
-                        precio: parseFloat(formData.get('precio')),
-                        cantidad: parseInt(formData.get('cantidad')) || 0,
-                        costo_bruto: parseInt(formData.get('costoBruto')) || 0,
-                        costo_neto: parseInt(formData.get('costoNeto')) || 0,
-                        porcentaje_utilidad: parseInt(formData.get('porcentajeUtilidad')) || 0,
-                        utilidad_pesos: parseInt(formData.get('utilidadPesos')) || 0,
+                        costo_bruto: parseFloat(formData.get('costoBruto')) || 0,
+                        costo_neto: parseFloat(formData.get('costoNeto')) || 0,
+                        precio_venta: parseFloat(formData.get('precio')) || 0,
+                        porcentaje_utilidad: parseFloat(formData.get('porcentajeUtilidad')) || 0,
+                        utilidad_pesos: parseFloat(formData.get('utilidadPesos')) || 0,
+                        cantidad_actual: parseInt(formData.get('cantidadDisponible')) || 0,
+                        cantidad_disponible: parseInt(formData.get('cantidadDisponible')) || 0,
                         stock_minimo: parseInt(formData.get('stockMinimo')) || 0
                     };
                     
                     console.log('Enviando producto:', nuevoProducto);
                     
-                    const productoResponse = await fetch('http://localhost:8000/productos', {
+                    const productoResponse = await fetch(`${API_URL}/productos`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -865,12 +856,54 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     const productoCreado = await productoResponse.json();
                     console.log('Producto creado:', productoCreado);
                     
+                    // Ahora crear el registro de inventario
+                    const nuevoInventario = {
+                        id_producto: productoCreado.id_producto,
+                        precio: parseInt(formData.get('precio')),
+                        cantidad: parseInt(formData.get('cantidad'))
+                    };
+                    
+                    console.log('Enviando inventario:', nuevoInventario);
+                    
+                    const inventarioResponse = await fetch(`${API_URL}/productos`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        },
+                        body: JSON.stringify(nuevoInventario)
+                    });
+                    
+                    if (!inventarioResponse.ok) {
+                        const error = await inventarioResponse.json();
+                        let errorMsg = 'Error al crear inventario';
+                        
+                        if (error.detail) {
+                            if (typeof error.detail === 'string') {
+                                errorMsg += ': ' + error.detail;
+                            } else if (Array.isArray(error.detail)) {
+                                errorMsg += ': ' + error.detail.map(err => err.msg).join(', ');
+                            } else {
+                                errorMsg += ': ' + JSON.stringify(error.detail);
+                            }
+                        } else {
+                            errorMsg += ': ' + JSON.stringify(error);
+                        }
+                        
+                        console.error('Error de respuesta inventario:', error);
+                        alert(errorMsg);
+                        return;
+                    }
+                    
+                    const inventarioCreado = await inventarioResponse.json();
+                    console.log('Inventario creado:', inventarioCreado);
+                    
                     modalInventario.classList.add('hidden');
                     // Recargar inventario
                     await cargarInventario();
                     
                     // Mostrar mensaje de éxito
-                    alert(`Producto "${nuevoProducto.nombre}" creado exitosamente con inventario inicial de ${nuevoProducto.cantidad} unidades.`);
+                    alert(`Producto "${nuevoProducto.nombre}" creado exitosamente con inventario inicial de ${nuevoProducto.cantidad_disponible} unidades.`);
                 }
             } catch (error) {
                 console.error('Error al guardar inventario:', error);
@@ -883,7 +916,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     errorMessage += ': ' + JSON.stringify(error);
                 }
                 
-                alert(errorMessage);
+                alert('Error en conexión del servidor');
             }
         }
 
@@ -986,7 +1019,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 await cargarInventario();
             } catch (error) {
                 console.error('Error al cargar datos del inventario:', error);
-                alert('Error al cargar datos del inventario: ' + error.message);
+                alert('Error en conexión del servidor');
             }
         });
     </script>

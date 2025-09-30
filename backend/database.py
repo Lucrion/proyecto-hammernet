@@ -38,8 +38,8 @@ else:
 # - autoflush=False: Los cambios no se envían automáticamente a la BD
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Crear la clase base para los modelos declarativos
-Base = declarative_base()
+# Importar la clase base desde models.base para mantener consistencia
+from models.base import Base
 
 # Gestión de dependencias y acceso a datos
 # --------------------------------------

@@ -49,10 +49,11 @@ class UsuarioController:
             db.refresh(db_usuario)
             
             return Usuario(
-                id=db_usuario.id,
+                id_usuario=db_usuario.id_usuario,
                 nombre=db_usuario.nombre,
                 username=db_usuario.username,
-                role=db_usuario.role
+                role=db_usuario.role,
+                fecha_creacion=db_usuario.fecha_creacion.isoformat() if db_usuario.fecha_creacion else None
             )
             
         except IntegrityError:
@@ -83,10 +84,11 @@ class UsuarioController:
             usuarios = db.query(UsuarioDB).all()
             return [
                 Usuario(
-                    id=u.id,
+                    id_usuario=u.id_usuario,
                     nombre=u.nombre,
                     username=u.username,
-                    role=u.role
+                    role=u.role,
+                    fecha_creacion=u.fecha_creacion.isoformat() if u.fecha_creacion else None
                 ) for u in usuarios
             ]
         except Exception as e:
@@ -111,7 +113,7 @@ class UsuarioController:
             HTTPException: Si el usuario no existe
         """
         try:
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id == usuario_id).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -119,10 +121,11 @@ class UsuarioController:
                 )
             
             return Usuario(
-                id=usuario.id,
+                id_usuario=usuario.id_usuario,
                 nombre=usuario.nombre,
                 username=usuario.username,
-                role=usuario.role
+                role=usuario.role,
+                fecha_creacion=usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
             )
         except HTTPException:
             raise
@@ -149,7 +152,7 @@ class UsuarioController:
             HTTPException: Si el usuario no existe o hay error
         """
         try:
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id == usuario_id).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -170,10 +173,11 @@ class UsuarioController:
             db.refresh(usuario)
             
             return Usuario(
-                id=usuario.id,
+                id_usuario=usuario.id_usuario,
                 nombre=usuario.nombre,
                 username=usuario.username,
-                role=usuario.role
+                role=usuario.role,
+                fecha_creacion=usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
             )
             
         except HTTPException:
@@ -207,7 +211,7 @@ class UsuarioController:
             HTTPException: Si el usuario no existe o hay error
         """
         try:
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id == usuario_id).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,

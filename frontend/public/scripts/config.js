@@ -3,31 +3,31 @@
 // Detectar automáticamente el entorno (desarrollo o producción)
 const isDevelopment = typeof window !== 'undefined' 
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    : import.meta.env.MODE === 'development' || import.meta.env.PUBLIC_ENVIRONMENT === 'development';
+    : false;
 
-// URL base de la API desde variables de entorno
-export const API_URL = isDevelopment 
-    ? import.meta.env.PUBLIC_API_URL
-    : import.meta.env.PUBLIC_API_URL_PRODUCTION;
+// URL base de la API - Variables globales
+const API_URL = isDevelopment 
+    ? '/api'
+    : 'https://hammernet-backend.onrender.com';
 
-// Configuración CORS para las peticiones fetch desde variables de entorno
-export const corsConfig = {
-    credentials: import.meta.env.PUBLIC_CORS_CREDENTIALS,
+// Configuración CORS para las peticiones fetch - Variables globales
+const corsConfig = {
+    credentials: 'include',
     headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
     },
-    mode: import.meta.env.PUBLIC_CORS_MODE
+    mode: 'cors'
 };
 
-// Timeout para peticiones desde variables de entorno
-export const API_TIMEOUT = parseInt(import.meta.env.PUBLIC_API_TIMEOUT);
+// Timeout para peticiones (en milisegundos) - Variable global
+const API_TIMEOUT = 10000;
 
 /**
  * Función para verificar si el servidor está disponible
  * @returns {Promise<{available: boolean, message: string}>}
  */
-export async function checkServerAvailability() {
+async function checkServerAvailability() {
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT / 2); // Usar la mitad del timeout configurado
@@ -60,7 +60,7 @@ export async function checkServerAvailability() {
  * @param {Error} error - El error capturado
  * @returns {Object} Información estructurada del error
  */
-export function handleApiError(error) {
+function handleApiError(error) {
     console.error('Error en la API:', error);
     
     // Determinar el tipo de error

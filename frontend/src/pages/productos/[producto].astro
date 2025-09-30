@@ -29,7 +29,7 @@ try {
   const [responseProductos, responseCategorias, responseInventario] = await Promise.all([
     fetch(`${API_URL}/productos`),
     fetch(`${API_URL}/categorias`),
-    fetch(`${API_URL}/inventario`)
+    fetch(`${API_URL}/productos/inventario`)
   ]);
   
   if (!responseProductos.ok) {
@@ -67,8 +67,7 @@ try {
         imagen: p.imagen,
         categoria: nombreCategoria,
         caracteristicas: p.caracteristicas || '',
-        stock: stock,
-        codigo_barras: p.codigo_barras
+        stock: stock
       };
     })
     .filter(p => p.stock > 0); // Solo productos en stock
@@ -134,7 +133,7 @@ if (!producto) {
 							/>
 						) : (
 							<img 
-								src="/herramientas.webp" 
+								src="/images/logos/herramientas.webp" 
 								alt={producto.nombre}
 								class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
 								onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"

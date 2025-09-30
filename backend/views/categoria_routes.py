@@ -13,22 +13,14 @@ from controllers.categoria_controller import CategoriaController
 from models.categoria import Categoria, CategoriaCreate, CategoriaUpdate
 from auth import get_current_user, require_admin
 
-router = APIRouter(prefix="/categorias", tags=["Categorías"])
+router = APIRouter(prefix="/api/categorias", tags=["Categorías"])
 
 
 @router.get("/", response_model=List[Categoria])
 async def obtener_categorias(
     db: Session = Depends(get_db)
 ):
-    """
-    Obtener todas las categorías
-    
-    Args:
-        db: Sesión de base de datos
-        
-    Returns:
-        List[Categoria]: Lista de todas las categorías
-    """
+    """ Obtener todas las categorías """
     return await CategoriaController.obtener_categorias(db)
 
 
@@ -37,19 +29,7 @@ async def obtener_categoria(
     categoria_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Obtener una categoría por ID
-    
-    Args:
-        categoria_id: ID de la categoría
-        db: Sesión de base de datos
-        
-    Returns:
-        Categoria: Datos de la categoría
-        
-    Raises:
-        HTTPException: Si la categoría no existe
-    """
+    """ Obtener una categoría por ID """
     return await CategoriaController.obtener_categoria(categoria_id, db)
 
 
@@ -59,20 +39,7 @@ async def crear_categoria(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
-    """
-    Crear una nueva categoría (solo administradores)
-    
-    Args:
-        categoria: Datos de la categoría a crear
-        db: Sesión de base de datos
-        current_user: Usuario actual (debe ser admin)
-        
-    Returns:
-        Categoria: Categoría creada
-        
-    Raises:
-        HTTPException: Si hay errores en la creación
-    """
+    """ Crear una nueva categoría (solo administradores) """
     return await CategoriaController.crear_categoria(categoria, db)
 
 
@@ -83,21 +50,7 @@ async def actualizar_categoria(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
-    """
-    Actualizar una categoría (solo administradores)
-    
-    Args:
-        categoria_id: ID de la categoría a actualizar
-        categoria: Datos actualizados de la categoría
-        db: Sesión de base de datos
-        current_user: Usuario actual (debe ser admin)
-        
-    Returns:
-        Categoria: Categoría actualizada
-        
-    Raises:
-        HTTPException: Si hay errores en la actualización
-    """
+    """ Actualizar una categoría (solo administradores) """
     return await CategoriaController.actualizar_categoria(categoria_id, categoria, db)
 
 
@@ -107,18 +60,5 @@ async def eliminar_categoria(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
-    """
-    Eliminar una categoría (solo administradores)
-    
-    Args:
-        categoria_id: ID de la categoría a eliminar
-        db: Sesión de base de datos
-        current_user: Usuario actual (debe ser admin)
-        
-    Returns:
-        dict: Mensaje de confirmación
-        
-    Raises:
-        HTTPException: Si hay errores en la eliminación
-    """
+    """ Eliminar una categoría (solo administradores) """
     return await CategoriaController.eliminar_categoria(categoria_id, db)

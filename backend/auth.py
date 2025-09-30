@@ -34,9 +34,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Configuración de JWT (JSON Web Tokens)
 # La clave secreta debe ser segura y cambiada en producción
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "clave_por_defecto_desarrollo_no_usar_en_produccion")
 ALGORITHM = "HS256"  # Algoritmo de firma HMAC-SHA256
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 # Configuración del esquema OAuth2 para FastAPI
 # Esto permite usar el endpoint 'login' para obtener tokens

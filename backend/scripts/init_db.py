@@ -1,10 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import get_db, Base, engine
 from models import UsuarioDB
 from auth import hash_contraseña
-import os
 from dotenv import load_dotenv
 
 # Cargar variables de entorno

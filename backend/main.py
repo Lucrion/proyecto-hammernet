@@ -20,7 +20,6 @@ from views.usuario_routes import router as usuario_router
 from views.categoria_routes import router as categoria_router
 from views.proveedor_routes import router as proveedor_router
 from views.producto_routes import router as producto_router
-from views.inventario_routes import router as inventario_router
 from views.mensaje_routes import router as mensaje_router
 
 # Verificar que las variables de entorno de Cloudinary estén configuradas
@@ -68,6 +67,7 @@ app.add_middleware(
 
 # Endpoint de salud del sistema
 @app.get("/health", tags=["Sistema"])
+@app.get("/api/health", tags=["Sistema"])
 async def health_check():
     """
     Endpoint para verificar el estado de la API
@@ -81,14 +81,16 @@ async def health_check():
         "version": "1.0.0"
     }
 
-# Incluir todas las rutas organizadas
+# Incluir las rutas en la aplicación
 app.include_router(auth_router)
 app.include_router(usuario_router)
 app.include_router(categoria_router)
 app.include_router(proveedor_router)
 app.include_router(producto_router)
-app.include_router(inventario_router)
 app.include_router(mensaje_router)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Obtener configuración del servidor desde variables de entorno
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run("main:app", host=host, port=port, reload=True)

@@ -134,15 +134,49 @@ function configurarEventos() {
 // Cargar productos desde la API
 async function cargarProductos() {
     try {
+        // Verificar si hay token de autenticación
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.warn('No hay token de autenticación, redirigiendo al login');
+            window.location.href = '/login';
+            return;
+        }
+
         // Mostrar indicador de carga
         mostrarCargando();
 
-        // Obtener datos de las nuevas tablas
+        // Obtener datos de las nuevas tablas con autenticación
         const [responseProductos, responseCategorias, responseInventario] = await Promise.all([
-            fetch(`${API_URL}/productos`),
-            fetch(`${API_URL}/categorias`),
-            fetch(`${API_URL}/inventario`)
+            fetch(`${API_URL}/productos/`, {
+                method: 'GET',
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            }),
+            fetch(`${API_URL}/categorias/`, {
+                method: 'GET',
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            }),
+            fetch(`${API_URL}/productos/inventario`, {
+                method: 'GET',
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
         ]);
+
+        // Verificar si alguna respuesta indica token expirado
+        if (responseProductos.status === 401 || responseCategorias.status === 401 || responseInventario.status === 401) {
+            console.warn('Token expirado, redirigiendo al login');
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            return;
+        }
 
         if (!responseProductos.ok) {
             throw new Error(`Error al obtener productos: ${responseProductos.status}`);

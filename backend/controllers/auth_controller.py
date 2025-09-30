@@ -53,7 +53,7 @@ class AuthController:
             return Token(
                 access_token=token,
                 token_type="bearer",
-                id=usuario.id,
+                id_usuario=usuario.id_usuario,
                 nombre=usuario.nombre,
                 username=usuario.username,
                 role=usuario.role

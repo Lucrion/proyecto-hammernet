@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-Modelos relacionados con productos
+Modelos relacionados con productos (unificado con inventario)
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, DECIMAL, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
@@ -15,51 +15,70 @@ from .base import Base
 
 
 class ProductoDB(Base):
-    """Modelo de base de datos para productos"""
+    """Modelo de base de datos para productos unificado con inventario"""
     __tablename__ = "productos"
     
     id_producto = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(150), nullable=False)
-    descripcion = Column(String(1000), nullable=True)
+    
+    # Información básica del producto
+    nombre = Column(String(200), nullable=False)
+    descripcion = Column(String, nullable=True)
     codigo_interno = Column(String(50), unique=True, nullable=True)
-    codigo_barras = Column(String(50), unique=True, nullable=True)
     imagen_url = Column(String(500), nullable=True)
-    id_categoria = Column(Integer, ForeignKey("categorias.id_categoria"), nullable=True)
+    id_categoria = Column(Integer, ForeignKey("categorias.id_categoria"), nullable=False)
     id_proveedor = Column(Integer, ForeignKey("proveedores.id_proveedor"), nullable=True)
+    marca = Column(String(100), nullable=True)
+    
+    # Información de costos y precios
+    costo_bruto = Column(DECIMAL(12,2), default=0, nullable=False)
+    costo_neto = Column(DECIMAL(12,2), default=0, nullable=False)
+    precio_venta = Column(DECIMAL(12,2), default=0, nullable=False)
+    porcentaje_utilidad = Column(DECIMAL(5,2), default=0, nullable=True)
+    utilidad_pesos = Column(DECIMAL(12,2), default=0, nullable=True)
+    
+    # Información de inventario (integrada)
+    cantidad_actual = Column(Integer, default=0, nullable=False)
+    cantidad_disponible = Column(Integer, default=0, nullable=False)
+    stock_minimo = Column(Integer, default=0, nullable=False)
+    
+    # Estados y fechas
     estado = Column(String(20), default="activo", nullable=False)
     fecha_creacion = Column(DateTime, default=func.now())
-    
-    # Campos de costos y utilidad
-    costo_bruto = Column(Integer, nullable=True)
-    costo_neto = Column(Integer, nullable=True)
-    porcentaje_utilidad = Column(Integer, nullable=True)  # %utilidad
-    utilidad_pesos = Column(Integer, nullable=True)  # Utilidad en $
-    cantidad_actual = Column(Integer, default=0, nullable=False)
-    stock_minimo = Column(Integer, default=0, nullable=False)
+    fecha_actualizacion = Column(DateTime, default=func.now())
+    fecha_ultima_venta = Column(DateTime, nullable=True)
+    fecha_ultimo_ingreso = Column(DateTime, nullable=True)
     
     # Relaciones
     categoria = relationship("CategoriaDB", back_populates="productos")
     proveedor = relationship("ProveedorDB", back_populates="productos")
-    inventarios = relationship("InventarioDB", back_populates="producto")
 
 
 # Modelos Pydantic para validación y serialización
 
 class ProductoBase(BaseModel):
-    """Modelo base para producto"""
+    """Modelo base para producto unificado"""
     nombre: str
     descripcion: Optional[str] = None
-    codigo_barras: Optional[str] = None
+    codigo_interno: Optional[str] = None
     imagen_url: Optional[str] = None
-    id_categoria: Optional[int] = None
+    id_categoria: int
     id_proveedor: Optional[int] = None
-    estado: Optional[str] = "activo"
-    costo_bruto: Optional[int] = None
-    costo_neto: Optional[int] = None
-    porcentaje_utilidad: Optional[int] = None
-    utilidad_pesos: Optional[int] = None
+    marca: Optional[str] = None
+    
+    # Costos y precios
+    costo_bruto: Optional[float] = 0
+    costo_neto: Optional[float] = 0
+    precio_venta: float
+    porcentaje_utilidad: Optional[float] = 0
+    utilidad_pesos: Optional[float] = 0
+    
+    # Inventario
     cantidad_actual: Optional[int] = 0
+    cantidad_disponible: Optional[int] = 0
     stock_minimo: Optional[int] = 0
+    
+    # Estado
+    estado: Optional[str] = "activo"
 
 
 class ProductoCreate(ProductoBase):
@@ -72,26 +91,36 @@ class ProductoUpdate(BaseModel):
     nombre: Optional[str] = None
     descripcion: Optional[str] = None
     codigo_interno: Optional[str] = None
-    codigo_barras: Optional[str] = None
     imagen_url: Optional[str] = None
     id_categoria: Optional[int] = None
     id_proveedor: Optional[int] = None
-    estado: Optional[str] = None
-    costo_bruto: Optional[int] = None
-    costo_neto: Optional[int] = None
-    porcentaje_utilidad: Optional[int] = None
-    utilidad_pesos: Optional[int] = None
+    marca: Optional[str] = None
+    
+    # Costos y precios
+    costo_bruto: Optional[float] = None
+    costo_neto: Optional[float] = None
+    precio_venta: Optional[float] = None
+    porcentaje_utilidad: Optional[float] = None
+    utilidad_pesos: Optional[float] = None
+    
+    # Inventario
     cantidad_actual: Optional[int] = None
+    cantidad_disponible: Optional[int] = None
     stock_minimo: Optional[int] = None
+    
+    # Estado
+    estado: Optional[str] = None
 
 
 class Producto(ProductoBase):
-    """Modelo para respuesta de producto"""
+    """Modelo completo de producto con información de inventario"""
     id_producto: int
-    codigo_interno: Optional[str] = None
-    fecha_creacion: Optional[str] = None
-    categoria: Optional[str] = None  # Cambiado a string
-    proveedor: Optional[str] = None  # Cambiado a string
+    fecha_creacion: Optional[datetime] = None
+    fecha_actualizacion: Optional[datetime] = None
+    fecha_ultima_venta: Optional[datetime] = None
+    fecha_ultimo_ingreso: Optional[datetime] = None
+    categoria: Optional[str] = None  # Nombre de la categoría
+    proveedor: Optional[str] = None  # Nombre del proveedor
     
     class Config:
         orm_mode = True
@@ -100,53 +129,15 @@ class Producto(ProductoBase):
         }
 
 
-# Modelos adicionales para compatibilidad
-
-class ProductoNuevoBase(BaseModel):
-    """Modelo base para producto nuevo (compatibilidad)"""
-    nombre: str
-    descripcion: Optional[str] = None
-    codigo_barras: Optional[str] = None
-    imagen_url: Optional[str] = None
-    id_categoria: Optional[int] = None
-    id_proveedor: Optional[int] = None
-    estado: Optional[str] = "activo"
-    costo_bruto: Optional[int] = None
-    costo_neto: Optional[int] = None
-    porcentaje_utilidad: Optional[int] = None
-    utilidad_pesos: Optional[int] = None
-    cantidad_actual: Optional[int] = 0
-    stock_minimo: Optional[int] = 0
-
-
-class ProductoNuevoCreate(ProductoNuevoBase):
-    """Modelo para crear producto nuevo"""
-    pass
-
-
-class ProductoNuevoUpdate(BaseModel):
-    """Modelo para actualizar producto nuevo"""
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
-    codigo_barras: Optional[str] = None
-    imagen_url: Optional[str] = None
-    id_categoria: Optional[int] = None
-    id_proveedor: Optional[int] = None
-    estado: Optional[str] = None
-    costo_bruto: Optional[int] = None
-    costo_neto: Optional[int] = None
-    porcentaje_utilidad: Optional[int] = None
-    utilidad_pesos: Optional[int] = None
-    cantidad_actual: Optional[int] = None
-    stock_minimo: Optional[int] = None
-
-
-class ProductoNuevo(ProductoNuevoBase):
-    """Modelo de respuesta para producto nuevo"""
+# Modelo de compatibilidad para inventario (mantener para endpoints existentes)
+class ProductoInventario(BaseModel):
+    """Modelo de compatibilidad para inventario"""
+    id_inventario: int  # Será igual a id_producto
     id_producto: int
-    fecha_creacion: Optional[str] = None
-    categoria: Optional[dict] = None
-    proveedor: Optional[dict] = None
+    precio: float  # Será precio_venta
+    cantidad: int  # Será cantidad_actual
+    fecha_registro: Optional[str] = None  # Será fecha_creacion
+    producto: Optional[dict] = None
     
     class Config:
         orm_mode = True

@@ -1,7 +1,3 @@
-// Importar configuración de la API
-// Nota: En el contexto de public, necesitamos replicar la lógica de config.js
-// ya que no podemos usar imports ES6 directamente
-
 // Estado global
 const state = {
     token: localStorage.getItem('token'),
@@ -30,12 +26,12 @@ const API_URL = isDevelopment
 
 const API_TIMEOUT = parseInt(getEnvVar('PUBLIC_API_TIMEOUT'));
 
-// Función para formatear precios con puntos como separador de miles (formato chileno)
+// Función para formatear precios con puntos como separador
 function formatearPrecio(precio) {
     return precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-// Inicializar AOS si está disponible
+// Inicializar animacion si esta disponible
 if (typeof AOS !== 'undefined') {
     AOS.init({
         duration: 1000,
@@ -46,29 +42,54 @@ if (typeof AOS !== 'undefined') {
 // Función para cargar productos destacados
 async function cargarProductosDestacados() {
     try {
+        // Verificar si hay token de autenticación
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.warn('No hay token de autenticación, redirigiendo al login');
+            window.location.href = '/login';
+            return;
+        }
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
         
-        // Cargar datos de productos, categorías e inventario por separado
+        // Cargar datos de productos, categorías e inventario por separado con autenticación
         const [productosResponse, categoriasResponse, inventarioResponse] = await Promise.all([
-            fetch(`${API_URL}/productos`, {
+            fetch(`${API_URL}/productos/`, {
                 signal: controller.signal,
                 method: 'GET',
-                headers: { 'Accept': 'application/json' }
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
             }),
-            fetch(`${API_URL}/categorias`, {
+            fetch(`${API_URL}/categorias/`, {
                 signal: controller.signal,
                 method: 'GET',
-                headers: { 'Accept': 'application/json' }
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
             }),
-            fetch(`${API_URL}/inventario`, {
+            fetch(`${API_URL}/productos/inventario`, {
                 signal: controller.signal,
                 method: 'GET',
-                headers: { 'Accept': 'application/json' }
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
             })
         ]);
         
         clearTimeout(timeoutId);
+        
+        // Verificar si alguna respuesta indica token expirado
+        if (productosResponse.status === 401 || categoriasResponse.status === 401 || inventarioResponse.status === 401) {
+            console.warn('Token expirado, redirigiendo al login');
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            return;
+        }
         
         if (!productosResponse.ok || !categoriasResponse.ok || !inventarioResponse.ok) {
             throw new Error('Error al cargar datos');
@@ -89,7 +110,7 @@ async function cargarProductosDestacados() {
                 descripcion: producto.descripcion,
                 imagen: '/logo.webp', // Imagen por defecto
                 precio: stock ? stock.precio : 0,
-                stock: stock ? stock.cantidad : 0,
+                stock: stock ? stock.cantidad_disponible : 0,
                 categoria: categoria ? categoria.nombre : 'Sin categoría'
             };
         }).filter(p => p.stock > 0); // Solo productos con stock
@@ -229,14 +250,14 @@ async function login(event) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
         
-        const response = await fetch(`${API_URL}/login`, {
+        const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/json'
             },
-            body: new URLSearchParams({
-                'username': formData.get('username'),
-                'password': formData.get('password')
+            body: JSON.stringify({
+                username: formData.get('username'),
+                password: formData.get('password')
             }),
             signal: controller.signal
         });

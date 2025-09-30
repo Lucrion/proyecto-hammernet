@@ -2,12 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 Script de configuración para PostgreSQL en producción
-
-Este script se encarga de:
 1. Crear todas las tablas necesarias en PostgreSQL
 2. Verificar la conexión a la base de datos
 3. Crear el usuario administrador inicial
-4. Configurar índices y restricciones
 """
 
 import os
@@ -103,9 +100,6 @@ def main():
         print("❌ ERROR: Variable DATABASE_URL no configurada")
         sys.exit(1)
     
-    if 'postgres' not in database_url.lower():
-        print("⚠️  ADVERTENCIA: La URL no parece ser de PostgreSQL")
-    
     print(f"🔗 Conectando a: {database_url[:30]}...")
     
     # Paso 1: Verificar conexión
@@ -124,8 +118,6 @@ def main():
         sys.exit(1)
     
     print("=" * 60)
-    print("🎉 Configuración de PostgreSQL completada exitosamente")
-    print("📝 La base de datos está lista para producción")
-
+    print("Configuración de PostgreSQL completada exitosamente")
 if __name__ == '__main__':
     main()

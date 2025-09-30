@@ -83,7 +83,7 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
         // Función para obtener todos los mensajes
         async function obtenerMensajes() {
             try {
-                mensajes = await getData('/mensajes');
+                mensajes = await getData('/mensajes/');
                 if (mensajes && Array.isArray(mensajes)) {
                     cargarMensajes();
                 } else {
@@ -236,7 +236,7 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
                 // Si el mensaje no está leído, marcarlo como leído
                 if (!mensaje.leido) {
                     try {
-                        await updateData(`/mensajes/${id}/leer`, {});
+                        await updateData(`/mensajes/${id}/marcar-leido/`, {});
                         obtenerMensajes(); // Actualizar la lista de mensajes
                         mostrarNotificacion('Mensaje marcado como leído', 'success');
                     } catch (error) {
@@ -272,7 +272,7 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
                     button.disabled = true;
                     button.textContent = 'Eliminando...';
                     
-                    await deleteData(`/mensajes/${id}`);
+                    await deleteData(`/mensajes/${id}/`);
                     mostrarNotificacion('Mensaje eliminado correctamente', 'success');
                     obtenerMensajes(); // Actualizar la lista de mensajes
                 } catch (error) {

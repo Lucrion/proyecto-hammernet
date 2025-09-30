@@ -8,7 +8,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 		<meta charset="UTF-8" />
 		<meta name="description" content="Ferretería Patricio - Herramientas y materiales de construcción">
 		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/logo_bn.webp" />
+		<link rel="icon" type="image/svg+xml" href="/images/logos/logo_bn.webp" />
 		<title>Iniciar Sesión - Ferretería Patricio</title>
 		<EnvLoader />
 		<script src="https://unpkg.com/htmx.org@1.9.9" integrity="sha384-QFjmbokDn2DjBjq+fM+8LUIVrAgqcNW2s0PjAxHETgRn9l4fvX31ZxDxvwQnyMOX" crossorigin="anonymous"></script>
@@ -24,14 +24,14 @@ import EnvLoader from '../components/EnvLoader.astro';
 		</a>
 		<!-- Logo Section -->
 		<div class="w-1/2 bg-[#2B5BA9] flex items-center justify-center">
-			<img src="/logo_bn.webp" alt="Ferretería Patricio" class="w-164 h-164">
+			<img src="/images/logos/logo_bn.webp" alt="Ferretería Patricio" class="w-164 h-164">
 		</div>
 
 		<!-- Login Form Section -->
 		<div class="w-1/2 bg-white flex items-center justify-center p-12">
 			<div class="w-full max-w-md">
-				<div class="flex justify mb-8">
-					<img src="/hammernet.webp" alt="Hammernet" class="h-20">
+				<div class="flex justify-center mb-8">
+					<img src="/images/logos/hammernet.webp" alt="Hammernet" class="h-20">
 				</div>
 
 				<h2 class="text-2xl font-semibold text-gray-900 mb-8">Inicio de sesión</h2>
@@ -111,15 +111,15 @@ import EnvLoader from '../components/EnvLoader.astro';
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT / 2);
 			
-			const response = await fetch(`${API_URL}/docs`, {
-				method: 'HEAD',
+			const response = await fetch(`${API_URL}/health`, {
+				method: 'GET',
 				signal: controller.signal
 			});
 			
 			clearTimeout(timeoutId);
 			
 			return {
-				available: true,
+				available: response.ok,
 				message: 'Servidor disponible'
 			};
 		} catch (error) {
