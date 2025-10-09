@@ -1,0 +1,10 @@
+{
+  "nombre": "Test Product",
+  "id_categoria": 1,
+  "id_proveedor": null,
+  "precio_venta": 100.0,
+  "costo_bruto": 80.0,
+  "costo_neto": 75.0,
+  "cantidad_disponible": 10,
+  "stock_minimo": 5
+}

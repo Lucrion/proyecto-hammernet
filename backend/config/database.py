@@ -26,12 +26,23 @@ if DATABASE_URL and "postgres" in DATABASE_URL:
     )
 else:
     # Configuración para SQLite en desarrollo local
-    import os
-    db_path = os.path.join(os.path.dirname(__file__), 'ferreteria.db')
-    engine = create_engine(
-        f"sqlite:///{db_path}",
-        connect_args={"check_same_thread": False}
-    )
+    # Usar la URL del .env si está disponible, sino usar ruta por defecto
+    if DATABASE_URL and DATABASE_URL.startswith('sqlite:///'):
+        # Usar la URL del .env tal como está configurada
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False}
+        )
+    else:
+        # Fallback a la ruta por defecto en la raíz del backend
+        import os
+        # Usar la raíz del proyecto backend en lugar de la carpeta config
+        backend_root = os.path.dirname(os.path.dirname(__file__))
+        db_path = os.path.join(backend_root, 'ferreteria.db')
+        engine = create_engine(
+            f"sqlite:///{db_path}",
+            connect_args={"check_same_thread": False}
+        )
 
 # Configurar la fábrica de sesiones
 # - autocommit=False: Las transacciones deben confirmarse explícitamente

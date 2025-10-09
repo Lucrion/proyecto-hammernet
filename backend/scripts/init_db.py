@@ -2,9 +2,9 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import get_db, Base, engine
+from config.database import get_db, Base, engine
 from models import UsuarioDB
-from auth import hash_contraseña
+from core.auth import hash_contraseña
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -14,6 +14,7 @@ def create_admin_user():
     try:
         # Crear las tablas si no existen
         Base.metadata.create_all(bind=engine)
+        print("📋 Tablas verificadas en init_db.py")
         
         # Obtener sesión de base de datos
         db = next(get_db())

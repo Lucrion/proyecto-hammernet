@@ -118,8 +118,10 @@ El sistema utiliza JWT (JSON Web Tokens) para la autenticación:
 
 ## Base de Datos
 
-- **Desarrollo**: SQLite (`db/ferreteria.db`)
+- **Desarrollo**: SQLite (`config/ferreteria.db`)
 - **Producción**: PostgreSQL (configurado en Render)
+
+El sistema está configurado para usar únicamente SQLite en desarrollo local y PostgreSQL en producción. No se utilizan otras bases de datos como MySQL, MongoDB, Redis, etc.
 
 ## Deployment
 

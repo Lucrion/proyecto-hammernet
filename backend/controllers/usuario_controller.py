@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List
 from models.usuario import UsuarioDB, UsuarioCreate, UsuarioUpdate, Usuario
-from auth import hash_contraseña
+from core.auth import hash_contraseña
 
 
 class UsuarioController:
@@ -53,6 +53,7 @@ class UsuarioController:
                 nombre=db_usuario.nombre,
                 username=db_usuario.username,
                 role=db_usuario.role,
+                activo=db_usuario.activo,
                 fecha_creacion=db_usuario.fecha_creacion.isoformat() if db_usuario.fecha_creacion else None
             )
             
@@ -72,29 +73,41 @@ class UsuarioController:
     @staticmethod
     async def obtener_usuarios(db: Session) -> List[Usuario]:
         """
-        Obtiene todos los usuarios
+        Obtiene todos los usuarios activos
         
         Args:
             db: Sesión de base de datos
             
         Returns:
-            List[Usuario]: Lista de usuarios
+            List[Usuario]: Lista de usuarios activos
         """
         try:
-            usuarios = db.query(UsuarioDB).all()
-            return [
-                Usuario(
-                    id_usuario=u.id_usuario,
-                    nombre=u.nombre,
-                    username=u.username,
-                    role=u.role,
-                    fecha_creacion=u.fecha_creacion.isoformat() if u.fecha_creacion else None
-                ) for u in usuarios
-            ]
+            usuarios = db.query(UsuarioDB).filter(UsuarioDB.activo == True).all()
+            return usuarios
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error al obtener usuarios: {str(e)}"
+            )
+
+    @staticmethod
+    async def obtener_usuarios_desactivados(db: Session) -> List[Usuario]:
+        """
+        Obtiene todos los usuarios desactivados
+        
+        Args:
+            db: Sesión de base de datos
+            
+        Returns:
+            List[Usuario]: Lista de usuarios desactivados
+        """
+        try:
+            usuarios = db.query(UsuarioDB).filter(UsuarioDB.activo == False).all()
+            return usuarios
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al obtener usuarios desactivados: {str(e)}"
             )
     
     @staticmethod
@@ -120,13 +133,7 @@ class UsuarioController:
                     detail="Usuario no encontrado"
                 )
             
-            return Usuario(
-                id_usuario=usuario.id_usuario,
-                nombre=usuario.nombre,
-                username=usuario.username,
-                role=usuario.role,
-                fecha_creacion=usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
-            )
+            return usuario
         except HTTPException:
             raise
         except Exception as e:
@@ -177,6 +184,7 @@ class UsuarioController:
                 nombre=usuario.nombre,
                 username=usuario.username,
                 role=usuario.role,
+                activo=usuario.activo,
                 fecha_creacion=usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
             )
             
@@ -198,7 +206,7 @@ class UsuarioController:
     @staticmethod
     async def eliminar_usuario(usuario_id: int, db: Session) -> dict:
         """
-        Elimina un usuario
+        Desactiva un usuario (eliminación lógica)
         
         Args:
             usuario_id: ID del usuario
@@ -218,10 +226,11 @@ class UsuarioController:
                     detail="Usuario no encontrado"
                 )
             
-            db.delete(usuario)
+            # Desactivar usuario en lugar de eliminarlo
+            usuario.activo = False
             db.commit()
             
-            return {"message": "Usuario eliminado exitosamente"}
+            return {"message": "Usuario desactivado exitosamente"}
             
         except HTTPException:
             raise
@@ -229,5 +238,50 @@ class UsuarioController:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error al eliminar usuario: {str(e)}"
+                detail=f"Error al desactivar usuario: {str(e)}"
+            )
+
+    @staticmethod
+    async def eliminar_usuario_permanente(usuario_id: int, db: Session) -> dict:
+        """
+        Elimina permanentemente un usuario de la base de datos
+        
+        Args:
+            usuario_id: ID del usuario
+            db: Sesión de base de datos
+            
+        Returns:
+            dict: Mensaje de confirmación
+            
+        Raises:
+            HTTPException: Si el usuario no existe o hay error
+        """
+        try:
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
+            if not usuario:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado"
+                )
+            
+            # Verificar que el usuario esté desactivado antes de eliminar permanentemente
+            if usuario.activo:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Solo se pueden eliminar permanentemente usuarios desactivados"
+                )
+            
+            # Eliminar usuario permanentemente
+            db.delete(usuario)
+            db.commit()
+            
+            return {"message": "Usuario eliminado permanentemente"}
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al eliminar usuario permanentemente: {str(e)}"
             )

@@ -5,7 +5,7 @@
 Modelos relacionados con usuarios
 """
 
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
@@ -23,9 +23,12 @@ class UsuarioDB(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     password = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)
+    activo = Column(Boolean, default=True, nullable=False)
     fecha_creacion = Column(DateTime, default=func.now())
     
     # Relaciones
+    ventas = relationship("VentaDB", back_populates="usuario")
+    movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="usuario")
 
 
 # Modelos Pydantic para validación y serialización
@@ -53,10 +56,11 @@ class UsuarioUpdate(BaseModel):
 class Usuario(UsuarioBase):
     """Modelo completo para usuario"""
     id_usuario: int
+    activo: Optional[bool] = True
     fecha_creacion: Optional[str] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UsuarioLogin(BaseModel):

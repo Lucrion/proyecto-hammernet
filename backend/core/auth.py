@@ -25,7 +25,7 @@ from fastapi.security import OAuth2PasswordBearer
 from typing import Optional
 import json
 import os
-from database import get_db
+from config.database import get_db
 from sqlalchemy.orm import Session
 
 # Configuración del hash de contraseñas usando bcrypt

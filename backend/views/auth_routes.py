@@ -8,7 +8,7 @@ Rutas de autenticación
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from database import get_db
+from config.database import get_db
 from controllers.auth_controller import AuthController
 from models.usuario import Token
 

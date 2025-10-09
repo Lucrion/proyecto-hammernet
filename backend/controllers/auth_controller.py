@@ -10,7 +10,7 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from models.usuario import UsuarioDB, Token
-from auth import verificar_contraseña, crear_token
+from core.auth import verificar_contraseña, crear_token
 
 
 class AuthController:
@@ -38,6 +38,13 @@ class AuthController:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Credenciales incorrectas"
+                )
+            
+            # Verificar que el usuario esté activo
+            if not usuario.activo:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Usuario desactivado"
                 )
             
             # Verificar contraseña

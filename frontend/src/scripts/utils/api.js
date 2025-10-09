@@ -9,14 +9,16 @@ import { API_URL, corsConfig, handleApiError } from './config.js';
  */
 export async function fetchWithAuth(endpoint, options = {}) {
     try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No hay token de autenticación');
-        }
+        // TODO: Reactivar validación de token después del desarrollo
+        // const token = localStorage.getItem('token');
+        // if (!token) {
+        //     throw new Error('No hay token de autenticación');
+        // }
         
         // Crear headers con autenticación
         const headers = options.headers || {};
-        headers['Authorization'] = `Bearer ${token}`;
+        // TODO: Reactivar autorización
+        // headers['Authorization'] = `Bearer ${token}`;
         
         // Si no es FormData, agregar Content-Type
         if (!(options.body instanceof FormData) && !headers['Content-Type']) {
@@ -51,17 +53,19 @@ export async function fetchWithAuth(endpoint, options = {}) {
  */
 export async function getData(endpoint) {
     try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No hay token de autenticación');
-        }
+        // TODO: Reactivar validación de token después del desarrollo
+        // const token = localStorage.getItem('token');
+        // if (!token) {
+        //     throw new Error('No hay token de autenticación');
+        // }
         
         // Verificar si el endpoint ya incluye la URL base
         const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                // TODO: Reactivar autorización
+                // 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }
@@ -87,17 +91,19 @@ export async function getData(endpoint) {
  */
 export async function postData(endpoint, data) {
     try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No hay token de autenticación');
-        }
+        // TODO: Reactivar validación de token después del desarrollo
+        // const token = localStorage.getItem('token');
+        // if (!token) {
+        //     throw new Error('No hay token de autenticación');
+        // }
         
         // Verificar si el endpoint ya incluye la URL base
         const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                // TODO: Reactivar autorización
+                // 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
@@ -124,29 +130,51 @@ export async function postData(endpoint, data) {
  */
 export async function updateData(endpoint, data) {
     try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No hay token de autenticación');
-        }
+        console.log('=== updateData INICIADO ===');
+        console.log('Endpoint:', endpoint);
+        console.log('Data:', data);
+        
+        // TODO: Reactivar validación de token después del desarrollo
+        // const token = localStorage.getItem('token');
+        // if (!token) {
+        //     throw new Error('No hay token de autenticación');
+        // }
         
         // Verificar si el endpoint ya incluye la URL base
         const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
-        const response = await fetch(url, {
+        console.log('URL completa:', url);
+        
+        const requestOptions = {
             method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                // TODO: Reactivar autorización
+                // 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
             body: JSON.stringify(data)
+        };
+        
+        console.log('Opciones de petición:', requestOptions);
+        console.log('Body serializado:', JSON.stringify(data));
+        
+        const response = await fetch(url, requestOptions);
+        
+        console.log('Respuesta recibida:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok
         });
         
         if (!response.ok) {
             const errorText = await response.text();
+            console.error('Error en respuesta:', errorText);
             throw new Error(`Error ${response.status}: ${errorText}`);
         }
         
-        return await response.json();
+        const result = await response.json();
+        console.log('Resultado parseado:', result);
+        return result;
     } catch (error) {
         console.error(`Error al actualizar datos en ${endpoint}:`, error);
         throw error;
@@ -160,17 +188,19 @@ export async function updateData(endpoint, data) {
  */
 export async function deleteData(endpoint) {
     try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('No hay token de autenticación');
-        }
+        // TODO: Reactivar validación de token después del desarrollo
+        // const token = localStorage.getItem('token');
+        // if (!token) {
+        //     throw new Error('No hay token de autenticación');
+        // }
         
         // Verificar si el endpoint ya incluye la URL base
         const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
         const response = await fetch(url, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                // TODO: Reactivar autorización
+                // 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }

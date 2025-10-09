@@ -37,12 +37,13 @@ class ProductoDB(Base):
     utilidad_pesos = Column(DECIMAL(12,2), default=0, nullable=True)
     
     # Información de inventario (integrada)
-    cantidad_actual = Column(Integer, default=0, nullable=False)
     cantidad_disponible = Column(Integer, default=0, nullable=False)
     stock_minimo = Column(Integer, default=0, nullable=False)
     
     # Estados y fechas
     estado = Column(String(20), default="activo", nullable=False)
+    en_catalogo = Column(Boolean, default=False, nullable=False)  # Nuevo campo para indicar si está en catálogo público
+    caracteristicas = Column(String, nullable=True)  # Nuevo campo para características del producto
     fecha_creacion = Column(DateTime, default=func.now())
     fecha_actualizacion = Column(DateTime, default=func.now())
     fecha_ultima_venta = Column(DateTime, nullable=True)
@@ -51,6 +52,8 @@ class ProductoDB(Base):
     # Relaciones
     categoria = relationship("CategoriaDB", back_populates="productos")
     proveedor = relationship("ProveedorDB", back_populates="productos")
+    detalles_venta = relationship("DetalleVentaDB", back_populates="producto")
+    movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="producto")
 
 
 # Modelos Pydantic para validación y serialización
@@ -73,12 +76,13 @@ class ProductoBase(BaseModel):
     utilidad_pesos: Optional[float] = 0
     
     # Inventario
-    cantidad_actual: Optional[int] = 0
     cantidad_disponible: Optional[int] = 0
     stock_minimo: Optional[int] = 0
     
     # Estado
     estado: Optional[str] = "activo"
+    en_catalogo: Optional[bool] = False  # Nuevo campo para indicar si está en catálogo público
+    caracteristicas: Optional[str] = None  # Nuevo campo para características del producto
 
 
 class ProductoCreate(ProductoBase):
@@ -104,12 +108,13 @@ class ProductoUpdate(BaseModel):
     utilidad_pesos: Optional[float] = None
     
     # Inventario
-    cantidad_actual: Optional[int] = None
     cantidad_disponible: Optional[int] = None
     stock_minimo: Optional[int] = None
     
     # Estado
     estado: Optional[str] = None
+    en_catalogo: Optional[bool] = None  # Nuevo campo para indicar si está en catálogo público
+    caracteristicas: Optional[str] = None  # Nuevo campo para características del producto
 
 
 class Producto(ProductoBase):
@@ -135,7 +140,7 @@ class ProductoInventario(BaseModel):
     id_inventario: int  # Será igual a id_producto
     id_producto: int
     precio: float  # Será precio_venta
-    cantidad: int  # Será cantidad_actual
+    cantidad: int  # Será cantidad_disponible
     fecha_registro: Optional[str] = None  # Será fecha_creacion
     producto: Optional[dict] = None
     

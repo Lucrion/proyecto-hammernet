@@ -131,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Admin Index - Estado de autenticación:', isLoggedIn);
     console.log('Admin Index - Token:', token ? 'Token presente' : 'Token ausente');
     
+    // Validación de autenticación reactivada
     if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
         console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
         // Redirigir al login si no está autenticado o no tiene token

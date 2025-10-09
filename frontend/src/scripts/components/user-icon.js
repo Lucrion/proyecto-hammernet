@@ -48,71 +48,87 @@ document.addEventListener('DOMContentLoaded', function() {
                 userIconContainer.style.transform = 'translateX(-100%) scale(0.8)';
                 userIconContainer.style.opacity = '0';
                 
-                // Deslizar el botón de login desde la derecha con fade in
                 setTimeout(() => {
+                    userIconContainer.style.display = 'none';
+                    
+                    // Mostrar el botón de login desde la derecha
+                    loginButtonContainer.style.display = 'block';
+                    loginButtonContainer.style.transform = 'translateX(100%) scale(0.8)';
+                    loginButtonContainer.style.opacity = '0';
+                    
+                    // Forzar reflow
+                    loginButtonContainer.offsetHeight;
+                    
+                    // Animar entrada
                     loginButtonContainer.style.transform = 'translateX(0) scale(1)';
                     loginButtonContainer.style.opacity = '1';
-                }, 100);
-                
-                isLoginVisible = true;
+                    
+                    isLoginVisible = true;
+                    isAnimating = false;
+                }, 200);
             } else {
                 // Deslizar el botón de login hacia la derecha con fade out
                 loginButtonContainer.style.transform = 'translateX(100%) scale(0.8)';
                 loginButtonContainer.style.opacity = '0';
                 
-                // Deslizar el icono de vuelta a su posición con fade in
                 setTimeout(() => {
+                    loginButtonContainer.style.display = 'none';
+                    
+                    // Mostrar el icono desde la izquierda
+                    userIconContainer.style.display = 'block';
+                    userIconContainer.style.transform = 'translateX(-100%) scale(0.8)';
+                    userIconContainer.style.opacity = '0';
+                    
+                    // Forzar reflow
+                    userIconContainer.offsetHeight;
+                    
+                    // Animar entrada
                     userIconContainer.style.transform = 'translateX(0) scale(1)';
                     userIconContainer.style.opacity = '1';
-                }, 100);
-                
-                isLoginVisible = false;
-            }
-            
-            // Permitir nuevas animaciones después de que termine la actual
-            setTimeout(() => {
-                isAnimating = false;
-            }, 400); // Tiempo ajustado para la nueva duración
-        });
-        
-        // Cerrar el menú cuando se hace clic fuera de él con animación optimizada
-        document.addEventListener('click', function(e) {
-            if (isLoginVisible && !userIconBtn.contains(e.target) && 
-                !loginButtonContainer.contains(e.target) && 
-                !userIconContainer.contains(e.target)) {
-                
-                if (isAnimating) return;
-                isAnimating = true;
-                
-                // Deslizar el botón de login hacia la derecha con fade out
-                loginButtonContainer.style.transform = 'translateX(100%) scale(0.8)';
-                loginButtonContainer.style.opacity = '0';
-                
-                // Deslizar el icono de vuelta a su posición con fade in
-                setTimeout(() => {
-                    userIconContainer.style.transform = 'translateX(0) scale(1)';
-                    userIconContainer.style.opacity = '1';
-                }, 100);
-                
-                isLoginVisible = false;
-                
-                setTimeout(() => {
+                    
+                    isLoginVisible = false;
                     isAnimating = false;
-                }, 400);
+                }, 200);
             }
         });
         
-        // Agregar efecto de hover mejorado al icono de usuario
-        userIconBtn.addEventListener('mouseenter', function() {
-            if (!isAnimating && !isLoginVisible) {
-                this.style.transform = 'scale(1.1) rotate(5deg)';
+        // Cerrar al hacer clic fuera (solo si el botón de login está visible)
+        document.addEventListener('click', function(e) {
+            if (isLoginVisible && !loginButtonContainer.contains(e.target) && !userIconBtn.contains(e.target)) {
+                if (!isAnimating) {
+                    userIconBtn.click(); // Simular clic para cerrar
+                }
             }
         });
         
-        userIconBtn.addEventListener('mouseleave', function() {
-            if (!isAnimating && !isLoginVisible) {
-                this.style.transform = 'scale(1) rotate(0deg)';
+        // Manejar tecla Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isLoginVisible && !isAnimating) {
+                userIconBtn.click(); // Simular clic para cerrar
             }
         });
+        
+        // Inicializar estado
+        loginButtonContainer.style.display = 'none';
+        userIconContainer.style.display = 'block';
+        userIconContainer.style.transform = 'translateX(0) scale(1)';
+        userIconContainer.style.opacity = '1';
     }
 });
+
+// Exportar funciones si se necesitan en otros módulos
+export function toggleUserIcon() {
+    const userIconBtn = document.getElementById('userIconBtn');
+    if (userIconBtn) {
+        userIconBtn.click();
+    }
+}
+
+export function hideLoginButton() {
+    const userIconBtn = document.getElementById('userIconBtn');
+    const loginButtonContainer = document.getElementById('loginButtonContainer');
+    
+    if (loginButtonContainer && loginButtonContainer.style.display !== 'none') {
+        userIconBtn.click();
+    }
+}

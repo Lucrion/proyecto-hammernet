@@ -14,9 +14,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 
 # Importar modelos y configuración
-from database import Base, engine, get_db
+from config.database import Base, engine, get_db
 from models import ProductoDB, UsuarioDB, MensajeContactoDB
-from auth import hash_contraseña
+from core.auth import hash_contraseña
 
 # Cargar variables de entorno
 load_dotenv()
@@ -38,6 +38,7 @@ def crear_tablas():
     try:
         print("📋 Creando tablas en PostgreSQL...")
         Base.metadata.create_all(bind=engine)
+        print("🐘 Tablas creadas en PostgreSQL (setup_postgres.py)")
         print("✅ Tablas creadas exitosamente")
         
         # Verificar que las tablas se crearon

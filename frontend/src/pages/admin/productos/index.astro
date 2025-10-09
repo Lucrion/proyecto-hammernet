@@ -5,7 +5,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 <AdminLayout title="Gestión de Productos">
     <div class="container mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">Gestión de Productos</h1>
+            <h1 class="text-3xl font-bold text-gray-800">Productos</h1>
             <button id="btnNuevoProducto" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                 Nuevo Producto
             </button>
@@ -100,6 +100,10 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                             </select>
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+                            <input type="text" id="marca" name="marca" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ingrese la marca del producto">
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Costo Bruto</label>
                             <input type="number" id="costo_bruto" name="costo_bruto" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
@@ -161,15 +165,20 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     <div id="modalEliminar" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
-                <h3 class="text-lg font-medium text-gray-900">Confirmar eliminación</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500">¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.</p>
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
                 </div>
-                <div class="flex justify-center space-x-3 mt-4">
-                    <button id="btnCancelarEliminar" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Confirmar eliminación</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500">¿Está seguro que desea eliminar este producto? Esta acción no se puede deshacer.</p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="btnCancelarEliminar" class="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-24 mr-2 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300">
                         Cancelar
                     </button>
-                    <button id="btnConfirmarEliminar" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-700">
+                    <button id="btnConfirmarEliminar" class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-24 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300">
                         Eliminar
                     </button>
                 </div>
@@ -177,403 +186,5 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         </div>
     </div>
 
-    <script>
-        let paginaActual = 0;
-        const productosPorPagina = 10;
-        let totalProductos = 0;
-        let productoEditando = null;
-        let productoAEliminar = null;
-        let categorias = [];
-        let proveedores = [];
-
-        // Elementos del DOM
-        const tablaProductos = document.getElementById('tablaProductos');
-        const modalProducto = document.getElementById('modalProducto');
-        const modalEliminar = document.getElementById('modalEliminar');
-        const formProducto = document.getElementById('formProducto');
-        const tituloModal = document.getElementById('tituloModal');
-        const btnNuevoProducto = document.getElementById('btnNuevoProducto');
-        const btnCancelar = document.getElementById('btnCancelar');
-        const btnCancelarEliminar = document.getElementById('btnCancelarEliminar');
-        const btnConfirmarEliminar = document.getElementById('btnConfirmarEliminar');
-        const btnAnterior = document.getElementById('btnAnterior');
-        const btnSiguiente = document.getElementById('btnSiguiente');
-        const btnFiltrar = document.getElementById('btnFiltrar');
-
-        // Obtener token de autenticación
-        function getAuthToken() {
-            return localStorage.getItem('token');
-        }
-
-        // Verificar autenticación
-        function verificarAuth() {
-            const token = getAuthToken();
-            if (!token) {
-                window.location.href = '/login';
-                return false;
-            }
-            return true;
-        }
-
-        // Cargar categorías
-        async function cargarCategorias() {
-            try {
-                const response = await fetch('/api/categorias/', {
-                    headers: {
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    }
-                });
-                
-                if (response.ok) {
-                    categorias = await response.json();
-                    const selectCategoria = document.getElementById('id_categoria');
-                    const filtroCategoria = document.getElementById('filtroCategoria');
-                    
-                    selectCategoria.innerHTML = '<option value="">Seleccionar categoría</option>';
-                    filtroCategoria.innerHTML = '<option value="">Todas las categorías</option>';
-                    
-                    categorias.forEach(categoria => {
-                        const option1 = new Option(categoria.nombre, categoria.id_categoria);
-                        const option2 = new Option(categoria.nombre, categoria.id_categoria);
-                        selectCategoria.add(option1);
-                        filtroCategoria.add(option2);
-                    });
-                }
-            } catch (error) {
-                console.error('Error al cargar categorías:', error);
-            }
-        }
-
-        // Cargar proveedores
-         async function cargarProveedores() {
-             try {
-                 const response = await fetch('/api/proveedores/', {
-                     headers: {
-                         'Authorization': `Bearer ${getAuthToken()}`
-                     }
-                 });
-                 
-                 if (response.ok) {
-                     proveedores = await response.json();
-                     const selectProveedor = document.getElementById('id_proveedor');
-                     const filtroProveedor = document.getElementById('filtroProveedor');
-                     
-                     selectProveedor.innerHTML = '<option value="">Seleccionar proveedor</option>';
-                     filtroProveedor.innerHTML = '<option value="">Todos los proveedores</option>';
-                     
-                     proveedores.forEach(proveedor => {
-                         const option1 = new Option(proveedor.nombre, proveedor.id_proveedor);
-                         const option2 = new Option(proveedor.nombre, proveedor.id_proveedor);
-                         selectProveedor.add(option1);
-                         filtroProveedor.add(option2);
-                     });
-                 }
-             } catch (error) {
-                 console.error('Error al cargar proveedores:', error);
-             }
-         }
-
-        // Cargar productos
-        async function cargarProductos() {
-            try {
-                const filtroNombre = document.getElementById('filtroNombre').value;
-                const filtroCategoria = document.getElementById('filtroCategoria').value;
-                const filtroProveedor = document.getElementById('filtroProveedor').value;
-                
-                let url = `/api/productos/?skip=${paginaActual * productosPorPagina}&limit=${productosPorPagina}`;
-                
-                if (filtroCategoria) {
-                    url += `&categoria_id=${filtroCategoria}`;
-                }
-                if (filtroProveedor) {
-                    url += `&proveedor_id=${filtroProveedor}`;
-                }
-                
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    }
-                });
-                
-                if (response.ok) {
-                    const productos = await response.json();
-                    
-                    // Filtrar por nombre en el frontend si se especifica
-                    let productosFiltrados = productos;
-                    if (filtroNombre) {
-                        productosFiltrados = productos.filter(producto => 
-                            producto.nombre.toLowerCase().includes(filtroNombre.toLowerCase())
-                        );
-                    }
-                    
-                    mostrarProductos(productosFiltrados);
-                    actualizarPaginacion(productosFiltrados.length);
-                } else if (response.status === 401) {
-                    window.location.href = '/login';
-                }
-            } catch (error) {
-                console.error('Error al cargar productos:', error);
-            }
-        }
-
-        // Mostrar productos en la tabla
-        function mostrarProductos(productos) {
-            tablaProductos.innerHTML = '';
-            
-            productos.forEach(producto => {
-                // El backend ahora devuelve categoria como string, no como ID
-                // y no incluye id_categoria ni id_proveedor en la respuesta
-                
-                const fila = document.createElement('tr');
-                fila.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.id_producto}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.nombre}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.categoria || 'N/A'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.proveedor || 'N/A'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${producto.precio_venta || 0}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.cantidad_actual || 0}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button onclick="window.editarProducto(${producto.id_producto})" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
-                        <button onclick="window.eliminarProducto(${producto.id_producto})" class="text-red-600 hover:text-red-900">Eliminar</button>
-                    </td>
-                `;
-                tablaProductos.appendChild(fila);
-            });
-        }
-
-        // Actualizar información de paginación
-        function actualizarPaginacion(cantidadMostrada) {
-            const desde = paginaActual * productosPorPagina + 1;
-            const hasta = Math.min(desde + cantidadMostrada - 1, totalProductos);
-            
-            document.getElementById('mostrandoDesde').textContent = cantidadMostrada > 0 ? desde : 0;
-            document.getElementById('mostrandoHasta').textContent = hasta;
-            document.getElementById('totalProductos').textContent = totalProductos;
-            
-            btnAnterior.disabled = paginaActual === 0;
-            btnSiguiente.disabled = hasta >= totalProductos;
-        }
-
-        // Abrir modal para nuevo producto
-        function abrirModalNuevo() {
-            productoEditando = null;
-            tituloModal.textContent = 'Nuevo Producto';
-            formProducto.reset();
-            modalProducto.classList.remove('hidden');
-        }
-
-        // Editar producto
-        window.editarProducto = async function(id) {
-            console.log('Editando producto con ID:', id);
-            try {
-                const response = await fetch(`/api/productos/${id}/`, {
-                    headers: {
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    }
-                });
-                
-                console.log('Response status:', response.status);
-                
-                if (response.ok) {
-                    const producto = await response.json();
-                    console.log('Producto recibido:', producto);
-                    productoEditando = producto;
-                    tituloModal.textContent = 'Editar Producto';
-                    
-                    // Llenar el formulario
-                    document.getElementById('nombre').value = producto.nombre || '';
-                    document.getElementById('descripcion').value = producto.descripcion || '';
-                    document.getElementById('precio_venta').value = producto.precio_venta || '';
-                    document.getElementById('costo_bruto').value = producto.costo_bruto || '';
-                    document.getElementById('costo_neto').value = producto.costo_neto || '';
-                    document.getElementById('porcentaje_utilidad').value = producto.porcentaje_utilidad || '';
-                    document.getElementById('utilidad_pesos').value = producto.utilidad_pesos || '';
-                    document.getElementById('cantidad_actual').value = producto.cantidad_actual || 0;
-                    document.getElementById('stock_minimo').value = producto.stock_minimo || 5;
-                    
-                    // Buscar la categoría por nombre en lugar de ID
-                    if (producto.categoria) {
-                        const categoriaObj = categorias.find(c => c.nombre === producto.categoria);
-                        if (categoriaObj) {
-                            document.getElementById('id_categoria').value = categoriaObj.id_categoria;
-                        } else {
-                            document.getElementById('id_categoria').value = '';
-                        }
-                    } else {
-                        document.getElementById('id_categoria').value = '';
-                    }
-                    
-                    // El proveedor ya no se usa en el nuevo formato
-                    
-                    console.log('Abriendo modal...');
-                    modalProducto.classList.remove('hidden');
-                } else {
-                    console.error('Error en la respuesta:', response.status, response.statusText);
-                }
-            } catch (error) {
-                console.error('Error al cargar producto:', error);
-            }
-        }
-
-        // Eliminar producto
-        window.eliminarProducto = function(id) {
-            productoAEliminar = id;
-            modalEliminar.classList.remove('hidden');
-        }
-
-        // Confirmar eliminación
-        async function confirmarEliminacion() {
-            try {
-                const response = await fetch(`/api/productos/${productoAEliminar}/`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    }
-                });
-                
-                if (response.ok) {
-                    modalEliminar.classList.add('hidden');
-                    cargarProductos();
-                } else {
-                    const error = await response.json();
-                    alert('Error en conexión del servidor');
-                }
-            } catch (error) {
-                console.error('Error al eliminar producto:', error);
-                let errorMessage = 'Error al eliminar producto';
-                
-                // Intentar extraer el mensaje de error detallado
-                if (error.message) {
-                    errorMessage += ': ' + error.message;
-                } else if (typeof error === 'object') {
-                    errorMessage += ': ' + JSON.stringify(error);
-                }
-                
-                alert('Error en conexión del servidor');
-            }
-        }
-
-        // Guardar producto
-        async function guardarProducto(event) {
-            event.preventDefault();
-            console.log('Iniciando guardado de producto...');
-            
-            const formData = new FormData(formProducto);
-            
-            // Obtener y validar id_categoria
-            const categoriaValue = formData.get('id_categoria');
-            const id_categoria = categoriaValue && categoriaValue !== '' ? parseInt(categoriaValue) : null;
-            
-            // Obtener y validar id_proveedor
-            const proveedorValue = formData.get('id_proveedor');
-            const id_proveedor = proveedorValue && proveedorValue !== '' ? parseInt(proveedorValue) : null;
-            
-            const producto = {
-                nombre: formData.get('nombre'),
-                descripcion: formData.get('descripcion'),
-                id_categoria: id_categoria,
-                id_proveedor: id_proveedor,
-                costo_bruto: parseFloat(formData.get('costo_bruto')) || 0,
-                costo_neto: parseFloat(formData.get('costo_neto')) || 0,
-                precio_venta: parseFloat(formData.get('precio_venta')) || 0,
-                porcentaje_utilidad: parseFloat(formData.get('porcentaje_utilidad')) || 0,
-                utilidad_pesos: parseFloat(formData.get('utilidad_pesos')) || 0,
-                cantidad_actual: parseInt(formData.get('cantidad_actual')) || 0,
-                stock_minimo: parseInt(formData.get('stock_minimo')) || 5
-            };
-            
-            console.log('Datos del producto a guardar:', producto);
-            
-            // Validar que id_categoria no sea null (es requerido)
-            if (!id_categoria) {
-                alert('Por favor selecciona una categoría');
-                return;
-            }
-            
-            try {
-                const url = productoEditando ? `/api/productos/${productoEditando.id_producto}/` : '/api/productos/';
-                const method = productoEditando ? 'PUT' : 'POST';
-                
-                console.log('URL:', url);
-                console.log('Method:', method);
-                console.log('Producto editando:', productoEditando);
-                
-                const response = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${getAuthToken()}`
-                    },
-                    body: JSON.stringify(producto)
-                });
-                
-                console.log('Response status:', response.status);
-                console.log('Response ok:', response.ok);
-                
-                if (response.ok) {
-                    console.log('Producto guardado exitosamente');
-                    modalProducto.classList.add('hidden');
-                    cargarProductos();
-                } else {
-                    const errorData = await response.json();
-                    console.error('Error del servidor:', errorData);
-                    alert(`Error del servidor: ${errorData.detail || 'Error desconocido'}`);
-                }
-            } catch (error) {
-                console.error('Error al guardar producto:', error);
-                let errorMessage = 'Error al guardar producto';
-                
-                // Intentar extraer el mensaje de error detallado
-                if (error.message) {
-                    errorMessage += ': ' + error.message;
-                } else if (typeof error === 'object') {
-                    errorMessage += ': ' + JSON.stringify(error);
-                }
-                
-                alert('Error en conexión del servidor');
-            }
-        }
-
-        // Event listeners
-        btnNuevoProducto.addEventListener('click', abrirModalNuevo);
-        btnCancelar.addEventListener('click', () => modalProducto.classList.add('hidden'));
-        btnCancelarEliminar.addEventListener('click', () => modalEliminar.classList.add('hidden'));
-        btnConfirmarEliminar.addEventListener('click', confirmarEliminacion);
-        formProducto.addEventListener('submit', guardarProducto);
-        btnFiltrar.addEventListener('click', () => {
-            paginaActual = 0;
-            cargarProductos();
-        });
-        btnAnterior.addEventListener('click', () => {
-            if (paginaActual > 0) {
-                paginaActual--;
-                cargarProductos();
-            }
-        });
-        btnSiguiente.addEventListener('click', () => {
-            paginaActual++;
-            cargarProductos();
-        });
-
-        // Cerrar modales al hacer clic fuera
-        modalProducto.addEventListener('click', (e) => {
-            if (e.target === modalProducto) {
-                modalProducto.classList.add('hidden');
-            }
-        });
-        modalEliminar.addEventListener('click', (e) => {
-            if (e.target === modalEliminar) {
-                modalEliminar.classList.add('hidden');
-            }
-        });
-
-        // Inicializar página
-        document.addEventListener('DOMContentLoaded', () => {
-            if (verificarAuth()) {
-                cargarCategorias();
-                cargarProveedores();
-                cargarProductos();
-            }
-        });
-    </script>
+    <script type="module" src="/src/scripts/admin/productos.js"></script>
 </AdminLayout>

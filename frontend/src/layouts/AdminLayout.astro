@@ -66,9 +66,6 @@ const { title } = Astro.props;
 							Mensajes
 						</a>
 					</li>
-
-
-					<!-- Sección de ventas oculta temporalmente
 					<li>
 						<a href="/admin/ventas" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,7 +74,6 @@ const { title } = Astro.props;
 							Ventas
 						</a>
 					</li>
-					-->
 				</ul>
 			</nav>
 			
@@ -94,7 +90,7 @@ const { title } = Astro.props;
 		<!-- Contenido principal -->
 		<main class="flex-1 p-8">
 			<div class="flex justify-between items-center mb-8">
-				<h1 class="text-2xl font-semibold text-gray-900">{title}</h1>
+				<h1 class="text-2xl font-bold text-gray-900" id="pageTitle">{title}</h1>
 				<div class="flex items-center space-x-4">
 					<button class="text-gray-500 hover:text-gray-700">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -126,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	console.log('AdminLayout - Estado de autenticación:', isLoggedIn);
 	console.log('AdminLayout - Token:', token ? 'Token presente' : 'Token ausente');
 	
+	// Validación de autenticación reactivada
 	if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
 		console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
 		// Redirigir al login si no está autenticado o no tiene token
@@ -137,6 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (nombreUsuario && nombreUsuarioElement) {
 		nombreUsuarioElement.textContent = nombreUsuario;
 	}
+	
+	// El título ya está en negrita con la clase font-bold, no necesita JavaScript adicional
 	
 	// Manejar el evento de logout
 	if (btnLogout) {

@@ -6,7 +6,7 @@ Sistema completo de gestión para ferretería con backend FastAPI y frontend Ast
 
 - **Backend**: FastAPI con autenticación JWT
 - **Frontend**: Astro con interfaz administrativa
-- **Base de datos**: PostgreSQL (producción) / SQLite (desarrollo)
+- **Base de datos**: SQLite (desarrollo) / PostgreSQL (producción)
 - **Almacenamiento**: Cloudinary para imágenes
 - **Deployment**: Configurado para Render.com
 

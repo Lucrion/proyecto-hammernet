@@ -3,14 +3,18 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 ---
 
 <AdminLayout title="Gestión de Usuarios">
-    <div class="mb-6 flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-800">Gestión de Usuarios</h1>
-        <button id="btnNuevoUsuario" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Nuevo Usuario
-        </button>
+    <div class="mb-6 flex justify-end items-center">
+        <div class="flex space-x-3">
+            <button id="btnUsuariosDesactivados" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg">
+                Desactivados
+            </button>
+            <button id="btnNuevoUsuario" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Nuevo Usuario
+            </button>
+        </div>
     </div>
 
     <!-- Formulario para crear/editar usuario (oculto por defecto) -->
@@ -24,16 +28,17 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     <input type="text" id="nombre" name="nombre" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                 </div>
                 <div>
-                    <label for="usuario" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
-                    <input type="text" id="usuario" name="usuario" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                    <input type="text" id="username" name="username" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                    <input type="password" id="password" name="password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <input type="password" id="password" name="password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <small class="text-gray-500 text-xs">Dejar vacío para mantener la contraseña actual (solo al editar)</small>
                 </div>
                 <div>
-                    <label for="rol" class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-                    <select id="rol" name="rol" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                    <select id="role" name="role" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                         <option value="administrador">Administrador</option>
                         <option value="vendedor">Vendedor</option>
                         <option value="bodeguero">Bodeguero</option>
@@ -65,188 +70,93 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             </tbody>
         </table>
     </div>
+
+    <!-- Modal de confirmación para desactivar usuario -->
+    <div id="modalConfirmar" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Confirmar desactivación</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500">¿Está seguro que desea desactivar este usuario? El usuario no podrá acceder al sistema.</p>
+                </div>
+                <div class="flex justify-center space-x-2 mt-4">
+                    <button id="btnCancelarEliminar" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                        Cancelar
+                    </button>
+                    <button id="btnConfirmarEliminar" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+                        Desactivar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de usuarios desactivados -->
+    <div id="modalUsuariosDesactivados" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-10 mx-auto p-5 border w-5/6 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Usuarios Desactivados</h3>
+                <button id="btnCerrarModalDesactivados" class="text-gray-400 hover:text-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Creación</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaUsuariosDesactivados" class="bg-white divide-y divide-gray-200">
+                        <!-- Los usuarios desactivados se cargarán aquí dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 text-center">
+                <p class="text-sm text-gray-500">Los usuarios desactivados no pueden acceder al sistema.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación para eliminación permanente -->
+    <div id="modalConfirmarEliminacionPermanente" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">¡ATENCIÓN! Eliminación Permanente</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-red-600 font-semibold">¿Está seguro que desea eliminar PERMANENTEMENTE este usuario?</p>
+                    <p class="text-sm text-gray-500 mt-2">Esta acción NO se puede deshacer. Todos los datos del usuario se perderán para siempre.</p>
+                </div>
+                <div class="flex justify-center space-x-2 mt-4">
+                    <button id="btnCancelarEliminacionPermanente" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                        Cancelar
+                    </button>
+                    <button id="btnConfirmarEliminacionPermanente" class="bg-red-600 hover:bg-red-800 text-white font-bold py-2 px-4 rounded">
+                        Eliminar Permanentemente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </AdminLayout>
 
-<script>
-    // Importar funciones de API con autenticación
-    import { getData, postData, updateData, deleteData } from '../../../scripts/api.js';
-    // Obtener la URL de la API desde las variables de entorno
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
-
-    // Esperar a que el DOM esté completamente cargado
-    window.addEventListener('DOMContentLoaded', async () => {
-
-        // Verificar si el usuario está autenticado
-        const isLoggedIn = localStorage.getItem('isLoggedIn');
-        const token = localStorage.getItem('token');
-        
-        console.log('Usuarios Index - Estado de autenticación:', isLoggedIn);
-        console.log('Usuarios Index - Token:', token ? 'Token presente' : 'Token ausente');
-        
-        if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
-            console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
-            // Redirigir al login si no está autenticado o no tiene token
-            window.location.href = '/login';
-            return;
-        }
-
-        // Elementos del DOM
-        const btnNuevoUsuario = document.getElementById('btnNuevoUsuario');
-        const formUsuario = document.getElementById('formUsuario');
-        const formTitle = document.getElementById('formTitle');
-        const usuarioForm = document.getElementById('usuarioForm');
-        const btnCancelar = document.getElementById('btnCancelar');
-        const tablaUsuarios = document.getElementById('tablaUsuarios');
-        const userId = document.getElementById('userId');
-
-        let usuarios = [];
-
-        // Función para obtener todos los usuarios desde la API
-        async function obtenerUsuarios() {
-            try {
-                usuarios = await getData('/usuarios/');
-                if (usuarios) {
-                    cargarUsuarios();
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                // Mostrar mensaje de error al usuario
-                alert('Error en conexión del servidor');
-            }
-        }
-
-        // Cargar usuarios en la tabla
-        function cargarUsuarios() {
-            tablaUsuarios.innerHTML = '';
-            
-            usuarios.forEach(usuario => {
-                const username = usuario.username || usuario.usuario;
-                const role = usuario.role || usuario.rol;
-                const fechaCreacion = usuario.fecha_creacion || usuario.fechaCreacion;
-                
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.id_usuario}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${username}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-${role === 'administrador' ? 'green' : role === 'vendedor' ? 'blue' : 'yellow'}-100 text-${role === 'administrador' ? 'green' : role === 'vendedor' ? 'blue' : 'yellow'}-800">
-                            ${role === 'administrador' ? 'Administrador' : role === 'vendedor' ? 'Vendedor' : 'Bodeguero'}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion ? new Date(fechaCreacion).toLocaleDateString() : 'Invalid Date'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button data-id="${usuario.id_usuario}" class="btn-editar text-blue-600 hover:text-blue-900 mr-3">Editar</button>
-                        <button data-id="${usuario.id_usuario}" class="btn-eliminar text-red-600 hover:text-red-900">Eliminar</button>
-                    </td>
-                `;
-                tablaUsuarios.appendChild(tr);
-            });
-
-            // Agregar eventos a los botones de editar y eliminar
-            document.querySelectorAll('.btn-editar').forEach(btn => {
-                btn.addEventListener('click', editarUsuario);
-            });
-
-            document.querySelectorAll('.btn-eliminar').forEach(btn => {
-                btn.addEventListener('click', eliminarUsuario);
-            });
-        }
-
-        // Mostrar formulario para nuevo usuario
-        btnNuevoUsuario.addEventListener('click', () => {
-            formTitle.textContent = 'Nuevo Usuario';
-            usuarioForm.reset();
-            userId.value = '';
-            formUsuario.classList.remove('hidden');
-        });
-
-        // Cancelar formulario
-        btnCancelar.addEventListener('click', () => {
-            formUsuario.classList.add('hidden');
-            usuarioForm.reset();
-        });
-
-        // Guardar usuario
-        usuarioForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = {
-                nombre: document.getElementById('nombre').value,
-                username: document.getElementById('usuario').value,
-                password: document.getElementById('password').value,
-                role: document.getElementById('rol').value
-            };
-
-            try {
-                if (userId.value) {
-                    // Actualizar usuario existente
-                    // Si la contraseña está vacía, no la enviamos para actualizar
-                    if (!formData.password) {
-                        delete formData.password;
-                    }
-                    await updateData(`/usuarios/${userId.value}/`, formData);
-                    alert('Usuario actualizado exitosamente');
-                } else {
-                    // Crear nuevo usuario
-                    await postData('/usuarios/', formData);
-                    alert('Usuario creado exitosamente');
-                }
-                formUsuario.classList.add('hidden');
-                usuarioForm.reset();
-                obtenerUsuarios(); // Recargar la lista
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error en conexión del servidor');
-            }
-        });
-
-        // Editar usuario
-        async function editarUsuario(e) {
-            const id = parseInt(e.target.dataset.id);
-            try {
-                const usuario = await getData(`/usuarios/${id}/`);
-                if (usuario) {
-                    formTitle.textContent = 'Editar Usuario';
-                    userId.value = usuario.id_usuario;
-                    document.getElementById('nombre').value = usuario.nombre;
-                    document.getElementById('usuario').value = usuario.username || usuario.usuario;
-                    document.getElementById('password').value = ''; // No mostrar contraseña por seguridad
-                    document.getElementById('rol').value = usuario.role || usuario.rol;
-                    
-                    formUsuario.classList.remove('hidden');
-                } else {
-                    throw new Error('No se pudo obtener la información del usuario');
-                }
-            } catch (error) {
-                console.error('Error al obtener usuario:', error);
-                alert('Error en conexión del servidor');
-            }
-        }
-
-        // Eliminar usuario
-        async function eliminarUsuario(e) {
-            const id = parseInt(e.target.dataset.id);
-            if (confirm('¿Está seguro de eliminar este usuario?')) {
-                try {
-                    // Intentar eliminar el usuario a través de la API con autenticación
-                    const response = await deleteData(`/usuarios/${id}/`);
-                    
-                    // Verificar si la respuesta fue exitosa
-                    if (response) {
-                        // Actualizar la lista de usuarios
-                        await obtenerUsuarios();
-                        alert('Usuario eliminado correctamente');
-                    } else {
-                        throw new Error('No se pudo eliminar el usuario');
-                    }
-                } catch (error) {
-                    console.error('Error al eliminar usuario:', error);
-                    alert('Error en conexión del servidor');
-                }
-            }
-        }
-
-        // Cargar usuarios al iniciar
-        await obtenerUsuarios();
-    });
-</script>
+<script type="module" src="/src/scripts/admin/usuarios.js"></script>

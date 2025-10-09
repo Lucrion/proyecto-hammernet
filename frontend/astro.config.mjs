@@ -6,6 +6,9 @@ import node from '@astrojs/node';
 export default defineConfig({
   integrations: [tailwind()],
   output: 'static',
+  adapter: node({
+    mode: 'standalone'
+  }),
   server: {
     host: true,
     port: 4321
@@ -15,12 +18,15 @@ export default defineConfig({
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:8000',
+          target: process.env.PUBLIC_API_URL_PRODUCTION || 'http://localhost:8000',
           changeOrigin: true,
           secure: false,
           ws: true
         }
       }
     }
+  },
+  build: {
+    inlineStylesheets: 'auto'
   }
 });

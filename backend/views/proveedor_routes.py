@@ -3,10 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from database import get_db
+from config.database import get_db
 from controllers.proveedor_controller import ProveedorController
 from models.proveedor import Proveedor, ProveedorCreate, ProveedorUpdate
-from auth import get_current_user, require_admin
+from core.auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/proveedores", tags=["Proveedores"])
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/proveedores", tags=["Proveedores"])
 @router.get("/", response_model=List[Proveedor])
 async def obtener_proveedores(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Obtener todos los proveedores """
     return await ProveedorController.obtener_proveedores(db)
@@ -24,7 +24,7 @@ async def obtener_proveedores(
 async def obtener_proveedor(
     proveedor_id: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Obtener un proveedor por ID """
     return await ProveedorController.obtener_proveedor(proveedor_id, db)
@@ -34,7 +34,7 @@ async def obtener_proveedor(
 async def crear_proveedor(
     proveedor: ProveedorCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Crear un nuevo proveedor (solo administradores) """
     return await ProveedorController.crear_proveedor(proveedor, db)
@@ -45,7 +45,7 @@ async def actualizar_proveedor(
     proveedor_id: int,
     proveedor: ProveedorUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Actualizar un proveedor (solo administradores) """
     return await ProveedorController.actualizar_proveedor(proveedor_id, proveedor, db)
@@ -55,7 +55,7 @@ async def actualizar_proveedor(
 async def eliminar_proveedor(
     proveedor_id: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Eliminar un proveedor (solo administradores) """
     return await ProveedorController.eliminar_proveedor(proveedor_id, db)

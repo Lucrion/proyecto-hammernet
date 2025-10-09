@@ -38,6 +38,5 @@ yarn-error.log*
 .yarn-integrity
 .cache
 .parcel-cache
-setup_mysql.py
 test_production_api.cjs
 .md

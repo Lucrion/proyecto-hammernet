@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Importar módulos personalizados
-from database import Base, engine
-from cloudinary_config import configure_cloudinary
+from config.database import Base, engine
+from config.cloudinary_config import configure_cloudinary
 
 # Importar las rutas organizadas
 from views.auth_routes import router as auth_router
@@ -21,6 +21,7 @@ from views.categoria_routes import router as categoria_router
 from views.proveedor_routes import router as proveedor_router
 from views.producto_routes import router as producto_router
 from views.mensaje_routes import router as mensaje_router
+from views.venta_routes import router as venta_router
 
 # Verificar que las variables de entorno de Cloudinary estén configuradas
 cloudinary_vars = {
@@ -44,12 +45,12 @@ app = FastAPI(
     root_path=os.environ.get("ROOT_PATH", "")
 )
 
-# Crear las tablas en la base de datos
+# Crear las tablas en la base de datos (solo si no existen)
 try:
     Base.metadata.create_all(bind=engine)
-    print("Tablas creadas correctamente en la base de datos")
+    print("🔄 Servidor iniciado - Base de datos verificada")
 except Exception as e:
-    print(f"Error al crear tablas: {e}")
+    print(f"❌ Error al inicializar base de datos: {e}")
 
 # Configurar CORS
 origins_str = os.getenv("ALLOWED_ORIGINS", "https://hammernet-frontend.onrender.com,https://hammernet-backend.onrender.com")
@@ -92,6 +93,7 @@ app.include_router(categoria_router)
 app.include_router(proveedor_router)
 app.include_router(producto_router)
 app.include_router(mensaje_router)
+app.include_router(venta_router)
 
 if __name__ == "__main__":
     # Obtener configuración del servidor desde variables de entorno
