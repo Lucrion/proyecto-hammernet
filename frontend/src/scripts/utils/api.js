@@ -1,6 +1,18 @@
 // Funciones para comunicación con la API
 import { API_URL, corsConfig, handleApiError } from './config.js';
 
+// Construye URL robusta evitando doble "/api" y soportando endpoints absolutos
+function buildUrl(endpoint) {
+    const baseOrigin = API_URL.replace(/\/api$/, '');
+    if (endpoint.startsWith('http')) {
+        return endpoint;
+    }
+    if (endpoint.startsWith('/')) {
+        return `${baseOrigin}${endpoint}`;
+    }
+    return `${API_URL}${endpoint}`;
+}
+
 /**
  * Realiza una petición autenticada a la API con soporte para FormData
  * @param {string} endpoint - Endpoint de la API (sin incluir la URL base)
@@ -25,9 +37,8 @@ export async function fetchWithAuth(endpoint, options = {}) {
             headers['Content-Type'] = 'application/json';
         }
         
-        // Realizar la petición
-        // Verificar si el endpoint ya incluye la URL base
-        const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+        // Realizar la petición usando URL normalizada
+        const url = buildUrl(endpoint);
         
         try {
             const response = await fetch(url, {
@@ -59,8 +70,8 @@ export async function getData(endpoint) {
         //     throw new Error('No hay token de autenticación');
         // }
         
-        // Verificar si el endpoint ya incluye la URL base
-        const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+        // Construir URL normalizada (evita doble /api)
+        const url = buildUrl(endpoint);
         const response = await fetch(url, {
             method: 'GET',
             headers: {
@@ -97,8 +108,8 @@ export async function postData(endpoint, data) {
         //     throw new Error('No hay token de autenticación');
         // }
         
-        // Verificar si el endpoint ya incluye la URL base
-        const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+        // Construir URL normalizada para desarrollo y producción
+        const url = buildUrl(endpoint);
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -140,8 +151,8 @@ export async function updateData(endpoint, data) {
         //     throw new Error('No hay token de autenticación');
         // }
         
-        // Verificar si el endpoint ya incluye la URL base
-        const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+        // Construir URL normalizada para desarrollo y producción
+        const url = buildUrl(endpoint);
         console.log('URL completa:', url);
         
         const requestOptions = {
@@ -194,8 +205,8 @@ export async function deleteData(endpoint) {
         //     throw new Error('No hay token de autenticación');
         // }
         
-        // Verificar si el endpoint ya incluye la URL base
-        const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+        // Construir URL normalizada para desarrollo y producción
+        const url = buildUrl(endpoint);
         const response = await fetch(url, {
             method: 'DELETE',
             headers: {

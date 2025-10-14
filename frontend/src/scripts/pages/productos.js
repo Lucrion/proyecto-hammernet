@@ -10,6 +10,7 @@ function formatearPrecio(precio) {
 // Estado global para almacenar productos y filtros
 const state = {
     productos: [],
+    todosProductos: [],
     totalProductos: 0,
     filtros: {
         busqueda: '',
@@ -98,56 +99,36 @@ export async function cargarProductos() {
     try {
         mostrarCargando();
         
-        // Verificar disponibilidad del servidor
-        const serverStatus = await checkServerAvailability();
-        if (!serverStatus.available) {
-            mostrarError('El servidor no está disponible. Por favor, intenta más tarde.');
-            return;
+        // Verificar disponibilidad del servidor (no bloquear si falla)
+        try {
+            await checkServerAvailability();
+        } catch (error) {
+            console.warn('Advertencia: No se pudo verificar la disponibilidad del servidor:', error);
         }
 
-        // Primero obtener el total de productos
-        const totalResponse = await getData('/api/productos/catalogo/total');
-        if (!totalResponse.ok) {
-            throw new Error(`Error al obtener total: ${totalResponse.status}`);
-        }
-        const totalData = await totalResponse.json();
-        state.totalProductos = totalData.total;
-
-        // Calcular skip basado en la página actual
-        const skip = (state.paginacion.paginaActual - 1) * state.paginacion.productosPorPagina;
-        
-        // Obtener productos paginados
-        const response = await getData(`/api/productos/catalogo?skip=${skip}&limit=${state.paginacion.productosPorPagina}`);
-        
-        if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
-        }
-        
-        const productos = await response.json();
+        // Obtener todos los productos del catálogo
+        const productos = await getData('/api/productos/catalogo');
+        state.todosProductos = Array.isArray(productos) ? productos : [];
         
         if (!Array.isArray(productos)) {
             throw new Error('La respuesta no es un array válido');
         }
 
-        // Guardar productos y calcular paginación
-        state.productos = productos;
-        state.paginacion.totalPaginas = Math.ceil(state.totalProductos / state.paginacion.productosPorPagina);
-        
-        // Mostrar productos y actualizar paginación
-        mostrarProductos(productos);
-        actualizarInfoPaginacion();
-        actualizarPaginacion();
+        // Aplicar filtros y paginación local sobre todosProductos
+        state.paginacion.paginaActual = 1;
+        aplicarFiltros();
         
     } catch (error) {
         console.error('Error al cargar productos:', error);
-        handleApiError(error, 'cargar productos');
-        mostrarError('Error al cargar los productos. Por favor, recarga la página.');
+        // Evitar errores adicionales en el manejo de errores
+        // handleApiError(error);
+        mostrarError('Error al cargar el catalogo.');
     }
 }
 
 // Aplicar filtros a los productos
 export function aplicarFiltros() {
-    let productosFiltrados = [...state.productos];
+    let productosFiltrados = Array.isArray(state.todosProductos) ? [...state.todosProductos] : [];
     
     // Filtro de búsqueda
     if (state.filtros.busqueda) {
@@ -158,24 +139,26 @@ export function aplicarFiltros() {
     }
     
     // Filtro de precio
-    productosFiltrados = productosFiltrados.filter(producto =>
-        producto.precio >= state.filtros.precioMin && producto.precio <= state.filtros.precioMax
-    );
+    productosFiltrados = productosFiltrados.filter(producto => {
+        const precio = Number(producto.precio_venta ?? producto.precio ?? 0);
+        return precio >= state.filtros.precioMin && precio <= state.filtros.precioMax;
+    });
     
     // Filtro de categorías
     if (state.filtros.categorias.length > 0) {
         productosFiltrados = productosFiltrados.filter(producto =>
-            state.filtros.categorias.includes(producto.categoria_nombre)
+            state.filtros.categorias.includes(producto.categoria)
         );
     }
     
     // Filtro de stock
     if (state.filtros.enStock) {
-        productosFiltrados = productosFiltrados.filter(producto => producto.stock > 0);
+        productosFiltrados = productosFiltrados.filter(producto => (producto.disponible === true) || ((producto.cantidad_disponible ?? 0) > 0));
     }
     
     // Calcular paginación
-    state.paginacion.totalPaginas = Math.ceil(productosFiltrados.length / state.paginacion.productosPorPagina);
+    state.totalProductos = productosFiltrados.length;
+    state.paginacion.totalPaginas = Math.ceil(state.totalProductos / state.paginacion.productosPorPagina);
     
     // Obtener productos de la página actual
     const inicio = (state.paginacion.paginaActual - 1) * state.paginacion.productosPorPagina;
@@ -208,27 +191,17 @@ function mostrarProductos(productos) {
     }
     
     contenedorProductos.innerHTML = productos.map(producto => `
-        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer" onclick="verProducto(${producto.id_producto})">
             <div class="aspect-w-1 aspect-h-1">
-                <img src="${producto.imagen || '/images/placeholder-product.jpg'}" 
+                <img src="${producto.imagen_url || '/images/placeholder-product.jpg'}" 
                      alt="${producto.nombre}" 
                      class="w-full h-48 object-cover">
             </div>
             <div class="p-4">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
-                <p class="text-gray-600 text-sm mb-3 line-clamp-2">${producto.descripcion || 'Sin descripción'}</p>
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xl font-bold text-blue-600">$${formatearPrecio(producto.precio)}</span>
-                    <span class="text-sm text-gray-500">${producto.categoria_nombre || 'Sin categoría'}</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-sm ${producto.stock > 0 ? 'text-green-600' : 'text-red-600'}">
-                        ${producto.stock > 0 ? `Stock: ${producto.stock}` : 'Sin stock'}
-                    </span>
-                    <button onclick="verProducto(${producto.id})" 
-                            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
-                        Ver más
-                    </button>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
+                <p class="text-gray-600 text-sm mb-3 line-clamp-2 text-center">${producto.descripcion || 'Sin descripción'}</p>
+                <div class="flex justify-center items-center my-3">
+                    <span class="px-4 py-2 bg-black text-white rounded text-xl font-bold">$${formatearPrecio(producto.precio_venta)}</span>
                 </div>
             </div>
         </div>
@@ -319,7 +292,7 @@ function actualizarPaginacion() {
 export function cambiarPagina(pagina) {
     if (pagina >= 1 && pagina <= state.paginacion.totalPaginas) {
         state.paginacion.paginaActual = pagina;
-        cargarProductos(); // Recargar productos de la nueva página
+        aplicarFiltros();
         
         // Scroll hacia arriba
         window.scrollTo({ top: 0, behavior: 'smooth' });

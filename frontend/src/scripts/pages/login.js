@@ -1,8 +1,8 @@
 // Configuración de la API desde variables de entorno
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_URL = isDevelopment 
-    ? window.__ENV__?.PUBLIC_API_URL || 'http://localhost:8000'
-    : window.__ENV__?.PUBLIC_API_URL_PRODUCTION || 'http://localhost:8000';
+    ? (window.__ENV__?.PUBLIC_API_URL || 'http://localhost:8000/api')
+    : (window.__ENV__?.PUBLIC_API_URL_PRODUCTION || 'https://hammernet-backend.onrender.com/api');
 
 const corsConfig = {
     credentials: window.__ENV__?.PUBLIC_CORS_CREDENTIALS || 'include',

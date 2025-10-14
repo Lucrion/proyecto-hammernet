@@ -13,7 +13,7 @@ const getEnvVar = (name, defaultValue = undefined) => {
 
 // Configuración de la API
 export const API_URL = isDevelopment 
-    ? getEnvVar('PUBLIC_API_URL', 'http://localhost:8000')
+    ? getEnvVar('PUBLIC_API_URL', 'http://localhost:8000/api')
     : getEnvVar('PUBLIC_API_URL_PRODUCTION', 'https://hammernet-backend.onrender.com');
 
 // Configuración de CORS
@@ -34,7 +34,7 @@ export async function checkServerAvailability() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT / 2); // Usar la mitad del timeout configurado
         
-        const response = await fetch(`${API_URL}/docs`, {
+        const response = await fetch(`${API_URL.replace('/api', '')}/docs`, {
             method: 'HEAD',
             signal: controller.signal
         });
@@ -65,6 +65,15 @@ export async function checkServerAvailability() {
 export function handleApiError(error) {
     console.error('Error en la API:', error);
     
+    // Verificar si error es válido
+    if (!error) {
+        return {
+            type: 'unknown',
+            message: 'Error desconocido',
+            original: null
+        };
+    }
+    
     // Determinar el tipo de error
     if (error.name === 'AbortError') {
         return {
@@ -74,7 +83,7 @@ export function handleApiError(error) {
         };
     }
     
-    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+    if (error.name === 'TypeError' && error.message && error.message.includes('Failed to fetch')) {
         return {
             type: 'connection',
             message: 'Error en conexión del servidor',

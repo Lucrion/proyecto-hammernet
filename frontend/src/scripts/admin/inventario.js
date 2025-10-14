@@ -1,5 +1,6 @@
 // Importar configuración de API
 import { API_URL } from '../utils/config.js';
+import { getData } from '../utils/api.js';
 
 // Variables globales
 let inventarios = [];
@@ -60,24 +61,9 @@ async function cargarProductos() {
         //     return;
         // }
         
-        const response = await fetch(`${API_URL}/api/productos/`);
-        // TODO: Reactivar headers de autorización
-        // const response = await fetch(`${API_URL}/productos/`, {
-        //     headers: {
-        //         'Authorization': `Bearer ${token}`
-        //     }
-        // });
-        
-        if (response.ok) {
-            productos = await response.json();
-            console.log('Productos cargados:', productos);
-        } else if (response.status === 401) {
-            console.error('Token de autenticación inválido o expirado');
-            localStorage.removeItem('token');
-            window.location.href = '/login';
-        } else {
-            console.error('Error al cargar productos:', response.status, response.statusText);
-        }
+        const data = await getData('/api/productos/');
+        productos = data;
+        console.log('Productos cargados:', productos);
     } catch (error) {
         console.error('Error al cargar productos:', error);
     }
@@ -87,19 +73,9 @@ async function cargarProductos() {
 async function cargarCategorias() {
     try {
         console.log('Cargando categorías...');
-        const response = await fetch(`${API_URL}/api/categorias/`);
-        // TODO: Reactivar headers de autorización
-        // const response = await fetch(`${API_URL}/categorias/`, {
-        //     headers: {
-        //         'Authorization': `Bearer ${getAuthToken()}`
-        //     }
-        // });
-        
-        console.log('Respuesta de categorías:', response.status);
-        
-        if (response.ok) {
-            categorias = await response.json();
-            console.log('Categorías cargadas:', categorias);
+        const data = await getData('/api/categorias/');
+        categorias = data;
+        console.log('Categorías cargadas:', categorias);
             
             const filtroCategoria = document.getElementById('filtroCategoria');
             const categoriaProducto = document.getElementById('categoriaProducto');
@@ -118,11 +94,6 @@ async function cargarCategorias() {
                     categoriaProducto.add(option2);
                 }
             });
-        } else if (response.status === 401) {
-            window.location.href = '/login';
-        } else {
-            console.error('Error al cargar categorías. Estado:', response.status);
-        }
     } catch (error) {
         console.error('Error al cargar categorías:', error);
     }
@@ -132,17 +103,9 @@ async function cargarCategorias() {
 async function cargarProveedores() {
     try {
         console.log('Cargando proveedores...');
-        const response = await fetch(`${API_URL}/api/proveedores/`, {
-            headers: {
-                'Authorization': `Bearer ${getAuthToken()}`
-            }
-        });
-        
-        console.log('Respuesta de proveedores:', response.status);
-        
-        if (response.ok) {
-            proveedores = await response.json();
-            console.log('Proveedores cargados:', proveedores);
+        const data = await getData('/api/proveedores/');
+        proveedores = data;
+        console.log('Proveedores cargados:', proveedores);
             
             // Cargar proveedores en el modal de producto
             const proveedorProducto = document.getElementById('proveedorProducto');
@@ -169,11 +132,6 @@ async function cargarProveedores() {
             } else {
                 console.error('Elemento filtroProveedor no encontrado');
             }
-        } else if (response.status === 401) {
-            window.location.href = '/login';
-        } else {
-            console.error('Error al cargar proveedores. Estado:', response.status);
-        }
     } catch (error) {
         console.error('Error al cargar proveedores:', error);
     }
@@ -187,30 +145,16 @@ async function cargarInventario() {
         const filtroCategoria = document.getElementById('filtroCategoria').value;
         
         // Primero obtener el total de productos
-        const totalResponse = await fetch(`${API_URL}/api/productos/inventario/total`, {
-            headers: {
-                'Authorization': `Bearer ${getAuthToken()}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (totalResponse.ok) {
-            const totalData = await totalResponse.json();
+        try {
+            const totalData = await getData('/api/productos/inventario/total');
             totalRegistros = totalData.total;
+        } catch (e) {
+            console.warn('No se pudo obtener el total de inventario:', e);
         }
         
         // Luego obtener los productos paginados
-        let url = `${API_URL}/api/productos/inventario?skip=${paginaActual * registrosPorPagina}&limit=${registrosPorPagina}`;
-        
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${getAuthToken()}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (response.ok) {
-            let inventario = await response.json();
+        const urlEndpoint = `/api/productos/inventario?skip=${paginaActual * registrosPorPagina}&limit=${registrosPorPagina}`;
+        let inventario = await getData(urlEndpoint);
             
             // Aplicar filtros en el frontend si es necesario
             if (filtroProducto) {
@@ -248,10 +192,6 @@ async function cargarInventario() {
             
             mostrarInventario(inventario);
             actualizarPaginacion(inventario.length);
-        } else if (response.status === 401) {
-            console.error('Error de autenticación');
-            window.location.href = '/login';
-        }
     } catch (error) {
         console.error('Error al cargar inventario:', error);
     }

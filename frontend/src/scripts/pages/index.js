@@ -34,24 +34,18 @@ export async function cargarProductosDestacados() {
             // return;
         }
 
-        // Verificar disponibilidad del servidor
-        const serverStatus = await checkServerAvailability();
-        if (!serverStatus.available) {
-            mostrarError('El servidor no está disponible. Por favor, intenta más tarde.');
-            return;
+        // Verificar disponibilidad del servidor (opcional, no bloquear si falla)
+        try {
+            await checkServerAvailability();
+        } catch (error) {
+            console.warn('No se pudo verificar la disponibilidad del servidor, continuando...');
         }
 
         mostrarCargando();
 
-        const response = await getData('/api/productos/catalogo');
+        const productos = await getData('/api/productos/catalogo');
         
-        if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
-        }
-
-        const productos = await response.json();
-        
-        if (!Array.isArray(productos)) {
+        if (!productos || !Array.isArray(productos)) {
             throw new Error('La respuesta no es un array válido');
         }
 
@@ -63,11 +57,94 @@ export async function cargarProductosDestacados() {
         
     } catch (error) {
         console.error('Error al cargar productos destacados:', error);
-        handleApiError(error, 'cargar productos destacados');
         mostrarError('Error al cargar los productos destacados');
     }
 }
 
+// Función para cargar productos generales (inicio)
+export async function cargarProductosInicio() {
+    try {
+        // Verificar disponibilidad del servidor (opcional)
+        try {
+            await checkServerAvailability();
+        } catch (error) {
+            console.warn('No se pudo verificar la disponibilidad del servidor, continuando...');
+        }
+
+        mostrarCargandoGenerales();
+
+        const productos = await getData('/api/productos/catalogo');
+
+        if (!productos || !Array.isArray(productos)) {
+            throw new Error('La respuesta no es un array válido');
+        }
+
+        // Mostrar los primeros 12 productos generales
+        const productosGenerales = productos.slice(0, 12);
+        mostrarProductosGenerales(productosGenerales);
+    } catch (error) {
+        console.error('Error al cargar productos:', error);
+        mostrarErrorGenerales('Error al cargar los productos');
+    }
+}
+
+// Mostrar estado de carga para productos generales
+function mostrarCargandoGenerales() {
+    const contenedor = document.getElementById('productos-inicio');
+    if (!contenedor) return;
+    contenedor.innerHTML = `
+        <div class="col-span-full flex justify-center items-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <span class="ml-3 text-gray-600">Cargando productos...</span>
+        </div>
+    `;
+}
+
+// Mostrar error para productos generales
+function mostrarErrorGenerales(mensaje) {
+    const contenedor = document.getElementById('productos-inicio');
+    if (!contenedor) return;
+    contenedor.innerHTML = `
+        <div class="col-span-full text-center py-12">
+            <div class="text-red-600 mb-4">
+                <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+            </div>
+            <p class="text-gray-600">${mensaje}</p>
+        </div>
+    `;
+}
+
+// Función para mostrar productos generales
+function mostrarProductosGenerales(productos) {
+    const contenedor = document.getElementById('productos-inicio');
+    if (!contenedor) return;
+
+    contenedor.innerHTML = '';
+
+    productos.forEach(producto => {
+        const imagen = producto.imagen_url || '/images/placeholder-product.jpg';
+        const precio = producto.precio_venta ?? 0;
+        const id = producto.id_producto ?? producto.id;
+        const productoHTML = `
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300" data-aos="fade-up">
+                <div class="w-full h-48 flex items-center justify-center bg-white">
+                    <img src="${imagen}"
+                         alt="${producto.nombre}"
+                         class="max-h-48 w-auto object-contain" />
+                </div>
+                <div class="p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
+                    <div class="flex items-center">
+                        <span class="text-xl font-bold text-blue-600">$${formatearPrecio(precio)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        contenedor.innerHTML += productoHTML;
+    });
+}
 // Función para mostrar productos destacados
 function mostrarProductosDestacados(productos) {
     const contenedor = document.getElementById('productos-destacados');
@@ -76,22 +153,20 @@ function mostrarProductosDestacados(productos) {
     contenedor.innerHTML = '';
 
     productos.forEach(producto => {
+        const imagen = producto.imagen_url || '/images/placeholder-product.jpg';
+        const precio = producto.precio_venta ?? 0;
+        const id = producto.id_producto ?? producto.id;
         const productoHTML = `
             <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300" data-aos="fade-up">
-                <div class="aspect-w-1 aspect-h-1">
-                    <img src="${producto.imagen || '/images/placeholder-product.jpg'}" 
-                         alt="${producto.nombre}" 
-                         class="w-full h-48 object-cover">
+                <div class="w-full h-48 flex items-center justify-center bg-white">
+                    <img src="${imagen}"
+                         alt="${producto.nombre}"
+                         class="max-h-48 w-auto object-contain" />
                 </div>
                 <div class="p-4">
                     <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
-                    <p class="text-gray-600 text-sm mb-3 line-clamp-2">${producto.descripcion || 'Sin descripción'}</p>
-                    <div class="flex justify-between items-center">
-                        <span class="text-xl font-bold text-blue-600">$${formatearPrecio(producto.precio)}</span>
-                        <button onclick="verProducto(${producto.id})" 
-                                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
-                            Ver más
-                        </button>
+                    <div class="flex items-center">
+                        <span class="text-xl font-bold text-blue-600">$${formatearPrecio(precio)}</span>
                     </div>
                 </div>
             </div>
@@ -266,6 +341,7 @@ window.verProducto = function(id) {
 // Exportar funciones globales para compatibilidad
 window.enviarMensaje = enviarMensaje;
 window.cargarProductosDestacados = cargarProductosDestacados;
+window.cargarProductosInicio = cargarProductosInicio;
 window.login = login;
 window.logout = logout;
 window.actualizarUI = actualizarUI;
@@ -278,11 +354,13 @@ if (document.readyState === 'loading') {
         // Solo cargar productos si estamos en la página principal
         if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
             cargarProductosDestacados();
+            cargarProductosInicio();
         }
     });
 } else {
     actualizarUI();
     if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
         cargarProductosDestacados();
+        cargarProductosInicio();
     }
 }

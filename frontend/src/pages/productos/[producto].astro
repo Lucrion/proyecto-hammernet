@@ -3,15 +3,8 @@ export const prerender = false; // Habilitar SSR para esta página
 
 import Layout from '../../layouts/Layout.astro';
 
-// Obtener la URL de la API desde las variables de entorno
-// Detectar si estamos en desarrollo o producción basándose en el hostname
-const isDevEnvironment = typeof Astro !== 'undefined' 
-  ? (Astro.url.hostname === 'localhost' || Astro.url.hostname === '127.0.0.1')
-  : false;
-
-const API_URL = isDevEnvironment 
-  ? (import.meta.env.PUBLIC_API_URL || 'http://localhost:8000')
-  : (import.meta.env.PUBLIC_API_URL_PRODUCTION || 'https://tu-dominio-produccion.com/api');
+// Configuración de API - usar URL completa para evitar problemas con el proxy en SSR
+const API_BASE = 'http://localhost:8000/api';
 
 // Obtener el parámetro de la URL
 const { producto: productoSlug } = Astro.params;
@@ -23,67 +16,70 @@ let error = null;
 try {
   console.log('=== Cargando producto individual ===');
   console.log('Slug del producto:', productoSlug);
-  console.log('API_URL:', API_URL);
+  console.log('API_BASE:', API_BASE);
   
-  // Obtener datos de las nuevas tablas
-  const [responseProductos, responseCategorias, responseInventario] = await Promise.all([
-    fetch(`${API_URL}/api/productos`),
-    fetch(`${API_URL}/api/categorias`),
-    fetch(`${API_URL}/api/productos/inventario`)
-  ]);
-  
-  if (!responseProductos.ok) {
-    throw new Error(`Error al obtener productos: ${responseProductos.status} ${responseProductos.statusText}`);
-  }
-  if (!responseCategorias.ok) {
-    throw new Error(`Error al obtener categorías: ${responseCategorias.status} ${responseCategorias.statusText}`);
-  }
-  if (!responseInventario.ok) {
-    throw new Error(`Error al obtener inventario: ${responseInventario.status} ${responseInventario.statusText}`);
-  }
-  
-  const productos = await responseProductos.json();
-  const categorias = await responseCategorias.json();
-  const inventario = await responseInventario.json();
-  console.log('Total productos obtenidos:', productos.length);
-  
-  // Combinar datos y buscar el producto que coincida con el slug
-  const productosCompletos = productos
-    .filter(p => p.precio && p.precio > 0 && p.imagen) // Solo productos catalogados
-    .map(p => {
-      // Obtener información de categoría
-      const categoria = categorias.find(c => c.id_categoria === p.id_categoria);
-      const nombreCategoria = categoria ? categoria.nombre : 'Sin categoría';
-      
-      // Obtener stock del inventario
-      const itemInventario = inventario.find(i => i.id_producto === p.id_producto);
-      const stock = itemInventario ? itemInventario.stock_actual : 0;
-      
-      return {
-        id: p.id_producto,
-        nombre: p.nombre,
-        descripcion: p.descripcion || '',
-        precio: p.precio,
-        imagen: p.imagen,
-        categoria: nombreCategoria,
-        caracteristicas: p.caracteristicas || '',
-        stock: stock
-      };
-    })
-    .filter(p => p.stock > 0); // Solo productos en stock
-  
-  // Buscar el producto que coincida con el slug
-  producto = productosCompletos.find(p => {
-    const slug = p.nombre.toLowerCase().replace(/\s+/g, '-');
-    console.log(`Comparando: "${slug}" === "${productoSlug}"`);
-    return slug === productoSlug;
-  });
-  
-  if (!producto) {
-    console.log('Producto no encontrado para slug:', productoSlug);
-    error = 'Producto no encontrado';
+  // Primero, intentar obtener el producto por ID si el slug es numérico
+  let productoId = null;
+  if (/^\d+$/.test(productoSlug)) {
+    productoId = parseInt(productoSlug);
   } else {
-    console.log('Producto encontrado:', producto.nombre);
+    // Si no es numérico, buscar en el catálogo por slug
+    const responseCatalogo = await fetch(`${API_BASE}/productos/catalogo`);
+    if (responseCatalogo.ok) {
+      const productos = await responseCatalogo.json();
+      const productoEncontrado = productos.find(p => {
+        const slug = p.nombre.toLowerCase()
+          .replace(/[áàäâ]/g, 'a')
+          .replace(/[éèëê]/g, 'e')
+          .replace(/[íìïî]/g, 'i')
+          .replace(/[óòöô]/g, 'o')
+          .replace(/[úùüû]/g, 'u')
+          .replace(/[ñ]/g, 'n')
+          .replace(/[^a-z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
+        console.log(`Comparando: "${slug}" === "${productoSlug}"`);
+        return slug === productoSlug;
+      });
+      
+      if (productoEncontrado) {
+        productoId = productoEncontrado.id_producto;
+      }
+    }
+  }
+  
+  if (productoId) {
+    // Obtener el producto específico por ID
+    const responseProducto = await fetch(`${API_BASE}/productos/${productoId}`);
+    
+    if (responseProducto.ok) {
+      const productoData = await responseProducto.json();
+      
+      // Verificar si el producto está en catálogo y disponible
+      if (productoData.cantidad_disponible > 0 && productoData.precio_venta > 0) {
+        producto = {
+          id: productoData.id_producto,
+          nombre: productoData.nombre,
+          descripcion: productoData.descripcion || '',
+          precio: productoData.precio_venta,
+          imagen: productoData.imagen_url,
+          categoria: productoData.categoria || 'Sin categoría',
+          caracteristicas: productoData.caracteristicas || '',
+          stock: productoData.cantidad_disponible,
+          marca: productoData.marca || ''
+        };
+        console.log('Producto encontrado:', producto.nombre);
+      } else {
+        console.log('Producto no disponible o sin precio');
+        error = 'Producto no disponible';
+      }
+    } else {
+      console.log('Producto no encontrado en la API');
+      error = 'Producto no encontrado';
+    }
+  } else {
+    console.log('No se pudo determinar el ID del producto');
+    error = 'Producto no encontrado';
   }
   
 } catch (err) {

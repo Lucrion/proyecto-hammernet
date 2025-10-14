@@ -1,14 +1,10 @@
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
-import node from '@astrojs/node';
 
 // https://astro.build/config
 export default defineConfig({
   integrations: [tailwind()],
   output: 'static',
-  adapter: node({
-    mode: 'standalone'
-  }),
   server: {
     host: true,
     port: 4321
@@ -18,10 +14,20 @@ export default defineConfig({
     server: {
       proxy: {
         '/api': {
-          target: process.env.PUBLIC_API_URL_PRODUCTION || 'http://localhost:8000',
+          target: 'http://localhost:8000',
           changeOrigin: true,
           secure: false,
-          ws: true
+          configure: (proxy, options) => {
+            proxy.on('error', (err, req, res) => {
+              console.log('proxy error', err);
+            });
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              console.log('Sending Request to the Target:', req.method, req.url);
+            });
+            proxy.on('proxyRes', (proxyRes, req, res) => {
+              console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+            });
+          }
         }
       }
     }

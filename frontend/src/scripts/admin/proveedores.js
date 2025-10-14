@@ -1,5 +1,5 @@
 // Script para la gestión de proveedores
-import { API_URL } from '../utils/config.js';
+import { getData, postData, updateData, deleteData } from '../utils/api.js';
 
 // Verificar autenticación
 const token = localStorage.getItem('token');
@@ -55,19 +55,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // Obtener proveedores del servidor
 async function obtenerProveedores() {
     try {
-        const response = await fetch(`${API_URL}/api/proveedores/`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            proveedores = await response.json();
-            cargarProveedores();
-        } else {
-            console.error('Error al obtener proveedores:', response.status);
-        }
+        proveedores = await getData('/api/proveedores/');
+        cargarProveedores();
     } catch (error) {
         console.error('Error de conexión:', error);
     }
@@ -146,28 +135,16 @@ async function guardarProveedor(e) {
     };
 
     try {
-        const url = proveedorEditando 
-            ? `${API_URL}/api/proveedores/${proveedorEditando.id_proveedor}`
-            : `${API_URL}/api/proveedores/`;
-        
-        const method = proveedorEditando ? 'PUT' : 'POST';
-
-        const response = await fetch(url, {
-            method: method,
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(proveedorData)
-        });
-
-        if (response.ok) {
+        if (proveedorEditando) {
+            await updateData(`/api/proveedores/${proveedorEditando.id_proveedor}`, proveedorData);
             cerrarModal();
             obtenerProveedores();
-            alert(proveedorEditando ? 'Proveedor actualizado correctamente' : 'Proveedor creado correctamente');
+            alert('Proveedor actualizado correctamente');
         } else {
-            const error = await response.json();
-            alert('Error: ' + (error.detail || 'No se pudo guardar el proveedor'));
+            await postData('/api/proveedores/', proveedorData);
+            cerrarModal();
+            obtenerProveedores();
+            alert('Proveedor creado correctamente');
         }
     } catch (error) {
         console.error('Error:', error);
@@ -197,19 +174,9 @@ window.cerrarModalConfirmar = function() {
 window.confirmarEliminar = async function() {
     if (proveedorAEliminar) {
         try {
-            const response = await fetch(`${API_URL}/api/proveedores/${proveedorAEliminar}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.ok) {
-                obtenerProveedores();
-                alert('Proveedor eliminado correctamente');
-            } else {
-                alert('Error al eliminar el proveedor');
-            }
+            await deleteData(`/api/proveedores/${proveedorAEliminar}`);
+            obtenerProveedores();
+            alert('Proveedor eliminado correctamente');
         } catch (error) {
             console.error('Error:', error);
             alert('Error de conexión');

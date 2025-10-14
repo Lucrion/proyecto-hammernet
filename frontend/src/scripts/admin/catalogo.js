@@ -1,6 +1,5 @@
 // Importar funciones de API con autenticación
 import { getData, postData, updateData, deleteData, fetchWithAuth } from '../utils/api.js';
-import { API_URL } from '../utils/config.js';
 
 // Variables globales
 let base64Image = null;
@@ -170,14 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // Función para obtener productos desde la API
 async function obtenerProductos() {
     try {
-        const response = await fetch(`${API_URL}/api/productos`);
-        
-        if (response.ok) {
-            productos = await response.json();
-            console.log('Productos cargados:', productos);
-        } else {
-            console.error('Error al obtener productos');
-        }
+        productos = await getData('/api/productos');
+        console.log('Productos cargados:', productos);
     } catch (error) {
         console.error('Error al obtener productos:', error);
     }
@@ -186,14 +179,8 @@ async function obtenerProductos() {
 // Función para obtener categorías
 async function obtenerCategorias() {
     try {
-        const response = await fetch(`${API_URL}/api/categorias`);
-        
-        if (response.ok) {
-            categorias = await response.json();
-            console.log('Categorías cargadas:', categorias);
-        } else {
-            console.error('Error al obtener categorías');
-        }
+        categorias = await getData('/api/categorias');
+        console.log('Categorías cargadas:', categorias);
     } catch (error) {
         console.error('Error al obtener categorías:', error);
     }
@@ -202,14 +189,8 @@ async function obtenerCategorias() {
 // Función para obtener inventario
 async function obtenerInventario() {
     try {
-        const response = await fetch(`${API_URL}/api/productos/inventario`);
-        
-        if (response.ok) {
-            inventario = await response.json();
-            console.log('Inventario cargado:', inventario);
-        } else {
-            console.error('Error al obtener inventario:', response.status, response.statusText);
-        }
+        inventario = await getData('/api/productos/inventario');
+        console.log('Inventario cargado:', inventario);
     } catch (error) {
         console.error('Error al obtener inventario:', error);
     }
@@ -218,16 +199,9 @@ async function obtenerInventario() {
 // Función para obtener catálogo público
 async function obtenerCatalogo() {
     try {
-        const response = await fetch(`${API_URL}/api/productos/catalogo`);
-        
-        if (response.ok) {
-            const catalogo = await response.json();
-            console.log('Catálogo cargado:', catalogo);
-            return catalogo;
-        } else {
-            console.error('Error al obtener catálogo');
-            return [];
-        }
+        const catalogo = await getData('/api/productos/catalogo');
+        console.log('Catálogo cargado:', catalogo);
+        return catalogo;
     } catch (error) {
         console.error('Error al obtener catálogo:', error);
         return [];

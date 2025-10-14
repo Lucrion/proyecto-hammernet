@@ -1,5 +1,6 @@
 // Script para la gestión de mensajes
 import { API_URL } from '../utils/config.js';
+import { getData, updateData, deleteData } from '../utils/api.js';
 
 // Variables globales
 let mensajes = [];
@@ -89,21 +90,9 @@ async function obtenerMensajes() {
         // Mostrar estado de carga
         mostrarEstado('loading');
         
-        const response = await fetch(`${API_URL}/api/mensajes`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            mensajes = await response.json();
+        mensajes = await getData('/api/mensajes');
             console.log('Mensajes obtenidos:', mensajes);
             cargarMensajes();
-        } else {
-            console.error('Error al obtener mensajes:', response.status);
-            mostrarEstado('empty');
-        }
     } catch (error) {
         console.error('Error de conexión:', error);
         mostrarEstado('empty');
@@ -230,21 +219,9 @@ window.verMensaje = function(id) {
 async function marcarComoLeido(id) {
     console.log('Ejecutando marcarComoLeido con ID:', id); // Debug
     try {
-        const response = await fetch(`${API_URL}/api/mensajes/${id}/marcar-leido`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        console.log('Respuesta del servidor:', response.status); // Debug
-        if (response.ok) {
-            console.log('Mensaje marcado como leído, recargando tabla...'); // Debug
-            obtenerMensajes(); // Recargar mensajes
-        } else {
-            console.error('Error en la respuesta:', response.status);
-        }
+        await updateData(`/api/mensajes/${id}/marcar-leido`, {});
+        console.log('Mensaje marcado como leído, recargando tabla...'); // Debug
+        obtenerMensajes(); // Recargar mensajes
     } catch (error) {
         console.error('Error al marcar como leído:', error);
     }
@@ -273,24 +250,12 @@ async function confirmarEliminacionMensaje() {
     console.log('Confirmando eliminación del mensaje:', mensajeAEliminar);
     
     try {
-        const response = await fetch(`${API_URL}/api/mensajes/${mensajeAEliminar}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            console.log('Mensaje eliminado exitosamente');
-            // Cerrar modal
-            cerrarModalEliminarMensaje();
-            // Recargar mensajes
-            obtenerMensajes();
-        } else {
-            console.error('Error al eliminar mensaje:', response.status);
-            alert('Error al eliminar el mensaje');
-        }
+        await deleteData(`/api/mensajes/${mensajeAEliminar}`);
+        console.log('Mensaje eliminado exitosamente');
+        // Cerrar modal
+        cerrarModalEliminarMensaje();
+        // Recargar mensajes
+        obtenerMensajes();
     } catch (error) {
         console.error('Error en la petición:', error);
         alert('Error de conexión al eliminar el mensaje');

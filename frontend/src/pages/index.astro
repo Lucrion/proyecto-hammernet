@@ -91,7 +91,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 
 		<!-- Products Section -->
 		<section class="mb-16" data-aos="fade-up" data-aos-duration="1000">
-			<h2 class="text-3xl font-bold text-center mb-12 text-gray-800">Productos Destacados</h2>
+			<h2 class="text-3xl font-bold text-center mb-12 text-gray-800">Algunos de nuestros productos</h2>
 			<div id="productos-destacados" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
 				<!-- Los productos destacados se cargarán dinámicamente desde la API -->
 				<div class="col-span-full text-center py-8">
@@ -100,6 +100,10 @@ import EnvLoader from '../components/EnvLoader.astro';
 					</div>
 					<p class="text-gray-400 mt-4">Cargando productos destacados...</p>
 				</div>
+			</div>
+			<!-- Botón único centrado para ver más productos -->
+			<div class="mt-8 flex justify-center">
+				<a href="/productos" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 transition-colors">Ver más</a>
 			</div>
 		</section>
 

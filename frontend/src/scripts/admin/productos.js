@@ -1,5 +1,6 @@
 // Importar configuración de API
 import { API_URL } from '../utils/config.js';
+import { getData } from '../utils/api.js';
 
 // Variables globales
 let paginaActual = 0;
@@ -42,14 +43,8 @@ function verificarAuth() {
 // Cargar categorías
 async function cargarCategorias() {
     try {
-        const response = await fetch(`${API_URL}/api/categorias/`, {
-            headers: {
-                'Authorization': `Bearer ${getAuthToken()}`
-            }
-        });
-        
-        if (response.ok) {
-            categorias = await response.json();
+        const data = await getData('/api/categorias/');
+        categorias = data;
             const selectCategoria = document.getElementById('id_categoria');
             const filtroCategoria = document.getElementById('filtroCategoria');
             
@@ -71,14 +66,8 @@ async function cargarCategorias() {
 // Cargar proveedores
 async function cargarProveedores() {
     try {
-        const response = await fetch(`${API_URL}/api/proveedores/`, {
-            headers: {
-                'Authorization': `Bearer ${getAuthToken()}`
-            }
-        });
-        
-        if (response.ok) {
-            proveedores = await response.json();
+        const data = await getData('/api/proveedores/');
+        proveedores = data;
             const selectProveedor = document.getElementById('id_proveedor');
             const filtroProveedor = document.getElementById('filtroProveedor');
             
@@ -104,23 +93,16 @@ async function cargarProductos() {
         const filtroCategoria = document.getElementById('filtroCategoria').value;
         const filtroProveedor = document.getElementById('filtroProveedor').value;
         
-        let url = `${API_URL}/api/productos/?skip=${paginaActual * productosPorPagina}&limit=${productosPorPagina}`;
+        let endpoint = `/api/productos/?skip=${paginaActual * productosPorPagina}&limit=${productosPorPagina}`;
         
         if (filtroCategoria) {
-            url += `&categoria_id=${filtroCategoria}`;
+            endpoint += `&categoria_id=${filtroCategoria}`;
         }
         if (filtroProveedor) {
-            url += `&proveedor_id=${filtroProveedor}`;
+            endpoint += `&proveedor_id=${filtroProveedor}`;
         }
         
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${getAuthToken()}`
-            }
-        });
-        
-        if (response.ok) {
-            const productos = await response.json();
+        const productos = await getData(endpoint);
             
             // Filtrar por nombre en el frontend si se especifica
             let productosFiltrados = productos;
@@ -132,9 +114,6 @@ async function cargarProductos() {
             
             mostrarProductos(productosFiltrados);
             actualizarPaginacion(productosFiltrados.length);
-        } else if (response.status === 401) {
-            window.location.href = '/login';
-        }
     } catch (error) {
         console.error('Error al cargar productos:', error);
     }
@@ -192,16 +171,7 @@ function abrirModalNuevo() {
 window.editarProducto = async function(id) {
     console.log('Editando producto con ID:', id);
     try {
-        const response = await fetch(`${API_URL}/api/productos/${id}/`, {
-            headers: {
-                'Authorization': `Bearer ${getAuthToken()}`
-            }
-        });
-        
-        console.log('Response status:', response.status);
-        
-        if (response.ok) {
-            const producto = await response.json();
+        const producto = await getData(`/api/productos/${id}/`);
             console.log('Producto recibido:', producto);
             productoEditando = producto;
             tituloModal.textContent = 'Editar Producto';
@@ -234,9 +204,6 @@ window.editarProducto = async function(id) {
             
             console.log('Abriendo modal...');
             modalProducto.classList.remove('hidden');
-        } else {
-            console.error('Error en la respuesta:', response.status, response.statusText);
-        }
     } catch (error) {
         console.error('Error al cargar producto:', error);
     }
