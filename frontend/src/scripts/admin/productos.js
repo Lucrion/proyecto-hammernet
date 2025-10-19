@@ -57,7 +57,6 @@ async function cargarCategorias() {
                 selectCategoria.add(option1);
                 filtroCategoria.add(option2);
             });
-        }
     } catch (error) {
         console.error('Error al cargar categorías:', error);
     }
@@ -80,7 +79,6 @@ async function cargarProveedores() {
                 selectProveedor.add(option1);
                 filtroProveedor.add(option2);
             });
-        }
     } catch (error) {
         console.error('Error al cargar proveedores:', error);
     }

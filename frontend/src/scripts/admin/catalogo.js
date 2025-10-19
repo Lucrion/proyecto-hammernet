@@ -290,28 +290,26 @@ function mostrarTablaSegunPestana() {
     const tablaHeader = document.getElementById('tablaHeader');
     
     if (tabActiva === 'completos') {
-        // Header para productos completos
+        // Header para productos completos (catálogo)
         tablaHeader.innerHTML = `
             <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagen del Producto</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del Producto</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marca</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
         `;
         
         cargarProductosCompletos(productosCatalogados);
     } else {
-        // Header para productos básicos (inventario)
+        // Header para productos básicos (inventario): Código, Nombre, Precio, Categoría
         tablaHeader.innerHTML = `
             <tr>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
         `;
@@ -325,24 +323,16 @@ function cargarProductosCompletos(productosAMostrar) {
     tablaProductos.innerHTML = '';
     
     productosAMostrar.forEach(producto => {
-        // Obtener información de categoría
-        const categoria = categorias.find(c => c.id_categoria === producto.id_categoria);
-        const nombreCategoria = categoria ? categoria.nombre : 'Sin categoría';
-        
-        // Obtener stock del inventario
-        const itemInventario = inventario.find(i => i.id_producto === producto.id_producto);
-        const stock = itemInventario ? itemInventario.stock_actual : 0;
+        const imagen = producto.imagen_url || '/herramientas.webp';
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.id_producto}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${producto.nombre}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.precio ? '$' + producto.precio.toFixed(2) : 'Sin precio'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                    ${nombreCategoria}
-                </span>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <img src="${imagen}" alt="${producto.nombre}" class="h-12 w-12 rounded object-cover" onerror="this.src='/herramientas.webp'">
             </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${producto.nombre || 'Sin nombre'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.marca || 'Sin marca'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.descripcion || 'Sin descripción'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <button data-id="${producto.id_producto}" class="btn-editar-catalogado text-blue-600 hover:text-blue-900 mr-3" title="Editar producto catalogado">
                     <svg class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -378,7 +368,7 @@ function cargarProductosBasicos(productosAMostrar) {
     if (productosAMostrar.length === 0) {
         tablaProductos.innerHTML = `
             <tr>
-                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
                     No hay productos en inventario
                 </td>
             </tr>
@@ -387,47 +377,14 @@ function cargarProductosBasicos(productosAMostrar) {
     }
     
     productosAMostrar.forEach(producto => {
-        // Obtener información de categoría
-        const categoria = categorias.find(c => c.id_categoria === producto.id_categoria);
-        const nombreCategoria = categoria ? categoria.nombre : 'Sin categoría';
-        
-        // Usar los datos del inventario directamente
-        const stock = producto.cantidad_disponible || 0;
-        const precio = producto.precio_inventario || 0;
-        
-        // Determinar estado del stock
-        let estadoStock = 'disponible';
-        let estadoClass = 'bg-green-100 text-green-800';
-        
-        if (stock === 0) {
-            estadoStock = 'agotado';
-            estadoClass = 'bg-red-100 text-red-800';
-        } else if (stock <= (producto.stock_minimo || 0)) {
-            estadoStock = 'stock bajo';
-            estadoClass = 'bg-yellow-100 text-yellow-800';
-        }
-        
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${producto.codigo_interno || 'P-' + producto.id_producto}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.codigo_interno || 'N/A'}</td>
             <td class="px-6 py-4 whitespace-nowrap">
-                <div class="flex items-center">
-                    <div>
-                        <div class="text-sm font-medium text-gray-900">${producto.nombre}</div>
-                    </div>
-                </div>
+                <div class="text-sm font-medium text-gray-900">${producto.nombre || 'Sin nombre'}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${precio ? '$' + precio.toLocaleString() : 'Sin precio'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                <div class="text-sm font-medium">${stock}</div>
-                <div class="text-xs text-gray-500">Mín: ${producto.stock_minimo || 0}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">${nombreCategoria}</td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${estadoClass}">
-                    ${estadoStock.charAt(0).toUpperCase() + estadoStock.slice(1)}
-                </span>
-            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${(producto.precio_inventario != null ? producto.precio_inventario : (producto.precio_venta != null ? producto.precio_venta : 0)).toLocaleString()}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.categoria || 'Sin categoría'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div class="flex justify-end space-x-2">
                     <button onclick="editarInventario(${producto.id_producto})" class="text-blue-600 hover:text-blue-900" title="Editar inventario">

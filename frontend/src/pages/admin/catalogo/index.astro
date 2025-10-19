@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import catalogoScriptUrl from '../../../scripts/admin/catalogo.js?url';
 ---
 
 <AdminLayout title="Gestión de Catálogo">
@@ -321,5 +322,5 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         </div>
     </div>
 
-    <script src="/src/scripts/admin/catalogo.js" type="module"></script>
+    <script type="module" src={catalogoScriptUrl}></script>
 </AdminLayout>

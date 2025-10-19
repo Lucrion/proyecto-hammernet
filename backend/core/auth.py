@@ -28,9 +28,9 @@ import os
 from config.database import get_db
 from sqlalchemy.orm import Session
 
-# Configuración del hash de contraseñas usando bcrypt
-# bcrypt es un algoritmo de hashing seguro diseñado específicamente para contraseñas
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Configuración del hash de contraseñas usando PBKDF2-SHA256
+# PBKDF2 es un algoritmo de derivación de clave robusto para contraseñas
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # Configuración de JWT (JSON Web Tokens)
 # La clave secreta debe ser segura y cambiada en producción
@@ -45,40 +45,33 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 def verificar_contraseña(plain_password, hashed_password):
     """Verifica si la contraseña en texto plano coincide con el hash almacenado.
     
-    Esta función maneja dos casos:
-    1. Contraseñas hasheadas con bcrypt (comienzan con '$2')
-    2. Contraseñas en texto plano (compatibilidad con datos antiguos)
-    
-    Args:
-        plain_password: Contraseña en texto plano proporcionada por el usuario
-        hashed_password: Hash o contraseña almacenada en la base de datos
-        
-    Returns:
-        bool: True si la contraseña coincide, False en caso contrario
+    Maneja los siguientes casos:
+    1. Hash PBKDF2-SHA256 (nuevo esquema: comienza con '$pbkdf2-sha256$')
+    2. Hash bcrypt (compatibilidad temporal: comienza con '$2')
+    3. Texto plano (compatibilidad con datos antiguos)
     """
-    # Compatibilidad con contraseñas en texto plano (no hasheadas)
-    # Si la contraseña almacenada no es un hash bcrypt (no comienza con $2)
-    # entonces comparamos directamente (para contraseñas en texto plano)
-    if not hashed_password.startswith("$2"):
-        return plain_password == hashed_password
-    
-    # Si es un hash bcrypt, usamos el verificador de passlib
     try:
-        return pwd_context.verify(plain_password, hashed_password)
+        # PBKDF2-SHA256 (nuevo esquema)
+        if hashed_password.startswith("$pbkdf2-sha256$"):
+            return pwd_context.verify(plain_password, hashed_password)
+        
+        # Compatibilidad temporal con bcrypt sin usar el handler de passlib
+        if hashed_password.startswith("$2"):
+            try:
+                import bcrypt
+                return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+            except Exception as e:
+                print(f"Error al verificar contraseña (bcrypt): {e}")
+                return False
+        
+        # Compatibilidad con contraseñas en texto plano (no hasheadas)
+        return plain_password == hashed_password
     except Exception as e:
-        # Si hay un error al verificar (por ejemplo, el hash no es válido)
         print(f"Error al verificar contraseña: {e}")
         return False
 
 def hash_contraseña(password):
-    """Genera un hash seguro de la contraseña usando bcrypt.
-    
-    Args:
-        password: Contraseña en texto plano a hashear
-        
-    Returns:
-        str: Hash de la contraseña generado con bcrypt
-    """
+    """Genera un hash seguro de la contraseña usando PBKDF2-SHA256."""
     return pwd_context.hash(password)
 
 def crear_token(data: dict, expires_delta: Optional[timedelta] = None):

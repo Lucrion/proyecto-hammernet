@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import productosScriptUrl from '../../../scripts/admin/productos.js?url';
 ---
 
 <AdminLayout title="Gestión de Productos">
@@ -186,5 +187,5 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         </div>
     </div>
 
-    <script type="module" src="/src/scripts/admin/productos.js"></script>
+    <script type="module" src={productosScriptUrl}></script>
 </AdminLayout>

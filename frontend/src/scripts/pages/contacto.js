@@ -1,5 +1,5 @@
 // Funciones para el manejo del formulario de contacto
-import { API_URL } from '../utils/config.js';
+import { postData } from '../utils/api.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('contactForm');
@@ -35,19 +35,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     mensaje: document.getElementById('mensaje').value
                 };
                 
-                // Enviar datos a la API
-                const response = await fetch(`${API_URL}/api/mensajes`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
+                // Enviar datos a la API usando utilidad que normaliza la URL
+                const result = await postData('/api/mensajes', formData);
                 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.detail || errorData.message || 'Error al enviar el mensaje');
+                if (!result) {
+                    throw new Error('Error al enviar el mensaje');
                 }
                 
                 // Mostrar mensaje de éxito

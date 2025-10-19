@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import inventarioScriptUrl from '../../../scripts/admin/inventario.js?url';
 ---
 
 <AdminLayout title="Gestión de Inventario">
@@ -249,5 +250,5 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         </div>
     </div>
 
-    <script type="module" src="/src/scripts/admin/inventario.js"></script>
+    <script type="module" src={inventarioScriptUrl}></script>
 </AdminLayout>

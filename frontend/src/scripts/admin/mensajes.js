@@ -235,7 +235,6 @@ window.eliminarMensaje = function(id) {
     // Mostrar modal de confirmación
     const modalEliminarMensaje = document.getElementById('modalEliminarMensaje');
     if (modalEliminarMensaje) {
-        modalEliminarMensaje.style.display = 'flex';
         modalEliminarMensaje.classList.remove('hidden');
     }
 }
@@ -266,7 +265,6 @@ async function confirmarEliminacionMensaje() {
 function cerrarModalEliminarMensaje() {
     const modalEliminarMensaje = document.getElementById('modalEliminarMensaje');
     if (modalEliminarMensaje) {
-        modalEliminarMensaje.style.display = 'none';
         modalEliminarMensaje.classList.add('hidden');
     }
     mensajeAEliminar = null;

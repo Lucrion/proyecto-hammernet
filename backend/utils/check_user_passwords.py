@@ -6,7 +6,7 @@ import sqlite3
 from passlib.context import CryptContext
 
 # Configurar el contexto de contraseñas (debe coincidir con el del backend)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def verificar_contraseñas():
     """Verificar las contraseñas de los usuarios en la base de datos"""
@@ -35,9 +35,22 @@ def verificar_contraseñas():
             
             for contraseña in contraseñas_prueba:
                 try:
-                    if pwd_context.verify(contraseña, password_hash):
-                        print(f"✓ Contraseña encontrada: '{contraseña}'")
-                        break
+                    # Verificar PBKDF2-SHA256
+                    if password_hash.startswith("$pbkdf2-sha256$"):
+                        if pwd_context.verify(contraseña, password_hash):
+                            print(f"✓ Contraseña encontrada: '{contraseña}' (PBKDF2)")
+                            break
+                    # Compatibilidad con bcrypt (evitar handler de passlib)
+                    elif password_hash.startswith("$2"):
+                        import bcrypt
+                        if bcrypt.checkpw(contraseña.encode('utf-8'), password_hash.encode('utf-8')):
+                            print(f"✓ Contraseña encontrada: '{contraseña}' (bcrypt)")
+                            break
+                    else:
+                        # Texto plano legado
+                        if contraseña == password_hash:
+                            print(f"✓ Contraseña encontrada: '{contraseña}' (texto plano)")
+                            break
                 except Exception as e:
                     print(f"Error verificando contraseña '{contraseña}': {e}")
             else:
@@ -79,7 +92,7 @@ def crear_usuario_admin():
             
             cursor.execute(
                 "INSERT INTO usuarios (nombre, username, password, role, activo) VALUES (?, ?, ?, ?, ?)",
-                ("Administrador", "admin", password_hash, "admin", True)
+                ("Administrador", "admin", password_hash, "administrador", True)
             )
             print(f"Usuario 'admin' creado con contraseña: {nueva_contraseña}")
         
