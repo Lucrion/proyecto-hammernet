@@ -25,7 +25,7 @@ async def crear_venta(
     # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Crear una nueva venta """
-    return await VentaController.crear_venta(venta, db)
+    return VentaController.crear_venta(db, venta, venta.id_usuario)
 
 
 @router.get("/", response_model=List[Venta])
@@ -49,7 +49,7 @@ async def obtener_venta_por_id(
     # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Obtener una venta específica por ID """
-    venta = await VentaController.obtener_venta_por_id(id_venta, db)
+    venta = VentaController.obtener_venta_por_id(db, id_venta)
     if not venta:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -61,11 +61,12 @@ async def obtener_venta_por_id(
 @router.put("/{id_venta}/cancelar")
 async def cancelar_venta(
     id_venta: int,
+    id_usuario: int = Query(..., description="ID del usuario que cancela"),
     db: Session = Depends(get_db),
     # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Cancelar una venta y restaurar el inventario """
-    resultado = await VentaController.cancelar_venta(id_venta, db)
+    resultado = VentaController.cancelar_venta(db, id_venta, id_usuario)
     if not resultado:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -86,8 +87,8 @@ async def obtener_movimientos_inventario(
     # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Obtener movimientos de inventario con filtros opcionales """
-    return await VentaController.obtener_movimientos_inventario(
-        db, skip, limit, id_producto, tipo_movimiento, fecha_inicio, fecha_fin
+    return VentaController.obtener_movimientos_inventario(
+        db, skip, limit, id_producto
     )
 
 
@@ -100,7 +101,7 @@ async def obtener_estadisticas_ventas(
     # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Obtener estadísticas de ventas """
-    return await VentaController.obtener_estadisticas_ventas(db, fecha_inicio, fecha_fin, id_usuario)
+    return VentaController.obtener_estadisticas_ventas(db, fecha_inicio, fecha_fin)
 
 
 @router.get("/usuario/{id_usuario}", response_model=List[Venta])
@@ -114,7 +115,7 @@ async def obtener_ventas_por_usuario(
     # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Obtener ventas de un usuario específico """
-    return await VentaController.obtener_ventas(db, skip, limit, fecha_inicio, fecha_fin, id_usuario)
+    return VentaController.obtener_ventas(db, skip, limit, fecha_inicio, fecha_fin, id_usuario)
 
 
 @router.get("/producto/{id_producto}/movimientos", response_model=List[MovimientoInventario])
@@ -128,6 +129,6 @@ async def obtener_movimientos_por_producto(
     # current_user: dict = Depends(get_current_user)  # Comentado temporalmente
 ):
     """ Obtener movimientos de inventario de un producto específico """
-    return await VentaController.obtener_movimientos_inventario(
-        db, skip, limit, id_producto, None, fecha_inicio, fecha_fin
+    return VentaController.obtener_movimientos_inventario(
+        db, skip, limit, id_producto
     )

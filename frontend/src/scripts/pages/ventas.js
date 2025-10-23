@@ -36,18 +36,21 @@ function inicializarEventos() {
     document.getElementById('btnCancelarVenta')?.addEventListener('click', cerrarModalVenta);
     
     // Filtros
-    document.getElementById('btnAplicarFiltros')?.addEventListener('click', aplicarFiltros);
-    document.getElementById('btnLimpiarFiltros')?.addEventListener('click', limpiarFiltros);
+    document.getElementById('btnFiltrar')?.addEventListener('click', aplicarFiltros);
+    // document.getElementById('btnLimpiarFiltros')?.addEventListener('click', limpiarFiltros);
     
     // Productos en venta
     document.getElementById('btnAgregarProducto')?.addEventListener('click', agregarProductoAVenta);
     
     // Paginación
-    document.getElementById('btnPaginaAnterior')?.addEventListener('click', paginaAnterior);
-    document.getElementById('btnPaginaSiguiente')?.addEventListener('click', paginaSiguiente);
+    document.getElementById('btnPrevPage')?.addEventListener('click', paginaAnterior);
+    document.getElementById('btnNextPage')?.addEventListener('click', paginaSiguiente);
+    document.getElementById('btnPrevPageMobile')?.addEventListener('click', paginaAnterior);
+    document.getElementById('btnNextPageMobile')?.addEventListener('click', paginaSiguiente);
     
-    // Búsqueda
-    document.getElementById('inputBusqueda')?.addEventListener('input', buscarVentas);
+    // Búsqueda (si existe caja de búsqueda)
+    // const inputBusqueda = document.getElementById('inputBusqueda') || document.getElementById('buscarVenta');
+    // inputBusqueda?.addEventListener('input', buscarVentas);
 }
 
 async function cargarDatosIniciales() {
@@ -95,6 +98,8 @@ async function cargarVentas() {
         
         // Asegurar que ventas sea un array
         state.ventas = Array.isArray(ventas) ? ventas : [];
+        // El backend devuelve una lista simple; usamos su longitud como total conocido
+        state.paginacion.totalElementos = state.ventas.length;
         renderizarTablaVentas();
         actualizarPaginacion();
         
@@ -103,6 +108,7 @@ async function cargarVentas() {
         console.error('Error al cargar ventas:', error);
         // En caso de error, asegurar que el estado sea un array vacío
         state.ventas = [];
+        state.paginacion.totalElementos = 0;
         renderizarTablaVentas();
         mostrarError('Error al cargar las ventas');
     }
@@ -110,7 +116,7 @@ async function cargarVentas() {
 
 async function cargarUsuarios() {
     try {
-        const usuarios = await getData('/api/usuarios');
+        const usuarios = await getData('/api/usuarios/');
         state.usuarios = usuarios;
         
         // Llenar select de usuarios en filtros
@@ -146,7 +152,7 @@ async function cargarUsuarios() {
 
 async function cargarProductos() {
     try {
-        const productos = await getData('/api/productos');
+        const productos = await getData('/api/productos/');
         state.productos = productos.filter(p => p.cantidad_disponible > 0); // Solo productos con stock
         
         // Llenar select de productos
@@ -236,19 +242,19 @@ function renderizarTablaVentas() {
     tbody.innerHTML = state.ventas.map(venta => `
         <tr class="hover:bg-gray-50">
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                #${venta.id}
+                #${venta.id_venta}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 ${formatearFecha(venta.fecha_venta)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${venta.usuario ? venta.usuario.nombre : 'N/A'}
+                ${venta.usuario || 'N/A'}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                $${venta.total.toFixed(2)}
+                $${Number(venta.total_venta).toFixed(2)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${venta.detalles ? venta.detalles.length : 0} productos
+                ${venta.detalles_venta ? venta.detalles_venta.length : 0} productos
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -384,9 +390,12 @@ async function guardarVenta() {
             return;
         }
         
+        const totalVenta = state.productosVenta.reduce((sum, p) => sum + (p.precio_unitario * p.cantidad), 0);
         const ventaData = {
             id_usuario: parseInt(formData.get('id_usuario')),
-            fecha_venta: formData.get('fecha_venta'),
+            total_venta: totalVenta,
+            estado: 'completada',
+            observaciones: null,
             detalles: state.productosVenta.map(producto => ({
                 id_producto: producto.id_producto,
                 cantidad: producto.cantidad,
@@ -411,12 +420,6 @@ async function guardarVenta() {
         mostrarLoading(false);
     }
 }
-
-
-
-
-
-
 
 function aplicarFiltros() {
     state.filtros.fechaInicio = document.getElementById('filtroFechaInicio').value || null;
@@ -445,7 +448,8 @@ function limpiarFiltros() {
 }
 
 function buscarVentas() {
-    const termino = document.getElementById('buscarVenta').value.toLowerCase();
+    const input = document.getElementById('buscarVenta') || document.getElementById('inputBusqueda');
+    const termino = (input?.value || '').toLowerCase();
     
     if (!termino) {
         renderizarTablaVentas();
@@ -453,9 +457,9 @@ function buscarVentas() {
     }
     
     const ventasFiltradas = state.ventas.filter(venta => 
-        venta.id_venta.toString().includes(termino) ||
-        venta.usuario.toLowerCase().includes(termino) ||
-        venta.total.toString().includes(termino)
+        (venta.id_venta?.toString() || '').includes(termino) ||
+        ((venta.usuario || '').toLowerCase()).includes(termino) ||
+        String(venta.total_venta).includes(termino)
     );
     
     const tbody = document.getElementById('ventasTableBody');
@@ -475,9 +479,9 @@ function buscarVentas() {
         <tr>
             <td>#${venta.id_venta}</td>
             <td>${formatearFecha(venta.fecha_venta)}</td>
-            <td>${venta.usuario}</td>
-            <td>$${venta.total.toFixed(2)}</td>
-            <td>${venta.detalles.length} productos</td>
+            <td>${venta.usuario || 'N/A'}</td>
+            <td>$${Number(venta.total_venta).toFixed(2)}</td>
+            <td>${venta.detalles_venta ? venta.detalles_venta.length : 0} productos</td>
             <td>
                 <span class="estado-${venta.estado.toLowerCase()}">
                     ${venta.estado}

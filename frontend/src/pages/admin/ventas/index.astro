@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ventasScriptUrl from '../../../scripts/pages/ventas.js?url';
 
 const title = 'Gestión de Ventas';
 ---
@@ -192,7 +193,7 @@ const title = 'Gestión de Ventas';
                             </div>
                             <div>
                                 <label for="cantidadProducto" class="block text-sm font-medium text-gray-700">Cantidad</label>
-                                <input type="number" id="cantidadProducto" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" min="1" value="1">
+                                <input type="number" id="cantidadProducto" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" min="1" value="1">
                             </div>
                             <div class="flex items-end">
                                 <button type="button" id="btnAgregarProducto" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium">
@@ -256,7 +257,7 @@ const title = 'Gestión de Ventas';
     </div>
 
     <!-- Scripts -->
-    <script src="/src/scripts/pages/ventas.js" type="module"></script>
+    <script type="module" src={ventasScriptUrl}></script>
 </AdminLayout>
 
 <style>
