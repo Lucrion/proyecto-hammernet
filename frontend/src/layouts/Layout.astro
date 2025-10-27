@@ -25,21 +25,28 @@ const { title } = Astro.props;
 					<a href="/" class="flex items-center">
 						<img src="/images/logos/logo_bn.webp" alt="Ferretería Patricio" class="h-16" />
 					</a>
-					<div class="flex items-center space-x-6">
+                    <div class="flex items-center space-x-6 relative">
 						<a href="/" class="text-gray-700 hover:text-blue-600">Inicio</a>
 						<a href="/productos" class="text-gray-700 hover:text-blue-600">Productos</a>
 						<a href="/nosotros" class="text-gray-700 hover:text-blue-600">Nosotros</a>
 						<a href="/contacto" class="text-gray-700 hover:text-blue-600">Contáctanos</a>
 						<div class="relative w-36 h-10 overflow-visible">
-							<div id="userIconContainer" class="absolute inset-0 flex items-center justify-center">
-								<button id="userIconBtn" class="text-gray-700 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-50 rounded-full p-1">
-									<img src="/images/icons/usuario.svg" alt="Usuario" class="h-6 w-6" />
-								</button>
-							</div>
-							<div id="loginButtonContainer" class="absolute inset-0 flex items-center justify-center transform translate-x-full opacity-0">
-								<a href="/login" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-md whitespace-nowrap text-sm font-medium">Iniciar Sesión</a>
-							</div>
-						</div>
+                            <div id="userIconContainer" class="absolute inset-0 flex items-center justify-center">
+                                <button id="userIconBtn" class="text-gray-700 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-50 rounded-full p-1">
+                                    <img src="/images/icons/usuario.svg" alt="Usuario" class="h-6 w-6" />
+                                </button>
+                            </div>
+                            <div id="loginButtonContainer" class="absolute inset-0 flex items-center justify-center transform translate-x-full opacity-0">
+                                <a href="/login" id="login-link" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-md whitespace-nowrap text-sm font-medium">Iniciar Sesión</a>
+                            </div>
+                        </div>
+						<!-- Botón Carrito -->
+						<button id="carritoBtn" class="relative text-gray-700 hover:text-blue-600 focus:outline-none" aria-label="Carrito">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l3-8H6l1 8zm-1 0a1 1 0 100 2 1 1 0 000-2zm12 0a1 1 0 100 2 1 1 0 000-2z" />
+                            </svg>
+                            <span id="carrito-contador" class="absolute -top-2 -right-2 bg-blue-600 text-white text-xs rounded-full px-2 py-0.5" style="display:none">0</span>
+                        </button>
 					</div>
 				</nav>
 			</header>
@@ -60,5 +67,163 @@ const { title } = Astro.props;
 				</svg>
 			</a>
 		)}
+
+		<!-- Modal selección de rol para login -->
+		<div id="login-role-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none">
+			<div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+				<h3 class="text-xl font-semibold mb-4">¿Cómo deseas iniciar sesión?</h3>
+				<p class="text-gray-600 mb-6">Selecciona una opción para continuar</p>
+				<div class="grid grid-cols-2 gap-4">
+					<button id="btnLoginCliente" class="bg-blue-600 text-white py-3 rounded hover:bg-blue-700">Cliente</button>
+					<button id="btnLoginTrabajador" class="bg-gray-800 text-white py-3 rounded hover:bg-gray-900">Trabajador</button>
+				</div>
+				<button id="cerrarModalLogin" class="mt-6 w-full bg-gray-200 text-gray-800 py-2 rounded hover:bg-gray-300">Cancelar</button>
+			</div>
+		</div>
+
+		<!-- Panel lateral del carrito -->
+		<div id="carrito-panel" class="fixed top-0 right-0 w-80 h-full bg-white shadow-xl transform translate-x-full transition-transform z-50">
+			<div class="p-4 border-b flex justify-between items-center">
+				<h3 class="text-lg font-semibold">Tu carrito</h3>
+				<button id="cerrarCarrito" class="text-gray-500 hover:text-gray-800" aria-label="Cerrar">&times;</button>
+			</div>
+			<div id="carrito-items" class="p-4 space-y-4"></div>
+			<div class="p-4 border-t">
+				<div class="flex justify-between mb-4">
+					<span class="font-medium">Subtotal</span>
+					<span id="carrito-subtotal" class="font-bold">$0</span>
+				</div>
+				<button id="checkoutBtn" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Ir a pagar</button>
+			</div>
+		</div>
+
+		<script>
+		document.addEventListener('DOMContentLoaded', () => {
+		  const loginLink = document.getElementById('login-link');
+		  const modal = document.getElementById('login-role-modal');
+		  const btnCliente = document.getElementById('btnLoginCliente');
+		  const btnTrabajador = document.getElementById('btnLoginTrabajador');
+		  const cerrarModalLogin = document.getElementById('cerrarModalLogin');
+
+		  if (loginLink) {
+		    loginLink.addEventListener('click', (e) => {
+		      e.preventDefault();
+		      modal.style.display = 'flex';
+		    });
+		  }
+		  const goToLogin = (tipo) => {
+		    localStorage.setItem('loginTipo', tipo);
+		    window.location.href = `/login?tipo=${encodeURIComponent(tipo)}`;
+		  };
+		  btnCliente && btnCliente.addEventListener('click', () => goToLogin('cliente'));
+		  btnTrabajador && btnTrabajador.addEventListener('click', () => goToLogin('trabajador'));
+		  cerrarModalLogin && cerrarModalLogin.addEventListener('click', () => {
+		    modal.style.display = 'none';
+		  });
+
+		  // Carrito
+		  const carritoBtn = document.getElementById('carritoBtn');
+		  const carritoPanel = document.getElementById('carrito-panel');
+		  const cerrarCarrito = document.getElementById('cerrarCarrito');
+		  const itemsContainer = document.getElementById('carrito-items');
+		  const subtotalEl = document.getElementById('carrito-subtotal');
+		  const checkoutBtn = document.getElementById('checkoutBtn');
+
+		  const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+		  const getCarrito = () => {
+			try {
+			  const c = JSON.parse(localStorage.getItem('carrito')) || [];
+			  return Array.isArray(c) ? c : [];
+			} catch {
+			  return [];
+			}
+		  };
+
+		  const isPlaceholderImage = (url) => {
+			if (!url) return true;
+			const u = String(url);
+			return u.includes('/images/logos/logo_bn.webp') || u.includes('/images/logos/herramientas.webp') || u.includes('placeholder');
+		  };
+
+		  const getProductoInfo = async (id) => {
+			try {
+			  const res = await fetch(`/api/productos/${id}`);
+			  if (!res.ok) return null;
+			  return await res.json();
+			} catch { return null; }
+		  };
+
+		  const normalizeCarrito = async (carrito) => {
+			let changed = false;
+			const updated = await Promise.all(carrito.map(async (item) => {
+			  if (item.imagen_url && !isPlaceholderImage(item.imagen_url)) return item;
+			  const info = await getProductoInfo(item.id);
+			  if (info) {
+				changed = true;
+				return {
+				  ...item,
+				  imagen_url: info.imagen_url || item.imagen_url,
+				  nombre: item.nombre ?? info.nombre,
+				  precio_venta: item.precio_venta ?? info.precio_venta ?? info.precio
+				};
+			  }
+			  return item;
+			}));
+			if (changed) localStorage.setItem('carrito', JSON.stringify(updated));
+			return updated;
+		  };
+
+		  const renderCarrito = async () => {
+		    const carrito = await normalizeCarrito(getCarrito());
+		    if (!itemsContainer || !subtotalEl) return;
+		    if (carrito.length === 0) {
+		      itemsContainer.innerHTML = '<p class="text-gray-500">Tu carrito está vacío.</p>';
+		      subtotalEl.textContent = '$0';
+		    } else {
+              itemsContainer.innerHTML = carrito.map(item => `
+                <div class="flex items-center gap-3">
+                  <img src="${item.imagen_url || '/images/logos/herramientas.webp'}" onerror="this.src='/images/logos/herramientas.webp';this.onerror=null;" class="w-12 h-12 object-cover rounded" alt="${item.nombre}">
+                  <div class="flex-1">
+                    <p class="text-sm font-medium">${item.nombre}</p>
+                    <p class="text-xs text-gray-500">Cantidad: ${item.cantidad}</p>
+                  </div>
+                  <div class="text-sm font-semibold">$${formatearPrecio(Number(item.precio_venta ?? item.precio) * item.cantidad)}</div>
+                </div>
+              `).join('');
+		      const subtotal = carrito.reduce((acc, it) => acc + Number(it.precio_venta ?? it.precio) * it.cantidad, 0);
+		      subtotalEl.textContent = `$${formatearPrecio(subtotal)}`;
+		    }
+		    // Actualizar badge si existe
+		    const contador = document.getElementById('carrito-contador');
+		    if (contador) {
+		      const totalItems = carrito.reduce((t, it) => t + it.cantidad, 0);
+		      contador.textContent = totalItems;
+		      contador.style.display = totalItems > 0 ? 'block' : 'none';
+		    }
+		  };
+
+		  const openCarrito = async () => {
+		    await renderCarrito();
+		    carritoPanel && (carritoPanel.style.transform = 'translateX(0)');
+		  };
+		  const closeCarrito = () => {
+		    carritoPanel && (carritoPanel.style.transform = 'translateX(100%)');
+		  };
+
+		  carritoBtn && carritoBtn.addEventListener('click', openCarrito);
+		  cerrarCarrito && cerrarCarrito.addEventListener('click', closeCarrito);
+		  checkoutBtn && checkoutBtn.addEventListener('click', () => {
+		    const carrito = getCarrito();
+		    if (!carrito.length) {
+		      alert('Tu carrito está vacío. Agrega productos antes de continuar.');
+		      return;
+		    }
+		    // Opcional: sincronizar items para checkout
+		    localStorage.setItem('checkout_items', JSON.stringify(carrito));
+		    window.location.href = '/carrito';
+		  });
+		});
+		</script>
 	</body>
 </html>

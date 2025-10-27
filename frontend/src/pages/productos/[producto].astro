@@ -189,25 +189,52 @@ if (!producto) {
 						</div>
 					</div>
 
-					<!-- Información de contacto -->
+					<!-- Agregar al carrito -->
 					<div class="border-t border-gray-200 pt-6">
-						<div class="bg-blue-50 rounded-lg p-6">
-							<h3 class="text-lg font-semibold text-blue-900 mb-3">¿Interesado en este producto?</h3>
-							<p class="text-blue-700 mb-4">Contáctanos para más información sobre disponibilidad y precios especiales.</p>
-							<div class="flex flex-col sm:flex-row gap-3">
-								<a href="tel:+1234567890" class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2">
-									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-									</svg>
-									<span>Llamar</span>
-								</a>
-								<a href="mailto:info@ferreteria.com" class="flex-1 bg-white border border-blue-600 text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center justify-center space-x-2">
-									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-									</svg>
-									<span>Email</span>
-								</a>
+						<div class="bg-gray-50 rounded-lg p-6">
+							<h3 class="text-lg font-semibold text-gray-900 mb-4">Cantidad</h3>
+							<div class="flex items-center space-x-4 mb-6">
+								<div class="flex items-center border border-gray-300 rounded-lg">
+									<button 
+										id="decrementar" 
+										class="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-l-lg transition-colors"
+										onclick="cambiarCantidad(-1)"
+									>
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+										</svg>
+									</button>
+									<input 
+										id="cantidad" 
+										type="number" 
+										value="1" 
+										min="1" 
+										max={producto.stock}
+										class="no-spinner w-16 py-2 text-center border-0 focus:ring-0 focus:outline-none"
+										onchange="validarCantidad()"
+									/>
+									<button 
+										id="incrementar" 
+										class="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-r-lg transition-colors"
+										onclick="cambiarCantidad(1)"
+									>
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+										</svg>
+									</button>
+								</div>
+								<span class="text-sm text-gray-500">Stock disponible: {producto.stock}</span>
 							</div>
+							<button 
+								id="agregar-carrito"
+								class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+								onclick={`agregarAlCarrito(${producto.id})`}
+							>
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13l2.5 2.5m6-2.5h.01M17 21a2 2 0 100-4 2 2 0 000 4zM9 21a2 2 0 100-4 2 2 0 000 4z" />
+								</svg>
+								<span>Agregar al carrito</span>
+							</button>
 						</div>
 					</div>
 				</div>
@@ -222,4 +249,168 @@ if (!producto) {
 			</div>
 		)}
 	</div>
+
+
+	<!-- Datos del producto embebidos en atributos para lectura segura desde JS -->
+	<div id="producto-meta" style="display:none" 
+		data-id={producto?.id}
+		data-nombre={producto?.nombre}
+		data-precio={producto?.precio}
+		data-imagen={producto?.imagen}
+	></div>
+
+	<script>
+		// Construir objeto desde atributos embebidos (evita JSON.parse y errores de compilación)
+		const meta = document.getElementById('producto-meta');
+		const PRODUCTO = {
+			id: meta?.dataset?.id ? Number(meta.dataset.id) : null,
+			nombre: meta?.dataset?.nombre || '',
+			precio: meta?.dataset?.precio ? Number(meta.dataset.precio) : 0,
+			imagen: meta?.dataset?.imagen || ''
+		};
+		// Funciones para el contador de cantidad
+		let maxStock = 1;
+		
+		// Obtener el stock máximo del atributo del input
+		document.addEventListener('DOMContentLoaded', () => {
+			const cantidadInput = document.getElementById('cantidad');
+			if (cantidadInput) {
+				maxStock = parseInt(cantidadInput.getAttribute('max')) || 1;
+				console.log('Stock máximo:', maxStock); // Debug
+			}
+			actualizarBotones();
+		});
+		
+		function cambiarCantidad(cambio) {
+			const input = document.getElementById('cantidad');
+			let cantidad = parseInt(input.value) + cambio;
+			
+			if (cantidad < 1) cantidad = 1;
+			if (cantidad > maxStock) cantidad = maxStock;
+			
+			input.value = cantidad;
+			actualizarBotones();
+		}
+		
+		function validarCantidad() {
+			const input = document.getElementById('cantidad');
+			let cantidad = parseInt(input.value);
+			
+			if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
+			if (cantidad > maxStock) cantidad = maxStock;
+			
+			input.value = cantidad;
+			actualizarBotones();
+		}
+		
+		function actualizarBotones() {
+			const input = document.getElementById('cantidad');
+			const decrementar = document.getElementById('decrementar');
+			const incrementar = document.getElementById('incrementar');
+			const cantidad = parseInt(input.value);
+			
+			// Obtener stock actual si no se ha inicializado correctamente
+			if (maxStock === 1 && input) {
+				const stockFromInput = parseInt(input.getAttribute('max'));
+				if (stockFromInput && stockFromInput > 1) {
+					maxStock = stockFromInput;
+				}
+			}
+			
+			decrementar.disabled = cantidad <= 1;
+			incrementar.disabled = cantidad >= maxStock;
+			
+			if (cantidad <= 1) {
+				decrementar.classList.add('opacity-50', 'cursor-not-allowed');
+			} else {
+				decrementar.classList.remove('opacity-50', 'cursor-not-allowed');
+			}
+			
+			if (cantidad >= maxStock) {
+				incrementar.classList.add('opacity-50', 'cursor-not-allowed');
+			} else {
+				incrementar.classList.remove('opacity-50', 'cursor-not-allowed');
+			}
+		}
+		
+		function agregarAlCarrito(productoId) {
+			const cantidad = parseInt(document.getElementById('cantidad').value);
+			// Usar valores seguros desde SSR en lugar de leer del DOM
+			const nombre = PRODUCTO.nombre;
+			const precio = Number(PRODUCTO.precio) || 0;
+			const imagen = PRODUCTO.imagen || '';
+			
+			// Obtener carrito actual del localStorage
+			let carrito = JSON.parse(localStorage.getItem('carrito')) || [];
+			
+			// Buscar si el producto ya existe en el carrito
+			const productoExistente = carrito.find(item => item.id === productoId);
+			
+			if (productoExistente) {
+				productoExistente.cantidad += cantidad;
+			} else {
+				carrito.push({
+					id: productoId,
+					cantidad: cantidad,
+					nombre: nombre,
+					precio_venta: precio, // usar clave precio_venta para layout
+					imagen_url: imagen    // usar clave imagen_url para layout
+				});
+			}
+			
+			// Guardar carrito actualizado
+			localStorage.setItem('carrito', JSON.stringify(carrito));
+			
+			// Mostrar notificación
+			mostrarNotificacion(`${cantidad} producto(s) agregado(s) al carrito`, 'success');
+			
+			// Actualizar contador del carrito si existe
+			actualizarContadorCarrito();
+		}
+		
+		function mostrarNotificacion(mensaje, tipo = 'success') {
+			// Crear elemento de notificación
+			const notificacion = document.createElement('div');
+			notificacion.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white z-50 ${
+				tipo === 'success' ? 'bg-green-500' : 'bg-red-500'
+			}`;
+			notificacion.textContent = mensaje;
+			
+			document.body.appendChild(notificacion);
+			
+			// Remover después de 3 segundos
+			setTimeout(() => {
+				notificacion.remove();
+			}, 3000);
+		}
+		
+		function actualizarContadorCarrito() {
+			const contador = document.getElementById('carrito-contador');
+			const carrito = JSON.parse(localStorage.getItem('carrito')) || [];
+			const totalItems = carrito.reduce((acc, item) => acc + item.cantidad, 0);
+			if (contador) {
+				contador.textContent = totalItems;
+			}
+		}
+		
+
+		
+		// Exponer funciones globalmente
+		window.cambiarCantidad = cambiarCantidad;
+		window.validarCantidad = validarCantidad;
+		window.agregarAlCarrito = agregarAlCarrito;
+	</script>
+
+	<style>
+		/* Ocultar flechas del input number (Chrome, Safari, Edge Chromium) */
+		.no-spinner::-webkit-outer-spin-button,
+		.no-spinner::-webkit-inner-spin-button {
+			-webkit-appearance: none;
+			margin: 0;
+		}
+		/* Firefox */
+		.no-spinner[type="number"] {
+			-moz-appearance: textfield;
+		}
+	</style>
 </Layout>

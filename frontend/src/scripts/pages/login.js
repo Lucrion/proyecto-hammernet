@@ -110,16 +110,37 @@ function showLoading(isLoading) {
     }
 }
 
+function normalizeRut(value) {
+    if (!value) return '';
+    const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
+    return cleaned;
+}
+
+function formatRut(value) {
+    const cleaned = normalizeRut(value);
+    if (cleaned.length <= 1) return cleaned;
+    const dv = cleaned.slice(-1);
+    let body = cleaned.slice(0, -1);
+    let result = '';
+    while (body.length > 3) {
+        result = '.' + body.slice(-3) + result;
+        body = body.slice(0, -3);
+    }
+    result = body + result + '-' + dv;
+    return result;
+}
+
 // Función principal de autenticación
 async function handleLogin(e) {
     e.preventDefault();
     
     // Obtener los valores del formulario
-    const username = document.getElementById('username').value;
+    const rutInput = document.getElementById('username').value;
+    const username = normalizeRut(rutInput);
     const password = document.getElementById('password').value;
     
     if (!username || !password) {
-        showStatus('Por favor, ingrese usuario y contraseña', 'error');
+        showStatus('Por favor, ingrese RUT y contraseña', 'error');
         return;
     }
     
@@ -231,10 +252,13 @@ async function handleLogin(e) {
         // Mostrar mensaje de éxito
         showStatus('Autenticación exitosa. Redirigiendo...', 'success');
         
-        // Redirigir al panel de administración después de un breve retraso
+        // Redirigir según tipo seleccionado (cliente/trabajador)
+        const params = new URLSearchParams(window.location.search);
+        const tipoSeleccionado = params.get('tipo') || localStorage.getItem('loginTipo') || (data?.user?.rol === 'admin' ? 'trabajador' : 'cliente');
+        const destino = tipoSeleccionado === 'cliente' ? '/' : '/admin';
         setTimeout(() => {
-            window.location.href = '/admin';
-        }, 1000);
+            window.location.href = destino;
+        }, 800);
     } catch (error) {
         // Limpiar el timeout si existe
         if (typeof timeoutId !== 'undefined') {
@@ -258,21 +282,105 @@ async function handleLogin(e) {
     }
 }
 
+// Función para mostrar/ocultar loading del botón de Google
+function showGoogleLoading(isLoading) {
+    const googleButton = document.getElementById('googleLoginButton');
+    const googleSpinner = document.getElementById('googleLoginLoadingSpinner');
+    
+    if (googleButton && googleSpinner) {
+        if (isLoading) {
+            googleButton.disabled = true;
+            googleSpinner.classList.remove('hidden');
+        } else {
+            googleButton.disabled = false;
+            googleSpinner.classList.add('hidden');
+        }
+    }
+}
+
+// Función para manejar autenticación con Google
+async function handleGoogleAuth() {
+    try {
+        showGoogleLoading(true);
+        showStatus('Redirigiendo a Google...', 'info');
+        
+        // Redirigir al endpoint de Google OAuth
+        window.location.href = `${API_URL}/auth/google`;
+    } catch (error) {
+        console.error('Error al iniciar autenticación con Google:', error);
+        showStatus('Error al conectar con Google. Inténtalo de nuevo.', 'error');
+        showGoogleLoading(false);
+    }
+}
+
+// Función para verificar si venimos del callback de Google
+function checkGoogleCallback() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const error = urlParams.get('error');
+    
+    if (token) {
+        // Guardar el token y redirigir
+        localStorage.setItem('token', token);
+        showStatus('¡Inicio de sesión exitoso con Google!', 'success');
+        
+        setTimeout(() => {
+            window.location.href = '/dashboard';
+        }, 1000);
+        
+        return true;
+    } else if (error) {
+        showStatus(`Error de autenticación: ${error}`, 'error');
+        // Limpiar la URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return true;
+    }
+    
+    return false;
+}
+
 // Inicialización cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', async () => {
     const loginForm = document.getElementById('loginForm');
+    const googleLoginButton = document.getElementById('googleLoginButton');
+    const usernameEl = document.getElementById('username');
     
+    // Verificar si venimos del callback de Google
+    if (checkGoogleCallback()) {
+        return; // Si es un callback, no continuar con la inicialización normal
+    }
+    
+    // Mostrar tipo de acceso si viene de la selección (cliente/trabajador)
+    const params = new URLSearchParams(window.location.search);
+    const tipoSeleccionado = params.get('tipo') || localStorage.getItem('loginTipo');
+    if (tipoSeleccionado) {
+        const tipoLabel = tipoSeleccionado === 'cliente' ? 'Cliente' : 'Trabajador';
+        showStatus(`Modo de acceso: ${tipoLabel}`, 'info');
+    }
+
     // Verificar disponibilidad del servidor al cargar la página
     const serverStatus = await checkServerAvailability();
     if (!serverStatus.available) {
-        console.warn('Servidor no disponible:', serverStatus.message);
-        // Mostrar mensaje de error al usuario
-        showStatus('El servidor no está disponible. Por favor, intente más tarde.', 'error');
-        return;
+        // Mostrar aviso, pero no bloquear el login
+        showStatus('No se pudo verificar el servidor. Puedes intentar iniciar sesión.', 'info');
     }
-    
+
     // Agregar event listener al formulario
     if (loginForm) {
         loginForm.addEventListener('submit', handleLogin);
+    }
+    
+    // Formatear RUT al escribir en el campo de usuario
+    if (usernameEl) {
+        usernameEl.addEventListener('input', (e) => {
+            const formatted = formatRut(e.target.value);
+            e.target.value = formatted;
+            e.target.selectionStart = e.target.selectionEnd = formatted.length;
+        });
+    }
+    
+    // Agregar event listener al botón de Google
+    if (googleLoginButton) {
+        googleLoginButton.addEventListener('click', handleGoogleAuth);
     }
 });

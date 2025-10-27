@@ -14,6 +14,15 @@ from models.usuario import UsuarioDB, UsuarioCreate, UsuarioUpdate, Usuario
 from core.auth import hash_contraseña
 
 
+def _normalizar_rut(rut: str) -> str:
+    """Normaliza un RUT: elimina puntos, espacios y deja el guion si existe"""
+    if not rut:
+        return rut
+    rut = rut.strip().upper()
+    rut = rut.replace('.', '').replace(' ', '')
+    return rut
+
+
 class UsuarioController:
     """Controlador para manejo de usuarios"""
     
@@ -33,13 +42,32 @@ class UsuarioController:
             HTTPException: Si hay error en la creación
         """
         try:
+            # Validar confirmación de contraseña si se envía
+            if usuario.confirm_password is not None and usuario.password != usuario.confirm_password:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="La confirmación de contraseña no coincide"
+                )
+
+            # Normalizar RUT y usarlo como username (login por RUT)
+            rut_norm = _normalizar_rut(usuario.rut or usuario.username)
+            if not rut_norm:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Debe proporcionar el RUT"
+                )
+
             # Hash de la contraseña
             hashed_password = hash_contraseña(usuario.password)
             
             # Crear usuario en BD
             db_usuario = UsuarioDB(
                 nombre=usuario.nombre,
-                username=usuario.username,
+                apellido=usuario.apellido,
+                username=rut_norm,  # compatibilidad con OAuth2PasswordRequestForm
+                rut=rut_norm,
+                email=usuario.email,
+                telefono=usuario.telefono,
                 password=hashed_password,
                 role=usuario.role
             )
@@ -51,7 +79,84 @@ class UsuarioController:
             return Usuario(
                 id_usuario=db_usuario.id_usuario,
                 nombre=db_usuario.nombre,
+                apellido=db_usuario.apellido,
                 username=db_usuario.username,
+                rut=db_usuario.rut,
+                email=db_usuario.email,
+                telefono=db_usuario.telefono,
+                role=db_usuario.role,
+                activo=db_usuario.activo,
+                fecha_creacion=db_usuario.fecha_creacion.isoformat() if db_usuario.fecha_creacion else None
+            )
+            
+        except IntegrityError as ie:
+            db.rollback()
+            # Mensaje más específico según restricción
+            msg = "El usuario ya existe"
+            if 'username' in str(ie.orig).lower():
+                msg = "El RUT/usuario ya está registrado"
+            if 'rut' in str(ie.orig).lower():
+                msg = "El RUT ya está registrado"
+            if 'email' in str(ie.orig).lower():
+                msg = "El correo ya está registrado"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=msg
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al crear usuario: {str(e)}"
+            )
+    
+    @staticmethod
+    async def crear_usuario_google(nombre: str, username: str, email: str, password: str, role: str, db: Session) -> Usuario:
+        """
+        Crea un nuevo usuario desde Google OAuth
+        
+        Args:
+            nombre: Nombre del usuario
+            username: Username único
+            email: Email del usuario
+            password: Contraseña temporal
+            role: Rol del usuario
+            db: Sesión de base de datos
+            
+        Returns:
+            Usuario: Usuario creado
+            
+        Raises:
+            HTTPException: Si hay error en la creación
+        """
+        try:
+            # Hash de la contraseña
+            hashed_password = hash_contraseña(password)
+            
+            # Crear usuario en BD
+            db_usuario = UsuarioDB(
+                nombre=nombre,
+                username=username,
+                email=email,
+                password=hashed_password,
+                role=role,
+                activo=True
+            )
+            
+            db.add(db_usuario)
+            db.commit()
+            db.refresh(db_usuario)
+            
+            return Usuario(
+                id_usuario=db_usuario.id_usuario,
+                nombre=db_usuario.nombre,
+                apellido=db_usuario.apellido,
+                username=db_usuario.username,
+                rut=db_usuario.rut,
+                email=db_usuario.email,
+                telefono=db_usuario.telefono,
                 role=db_usuario.role,
                 activo=db_usuario.activo,
                 fecha_creacion=db_usuario.fecha_creacion.isoformat() if db_usuario.fecha_creacion else None
@@ -61,13 +166,13 @@ class UsuarioController:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El nombre de usuario ya existe"
+                detail="El usuario ya existe"
             )
         except Exception as e:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error al crear usuario: {str(e)}"
+                detail=f"Error al crear usuario desde Google: {str(e)}"
             )
     
     @staticmethod

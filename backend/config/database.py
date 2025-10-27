@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -51,6 +51,32 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Importar la clase base desde models.base para mantener consistencia
 from models.base import Base
+
+# Migración automática de columnas nuevas en SQLite
+# -----------------------------------------------
+# Asegura que la tabla 'usuarios' tenga columnas agregadas recientemente
+# cuando se usa SQLite en desarrollo, sin requerir una herramienta de migraciones.
+
+def _ensure_usuario_extra_columns_sqlite():
+    try:
+        if engine.dialect.name != 'sqlite':
+            return
+        with engine.begin() as conn:
+            cols = [row[1] for row in conn.execute(text("PRAGMA table_info(usuarios)")).fetchall()]
+            if 'apellido' not in cols:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN apellido TEXT"))
+            if 'rut' not in cols:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN rut TEXT"))
+            if 'email' not in cols:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN email TEXT"))
+            if 'telefono' not in cols:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN telefono TEXT"))
+    except Exception as e:
+        # No bloquear el arranque si falla; mostrar aviso
+        print(f"[DB] Aviso: migración usuarios parcialmente fallida: {e}")
+
+# Ejecutar verificación/migración al importar el módulo
+_ensure_usuario_extra_columns_sqlite()
 
 # Gestión de dependencias y acceso a datos
 # --------------------------------------

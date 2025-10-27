@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from typing import List, Optional
 from datetime import datetime, date
 from decimal import Decimal
+from core.auth import hash_contraseña
 
 from models.venta import (
     VentaDB, DetalleVentaDB, MovimientoInventarioDB,
@@ -32,7 +33,8 @@ class VentaController:
             # Verificar que el usuario existe
             usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == id_usuario).first()
             if not usuario:
-                raise HTTPException(status_code=404, detail="Usuario no encontrado")
+                # No crear usuarios automáticamente. Forzar registro previo.
+                raise HTTPException(status_code=404, detail="Usuario no encontrado. Regístrese antes de realizar una venta")
             
             # Verificar disponibilidad de productos y calcular total
             total_calculado = Decimal('0.00')

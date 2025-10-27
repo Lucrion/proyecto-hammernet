@@ -20,7 +20,13 @@ class UsuarioDB(Base):
     
     id_usuario = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(50), nullable=False)
+    apellido = Column(String(50), nullable=True)
+    # Para compatibilidad con OAuth2 de FastAPI, seguimos usando 'username'
+    # pero guardaremos el RUT normalizado aquí
     username = Column(String(50), unique=True, index=True, nullable=False)
+    rut = Column(String(20), unique=True, index=True, nullable=True)
+    email = Column(String(120), unique=False, nullable=True)
+    telefono = Column(String(20), nullable=True)
     password = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
@@ -36,19 +42,28 @@ class UsuarioDB(Base):
 class UsuarioBase(BaseModel):
     """Modelo base para usuario"""
     nombre: str
+    apellido: Optional[str] = None
     username: str
+    rut: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
     role: str
 
 
 class UsuarioCreate(UsuarioBase):
     """Modelo para crear usuario"""
     password: str
+    confirm_password: Optional[str] = None
 
 
 class UsuarioUpdate(BaseModel):
     """Modelo para actualizar usuario"""
     nombre: Optional[str] = None
+    apellido: Optional[str] = None
     username: Optional[str] = None
+    rut: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
     password: Optional[str] = None
     role: Optional[str] = None
 

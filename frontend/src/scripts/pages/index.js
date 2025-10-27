@@ -124,20 +124,20 @@ function mostrarProductosGenerales(productos) {
     contenedor.innerHTML = '';
 
     productos.forEach(producto => {
-        const imagen = producto.imagen_url || '/images/placeholder-product.jpg';
+        const imagen = producto.imagen_url || '/images/logos/herramientas.webp';
         const precio = producto.precio_venta ?? 0;
         const id = producto.id_producto ?? producto.id;
         const productoHTML = `
-            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300" data-aos="fade-up">
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer" data-aos="fade-up" onclick="verProducto(${id})">
                 <div class="w-full h-48 flex items-center justify-center bg-white">
                     <img src="${imagen}"
                          alt="${producto.nombre}"
                          class="max-h-48 w-auto object-contain" />
                 </div>
                 <div class="p-4">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
-                    <div class="flex items-center">
-                        <span class="text-xl font-bold text-blue-600">$${formatearPrecio(precio)}</span>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
+                    <div class="flex items-center justify-center mt-1">
+                        <span class="px-4 py-2 bg-black text-white rounded text-xl font-bold">$${formatearPrecio(precio)}</span>
                     </div>
                 </div>
             </div>
@@ -153,11 +153,11 @@ function mostrarProductosDestacados(productos) {
     contenedor.innerHTML = '';
 
     productos.forEach(producto => {
-        const imagen = producto.imagen_url || '/images/placeholder-product.jpg';
+        const imagen = producto.imagen_url || '/images/logos/herramientas.webp';
         const precio = producto.precio_venta ?? 0;
         const id = producto.id_producto ?? producto.id;
         const productoHTML = `
-            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300" data-aos="fade-up">
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer" data-aos="fade-up" onclick="verProducto(${id})">
                 <div class="w-full h-48 flex items-center justify-center bg-white">
                     <img src="${imagen}"
                          alt="${producto.nombre}"
@@ -165,8 +165,8 @@ function mostrarProductosDestacados(productos) {
                 </div>
                 <div class="p-4">
                     <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
-                    <div class="flex items-center">
-                        <span class="text-xl font-bold text-blue-600">$${formatearPrecio(precio)}</span>
+                    <div class="flex items-center justify-between">
+                        <span class="px-4 py-2 bg-black text-white rounded text-xl font-bold">$${formatearPrecio(precio)}</span>
                     </div>
                 </div>
             </div>
@@ -205,32 +205,29 @@ function mostrarError(mensaje) {
     `;
 }
 
-// Función para enviar mensaje de contacto
+// Enviar mensaje de contacto
 export async function enviarMensaje(event) {
     event.preventDefault();
-    
     const form = event.target;
-    const formData = new FormData(form);
-    
-    const mensaje = {
-        nombre: formData.get('nombre'),
-        email: formData.get('email'),
-        asunto: formData.get('asunto'),
-        mensaje: formData.get('mensaje')
-    };
 
+    const formData = new FormData(form);
     try {
-        const response = await postData('/api/mensajes', mensaje);
-        
-        if (response.ok) {
-            mostrarNotificacion('Mensaje enviado correctamente', 'success');
+        const response = await postData('/api/mensajes', {
+            nombre: formData.get('nombre'),
+            email: formData.get('email'),
+            asunto: formData.get('asunto'),
+            mensaje: formData.get('mensaje')
+        });
+
+        if (response && response.ok) {
+            mostrarNotificacion('Mensaje enviado', 'success');
             form.reset();
         } else {
-            throw new Error('Error al enviar el mensaje');
+            mostrarNotificacion('Error al enviar mensaje', 'error');
         }
     } catch (error) {
         console.error('Error al enviar mensaje:', error);
-        mostrarNotificacion('Error al enviar el mensaje', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -308,37 +305,65 @@ export function actualizarUI() {
     actualizarContadorCarrito();
 }
 
-// Función para actualizar contador del carrito
+// Función para actualizar el contador del carrito
 export function actualizarContadorCarrito() {
     const contador = document.getElementById('carrito-contador');
-    if (contador) {
-        const totalItems = state.carrito.reduce((total, item) => total + item.cantidad, 0);
-        contador.textContent = totalItems;
-        contador.style.display = totalItems > 0 ? 'block' : 'none';
-    }
+    const carrito = JSON.parse(localStorage.getItem('carrito')) || [];
+    const totalItems = carrito.reduce((acc, item) => acc + item.cantidad, 0);
+    if (contador) contador.textContent = totalItems;
 }
 
 // Función para mostrar notificaciones
 export function mostrarNotificacion(mensaje, tipo = 'success') {
-    const notificacion = document.createElement('div');
-    notificacion.className = `fixed top-4 right-4 p-4 rounded-lg text-white z-50 ${
-        tipo === 'success' ? 'bg-green-500' : 'bg-red-500'
-    }`;
+    const notificacion = document.getElementById('notificacion');
+    if (!notificacion) return;
+
     notificacion.textContent = mensaje;
-    
-    document.body.appendChild(notificacion);
-    
+    notificacion.className = `fixed top-4 right-4 px-4 py-2 rounded shadow-lg text-white ${tipo === 'success' ? 'bg-green-600' : 'bg-red-600'}`;
+    notificacion.style.display = 'block';
+
     setTimeout(() => {
-        notificacion.remove();
+        notificacion.style.display = 'none';
     }, 3000);
 }
 
-// Función para ver producto (global para onclick)
+// Ver producto
 window.verProducto = function(id) {
     window.location.href = `/productos/${id}`;
 };
 
-// Exportar funciones globales para compatibilidad
+// Agregar al carrito (global)
+window.agregarAlCarrito = async function(id) {
+    try {
+        const carrito = JSON.parse(localStorage.getItem('carrito')) || [];
+        const productoExistente = carrito.find(item => item.id === id);
+
+        if (productoExistente) {
+            productoExistente.cantidad += 1;
+        } else {
+            // Obtener detalles del producto para guardar info necesaria en el carrito
+            try {
+                const producto = await getData(`/api/productos/${id}`);
+                const nombre = producto?.nombre || `Producto ${id}`;
+                const precio_venta = Number(producto?.precio_venta ?? producto?.precio ?? 0);
+                const imagen_url = producto?.imagen_url || '/images/logos/herramientas.webp';
+                carrito.push({ id, cantidad: 1, nombre, precio_venta, imagen_url });
+            } catch (e) {
+                console.warn('No se pudo obtener detalles del producto, usando datos mínimos:', e);
+                carrito.push({ id, cantidad: 1 });
+            }
+        }
+
+        localStorage.setItem('carrito', JSON.stringify(carrito));
+        actualizarContadorCarrito();
+        mostrarNotificacion('Producto agregado al carrito', 'success');
+    } catch (error) {
+        console.error('Error al agregar al carrito:', error);
+        mostrarNotificacion('No se pudo agregar al carrito', 'error');
+    }
+};
+
+// Exponer funciones necesarias
 window.enviarMensaje = enviarMensaje;
 window.cargarProductosDestacados = cargarProductosDestacados;
 window.cargarProductosInicio = cargarProductosInicio;
@@ -347,11 +372,10 @@ window.logout = logout;
 window.actualizarUI = actualizarUI;
 window.mostrarNotificacion = mostrarNotificacion;
 
-// Inicializar cuando el DOM esté listo
+// Inicialización
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         actualizarUI();
-        // Solo cargar productos si estamos en la página principal
         if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
             cargarProductosDestacados();
             cargarProductosInicio();

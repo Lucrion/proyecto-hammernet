@@ -31,28 +31,26 @@ export const API_TIMEOUT = parseInt(getEnvVar('PUBLIC_API_TIMEOUT', '10000'));
  */
 export async function checkServerAvailability() {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT / 2); // Usar la mitad del timeout configurado
-        
-        const response = await fetch(`${API_URL.replace('/api', '')}/docs`, {
-            method: 'HEAD',
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
+        const baseOrigin = API_URL.replace(/\/api$/, '');
+        // Si el origen de la API coincide con el origen del frontend, omitir verificación
+        if (typeof window !== 'undefined' && baseOrigin === window.location.origin) {
+            return {
+                available: true,
+                message: 'Modo desarrollo: verificación omitida'
+            };
+        }
+        // Ping mediante un endpoint proxied en desarrollo para evitar /docs
+        const response = await fetch(`${API_URL}/productos/catalogo`, { method: 'GET' });
         return {
-            available: true,
-            message: 'Servidor disponible'
+            available: !!response && response.ok,
+            message: (response && response.ok) ? 'Servidor disponible' : 'Servidor no disponible'
         };
     } catch (error) {
-        console.error('Error al verificar disponibilidad del servidor:', error);
-        
+        // No usar console.error para evitar ruido en el navegador
+        console.warn('No se pudo verificar disponibilidad del servidor:', error?.message || error);
         return {
             available: false,
-            message: error.name === 'AbortError' 
-                ? 'Tiempo de espera agotado al conectar con el servidor' 
-                : `Error de conexión: ${error.message}`
+            message: 'Servidor no disponible'
         };
     }
 }

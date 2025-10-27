@@ -1,0 +1,120 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Tu carrito - Ferretería Patricio">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Tu carrito</h1>
+
+    <div id="carrito-view" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Lista de productos -->
+      <div class="lg:col-span-2 bg-white rounded-lg shadow p-6">
+        <div id="carrito-items-list" class="space-y-4">
+          <!-- Items renderizados por JS -->
+        </div>
+      </div>
+
+      <!-- Resumen -->
+      <div class="bg-white rounded-lg shadow p-6 h-fit">
+        <h2 class="text-xl font-semibold mb-4">Resumen de compra</h2>
+        <div class="flex justify-between text-gray-700 mb-2">
+          <span>Subtotal</span>
+          <span id="carrito-subtotal" class="font-bold">$0</span>
+        </div>
+        <button id="btnCheckoutPage" class="w-full mt-4 bg-gray-400 text-white py-2 rounded cursor-not-allowed" onclick="goCheckout()" disabled>
+          Finalizar compra (pronto)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    const getCarrito = () => {
+      try {
+        const c = JSON.parse(localStorage.getItem('carrito')) || [];
+        return Array.isArray(c) ? c : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const setCarrito = (carrito) => {
+      localStorage.setItem('carrito', JSON.stringify(carrito));
+    };
+
+    const calcularSubtotal = (carrito) => carrito.reduce((acc, it) => acc + Number(it.precio_venta ?? it.precio) * it.cantidad, 0);
+
+    const irADetalle = (id) => {
+      // La página de detalle acepta ID numérico o slug; usamos ID
+      window.location.href = `/productos/${id}`;
+    };
+
+    const eliminarItem = (id) => {
+      const carrito = getCarrito().filter(i => String(i.id) !== String(id));
+      setCarrito(carrito);
+      render();
+    };
+
+    const goCheckout = () => {
+      const carrito = getCarrito();
+      if (!carrito.length) {
+        alert('Tu carrito está vacío. Agrega productos antes de comprar.');
+        return;
+      }
+      alert('Checkout deshabilitado temporalmente. Podrás finalizar la compra pronto.');
+    };
+
+    const render = () => {
+      const list = document.getElementById('carrito-items-list');
+      const subtotalEl = document.getElementById('carrito-subtotal');
+      const carrito = getCarrito();
+
+      if (!list || !subtotalEl) return;
+
+      if (carrito.length === 0) {
+        list.innerHTML = '<p class="text-gray-500">Tu carrito está vacío.</p>';
+        subtotalEl.textContent = '$0';
+        return;
+      }
+
+      list.innerHTML = carrito.map(item => `
+        <div class="flex items-center gap-4 border rounded-md p-3">
+          <button aria-label="Ver detalle" onclick="irADetalle('${item.id}')" class="shrink-0">
+            <img src="${item.imagen_url || '/images/logos/logo_bn.webp'}" onerror="this.src='/images/logos/logo_bn.webp';this.onerror=null;" alt="${item.nombre}" class="w-16 h-16 object-cover rounded">
+          </button>
+          <div class="flex-1">
+            <button class="text-left" aria-label="Ir al detalle" onclick="irADetalle('${item.id}')">
+              <p class="text-sm font-medium text-gray-900 hover:text-blue-600">${item.nombre}</p>
+            </button>
+            <p class="text-xs text-gray-600">Precio: $${formatearPrecio(Number(item.precio_venta ?? item.precio))}</p>
+            <p class="text-xs text-gray-600">Cantidad: ${item.cantidad}</p>
+          </div>
+          <div class="text-sm font-semibold">$${formatearPrecio(Number(item.precio_venta ?? item.precio) * item.cantidad)}</div>
+          <button aria-label="Eliminar" onclick="eliminarItem('${item.id}')" class="text-red-600 hover:text-red-700 ml-2">
+            &times;
+          </button>
+        </div>
+      `).join('');
+
+      const subtotal = calcularSubtotal(carrito);
+      subtotalEl.textContent = `$${formatearPrecio(subtotal)}`;
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Render inicial
+      render();
+
+      // Botón de compra
+      const btnCheckoutPage = document.getElementById('btnCheckoutPage');
+      btnCheckoutPage && btnCheckoutPage.addEventListener('click', () => goCheckout());
+    });
+
+    // Exponer funciones globales para handlers inline
+    window.irADetalle = irADetalle;
+    window.eliminarItem = eliminarItem;
+    window.goCheckout = goCheckout;
+
+  </script>
+</Layout>
