@@ -2,24 +2,116 @@
 # -*- coding: utf-8 -*-
 
 """
-Wrapper para compatibilidad: ejecuta backend/setup_postgres.py
-Cuando el build en Render llama a scripts/setup_postgres.py,
-redirigimos a la implementación real en la raíz de backend.
+Script de configuración para PostgreSQL en producción
+1. Crear todas las tablas necesarias en PostgreSQL
+2. Verificar la conexión a la base de datos
+3. Crear el usuario administrador inicial
 """
 
 import os
-import sys
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from dotenv import load_dotenv
 
-# Añadir la raíz de backend al path
-BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if BACKEND_ROOT not in sys.path:
-    sys.path.append(BACKEND_ROOT)
+# Importar modelos y configuración
+from config.database import Base, engine, get_db
+from models.usuario import UsuarioDB
+from core.auth import hash_contraseña
 
-try:
-    from setup_postgres import main
-except Exception as e:
-    print(f"❌ No se pudo importar setup_postgres desde {BACKEND_ROOT}: {e}")
-    raise
+# Cargar variables de entorno
+load_dotenv()
+
+def verificar_conexion():
+    """Verifica que la conexión a PostgreSQL funcione correctamente"""
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(text("SELECT version();"))
+            version = result.fetchone()[0]
+            print(f"✅ Conexión exitosa a PostgreSQL: {version[:50]}...")
+            return True
+    except SQLAlchemyError as e:
+        print(f"❌ Error de conexión a PostgreSQL: {str(e)}")
+        return False
+
+def crear_tablas():
+    """Crea todas las tablas definidas en los modelos"""
+    try:
+        print("📋 Creando tablas en PostgreSQL...")
+        Base.metadata.create_all(bind=engine)
+        print("🐘 Tablas creadas en PostgreSQL (setup_postgres.py)")
+        print("✅ Tablas creadas exitosamente")
+        return True
+    except SQLAlchemyError as e:
+        print(f"❌ Error al crear tablas: {str(e)}")
+        return False
+
+def crear_usuario_admin():
+    """Crea el usuario administrador inicial"""
+    try:
+        db = next(get_db())
+
+        # Verificar si el usuario admin ya existe
+        admin_existente = db.query(UsuarioDB).filter(UsuarioDB.username == 'admin').first()
+        if admin_existente:
+            print("ℹ️  El usuario administrador ya existe")
+            return True
+
+        # Crear usuario administrador
+        admin_password = os.getenv('ADMIN_PASSWORD', 'admin123')
+        admin_user = UsuarioDB(
+            nombre='Administrador',
+            username='admin',
+            password=hash_contraseña(admin_password),
+            role='administrador',
+            activo=True
+        )
+
+        db.add(admin_user)
+        db.commit()
+        print("✅ Usuario administrador creado exitosamente")
+        print(f"   Usuario: admin")
+        print(f"   Contraseña: {admin_password}")
+        print(f"   Rol: administrador")
+        return True
+    except Exception as e:
+        print(f"❌ Error al crear usuario administrador: {str(e)}")
+        return False
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
+def main():
+    """Función principal de configuración"""
+    print("🚀 Iniciando configuración de PostgreSQL para producción...")
+    print("=" * 60)
+
+    # Verificar variables de entorno críticas
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        print("❌ ERROR: Variable DATABASE_URL no configurada")
+        raise SystemExit(1)
+
+    print(f"🔗 Conectando a: {database_url[:30]}...")
+
+    # Paso 1: Verificar conexión
+    if not verificar_conexion():
+        print("❌ No se pudo establecer conexión con PostgreSQL")
+        raise SystemExit(1)
+
+    # Paso 2: Crear tablas
+    if not crear_tablas():
+        print("❌ Error al crear las tablas")
+        raise SystemExit(1)
+
+    # Paso 3: Crear usuario administrador
+    if not crear_usuario_admin():
+        print("❌ Error al crear usuario administrador")
+        raise SystemExit(1)
+
+    print("=" * 60)
+    print("Configuración de PostgreSQL completada exitosamente")
 
 if __name__ == '__main__':
     main()
