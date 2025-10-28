@@ -134,13 +134,20 @@ function formatRut(value) {
 async function handleLogin(e) {
     e.preventDefault();
     
+    // Detectar tipo de acceso (cliente/trabajador)
+    const params = new URLSearchParams(window.location.search);
+    const tipoSeleccionado = params.get('tipo') || localStorage.getItem('loginTipo');
+
     // Obtener los valores del formulario
-    const rutInput = document.getElementById('username').value;
-    const username = normalizeRut(rutInput);
+    const usernameInput = document.getElementById('username').value.trim();
+    const username = (tipoSeleccionado === 'trabajador') 
+        ? usernameInput // En modo trabajador no normalizamos ni restringimos el input
+        : normalizeRut(usernameInput);
     const password = document.getElementById('password').value;
     
     if (!username || !password) {
-        showStatus('Por favor, ingrese RUT y contraseña', 'error');
+        const campo = (tipoSeleccionado === 'trabajador') ? 'usuario' : 'RUT';
+        showStatus(`Por favor, ingrese ${campo} y contraseña`, 'error');
         return;
     }
     
@@ -241,11 +248,22 @@ async function handleLogin(e) {
         
         const data = await response.json();
         console.log('Respuesta de autenticación:', JSON.stringify(data));
+
+        // Construir objeto de usuario desde el token devuelto por el backend
+        const user = {
+            id_usuario: data.id_usuario,
+            nombre: data.nombre,
+            username: data.username,
+            rol: data.role || data.rol || 'cliente'
+        };
         
-        // Guardar estado de autenticación y token
+        // Guardar estado de autenticación y token usando el nombre real
         localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('nombreUsuario', username);
         localStorage.setItem('token', data.access_token);
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('role', user.rol);
+        // Preferir el nombre real para mostrar en el header; si no viene, usar lo ingresado
+        localStorage.setItem('nombreUsuario', user.nombre || username);
         console.log('Token guardado:', data.access_token ? 'Token presente' : 'Token ausente');
         console.log('Autenticación exitosa');
         
@@ -253,9 +271,8 @@ async function handleLogin(e) {
         showStatus('Autenticación exitosa. Redirigiendo...', 'success');
         
         // Redirigir según tipo seleccionado (cliente/trabajador)
-        const params = new URLSearchParams(window.location.search);
-        const tipoSeleccionado = params.get('tipo') || localStorage.getItem('loginTipo') || (data?.user?.rol === 'admin' ? 'trabajador' : 'cliente');
-        const destino = tipoSeleccionado === 'cliente' ? '/' : '/admin';
+        const tipoFinal = tipoSeleccionado || (user.rol === 'admin' ? 'trabajador' : 'cliente');
+        const destino = tipoFinal === 'cliente' ? '/' : '/admin';
         setTimeout(() => {
             window.location.href = destino;
         }, 800);
@@ -344,18 +361,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loginForm = document.getElementById('loginForm');
     const googleLoginButton = document.getElementById('googleLoginButton');
     const usernameEl = document.getElementById('username');
+    const usernameLabel = document.getElementById('usernameLabel');
+    const createAccountContainer = document.getElementById('createAccountContainer');
     
     // Verificar si venimos del callback de Google
     if (checkGoogleCallback()) {
         return; // Si es un callback, no continuar con la inicialización normal
     }
     
-    // Mostrar tipo de acceso si viene de la selección (cliente/trabajador)
+    // Ocultar botón "Crear cuenta" si el modo es trabajador
     const params = new URLSearchParams(window.location.search);
     const tipoSeleccionado = params.get('tipo') || localStorage.getItem('loginTipo');
-    if (tipoSeleccionado) {
-        const tipoLabel = tipoSeleccionado === 'cliente' ? 'Cliente' : 'Trabajador';
-        showStatus(`Modo de acceso: ${tipoLabel}`, 'info');
+    if (tipoSeleccionado === 'trabajador' && createAccountContainer) {
+        createAccountContainer.classList.add('hidden');
+    }
+
+    // Ajustar etiqueta y placeholder del campo de usuario según modo
+    if (tipoSeleccionado === 'trabajador') {
+        if (usernameLabel) usernameLabel.textContent = 'Usuario';
+        if (usernameEl) usernameEl.placeholder = 'Tu usuario';
+    } else {
+        if (usernameLabel) usernameLabel.textContent = 'RUT';
+        if (usernameEl) usernameEl.placeholder = '20.347.793-7';
     }
 
     // Verificar disponibilidad del servidor al cargar la página
@@ -370,8 +397,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         loginForm.addEventListener('submit', handleLogin);
     }
     
-    // Formatear RUT al escribir en el campo de usuario
-    if (usernameEl) {
+    // Formatear RUT al escribir solo en modo cliente
+    if (usernameEl && tipoSeleccionado !== 'trabajador') {
         usernameEl.addEventListener('input', (e) => {
             const formatted = formatRut(e.target.value);
             e.target.value = formatted;

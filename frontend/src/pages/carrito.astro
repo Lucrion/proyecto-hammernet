@@ -1,10 +1,73 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import EnvLoader from '../components/EnvLoader.astro';
 ---
 
+<EnvLoader />
 <Layout title="Tu carrito - Ferretería Patricio">
   <div class="container mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold text-gray-900 mb-6">Tu carrito</h1>
+
+    <!-- Paso 3: Pago (reubicado debajo del título del carrito) -->
+    <div id="checkout-payment-section" class="bg-white rounded-lg shadow p-6 mb-6 hidden">
+      <!-- Indicador de pasos -->
+      <div class="flex items-center justify-between mb-4 text-gray-500">
+        <div class="flex items-center space-x-8 w-full">
+          <div class="flex items-center space-x-2 opacity-60">
+            <button type="button" class="hover:text-blue-600" onclick="mostrarSectionLoginGuest()">Inicio de sesión</button>
+          </div>
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <div class="flex items-center space-x-2 opacity-60">
+            <button type="button" class="hover:text-blue-600" onclick="mostrarSectionTipoEntrega()">Tipo de Entrega</button>
+          </div>
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white text-sm font-bold">3</span>
+            <button type="button" class="font-semibold text-gray-800 hover:text-blue-600" onclick="mostrarSectionPago()">Pago</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Datos personales -->
+      <div class="mt-2">
+        <h3 class="text-lg font-semibold text-gray-800">Datos personales</h3>
+        <p class="text-sm text-gray-600 mb-4">Ingresa tus datos para generar el comprobante de pago</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre y apellido*</label>
+            <input id="dp-nombre" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Jeremi Toro" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">RUT*</label>
+            <input id="dp-rut" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: 12.345.678-9" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono*</label>
+            <div class="flex">
+              <span class="px-4 py-2 bg-gray-100 border border-r-0 rounded-l text-gray-700 select-none">+569</span>
+              <input id="dp-telefono" type="text" class="w-full border rounded-r px-3 py-2" placeholder="Ej: 91234567" required>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">E-mail*</label>
+            <input id="dp-email" type="email" class="w-full border rounded px-3 py-2" placeholder="Ej: mail@ferretería_patricio.cl" required>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Confirmar E-mail*</label>
+            <input id="dp-email2" type="email" class="w-full border rounded px-3 py-2" placeholder="Ej: mail@ferretería_patricio.cl" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- Medio de pago -->
+      <div class="mt-6">
+        <h3 class="text-lg font-semibold text-gray-800">Medio de pago</h3>
+        <div class="mt-2 bg-green-50 border border-green-300 text-gray-800 rounded p-3">
+          A continuación serás redirigido a la pasarela de pago de Transbank.
+        </div>
+      </div>
+    </div>
 
     <!-- Paso 1: Inicio de sesión o invitado -->
     <div id="checkout-login-section" class="bg-white rounded-lg shadow p-6 mb-6 hidden">
@@ -13,54 +76,140 @@ import Layout from '../layouts/Layout.astro';
         <div class="flex items-center space-x-8 w-full">
           <div class="flex items-center space-x-2">
             <span class="w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white text-sm font-bold">1</span>
-            <span class="font-semibold text-gray-800">Inicio de sesión</span>
+            <button type="button" class="font-semibold text-gray-800 hover:text-blue-600" onclick="mostrarSectionLoginGuest()">Inicio de sesión</button>
           </div>
           <div class="flex-1 h-px bg-gray-200"></div>
           <div class="flex items-center space-x-2 opacity-60">
             <span class="w-6 h-6 flex items-center justify-center rounded-full border border-gray-300 text-gray-500 text-sm font-bold">2</span>
-            <span>Tipo de Entrega</span>
+            <button type="button" class="hover:text-blue-600" onclick="mostrarSectionTipoEntrega()">Tipo de Entrega</button>
           </div>
           <div class="flex-1 h-px bg-gray-200"></div>
           <div class="flex items-center space-x-2 opacity-60">
             <span class="w-6 h-6 flex items-center justify-center rounded-full border border-gray-300 text-gray-500 text-sm font-bold">3</span>
-            <span>Pago</span>
+            <button type="button" class="hover:text-blue-600" onclick="mostrarSectionPago()">Pago</button>
           </div>
         </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Opción iniciar sesión -->
-        <div class="border rounded-lg p-4">
+        <!-- Opción iniciar sesión (centrado) -->
+        <div class="border rounded-lg p-6 flex flex-col items-center text-center">
           <h3 class="text-lg font-semibold text-gray-800 mb-2">¿Ya tienes cuenta?</h3>
           <p class="text-sm text-gray-600 mb-4">Inicia sesión para usar tus datos guardados.</p>
-          <a href="/login" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Iniciar sesión</a>
+          <a href="/login" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Iniciar sesión</a>
         </div>
 
-        <!-- Opción invitado -->
-        <div class="border rounded-lg p-4">
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">Continuar como invitado</h3>
-          <form id="guestForm" class="space-y-3" onsubmit="continuarComoInvitado(event)">
+        <!-- Opción invitado (solo botón centrado) -->
+        <div class="border rounded-lg p-6 flex flex-col items-center text-center">
+          <h3 class="text-lg font-semibold text-gray-800 mb-3">Continuar como invitado</h3>
+          <p class="text-sm text-gray-600 mb-4">Puedes seguir sin registrarte.</p>
+          <button id="btnGuestContinue" class="px-5 py-2 bg-black text-white rounded hover:bg-gray-900" onclick="continuarComoInvitado()">Continuar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paso 2: Tipo de Entrega -->
+    <div id="checkout-delivery-section" class="bg-white rounded-lg shadow p-6 mb-6 hidden">
+      <!-- Indicador de pasos -->
+      <div class="flex items-center justify-between mb-4 text-gray-500">
+        <div class="flex items-center space-x-8 w-full">
+          <div class="flex items-center space-x-2 opacity-60">
+            <span class="w-6 h-6 flex items-center justify-center rounded-full border border-gray-300 text-gray-500 text-sm font-bold">1</span>
+            <button type="button" class="hover:text-blue-600" onclick="mostrarSectionLoginGuest()">Inicio de sesión</button>
+          </div>
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white text-sm font-bold">2</span>
+            <button type="button" class="font-semibold text-gray-800 hover:text-blue-600" onclick="mostrarSectionTipoEntrega()">Tipo de Entrega</button>
+          </div>
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <div class="flex items-center space-x-2 opacity-60">
+            <span class="w-6 h-6 flex items-center justify-center rounded-full border border-gray-300 text-gray-500 text-sm font-bold">3</span>
+            <button type="button" class="hover:text-blue-600" onclick="mostrarSectionPago()">Pago</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <button id="opcion-retiro" class="border border-gray-200 rounded-lg p-6 text-center hover:border-black transition" onclick="seleccionarTipoEntrega('retiro')" aria-pressed="false">
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <h3 class="text-lg font-semibold text-gray-800">Retiro en tienda</h3>
+            <span id="check-retiro" class="hidden w-5 h-5 rounded-full bg-green-500 text-white text-xs leading-none flex items-center justify-center">✓</span>
+          </div>
+          <p class="text-sm text-gray-600">Elige tu tienda y pasa a retirar.</p>
+        </button>
+        <button id="opcion-despacho" class="border border-gray-200 rounded-lg p-6 text-center hover:border-black transition" onclick="seleccionarTipoEntrega('despacho')" aria-pressed="false">
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <h3 class="text-lg font-semibold text-gray-800">Despacho a domicilio</h3>
+            <span id="check-despacho" class="hidden w-5 h-5 rounded-full bg-green-500 text-white text-xs leading-none flex items-center justify-center">✓</span>
+          </div>
+          <p class="text-sm text-gray-600">Ingresa dirección más adelante para el envío.</p>
+        </button>
+      </div>
+      
+
+      <!-- Formulario de despacho a domicilio -->
+      <div id="checkout-address-section" class="mt-6 hidden">
+        <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded p-3 mb-4">
+          Advertencia: solo se realizan despachos dentro de la ciudad de Calama.
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label for="dir-buscar" class="block text-sm font-medium text-gray-700 mb-1">Ingresar tu dirección con calle y número*</label>
+            <div class="flex gap-2">
+              <input id="dir-buscar" type="text" class="flex-1 border rounded px-3 py-2" placeholder="Ej: Mexico 3164, Calama" required>
+              <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="buscarEnMapa()">Buscar</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm text-gray-700 mb-1" for="guest-nombre">Nombre</label>
-              <input id="guest-nombre" type="text" class="w-full border rounded px-3 py-2" placeholder="Tu nombre" required>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-sm text-gray-700 mb-1" for="guest-email">Correo</label>
-                <input id="guest-email" type="email" class="w-full border rounded px-3 py-2" placeholder="Opcional">
-              </div>
-              <div>
-                <label class="block text-sm text-gray-700 mb-1" for="guest-telefono">Teléfono</label>
-                <input id="guest-telefono" type="tel" class="w-full border rounded px-3 py-2" placeholder="Opcional">
-              </div>
+              <label for="dir-calle" class="block text-sm font-medium text-gray-700 mb-1">Calle*</label>
+              <input id="dir-calle" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Mexico" required>
             </div>
             <div>
-              <label class="block text-sm text-gray-700 mb-1" for="guest-rut">RUT</label>
-              <input id="guest-rut" type="text" class="w-full border rounded px-3 py-2" placeholder="Opcional">
+              <label for="dir-numero" class="block text-sm font-medium text-gray-700 mb-1">Número*</label>
+              <input id="dir-numero" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: 3164" required>
             </div>
-            <button type="submit" class="mt-2 px-4 py-2 bg-black text-white rounded hover:bg-gray-900">Continuar</button>
-            <p id="guestSavedMsg" class="text-sm text-green-600 mt-2 hidden">Datos guardados. Continuemos con tu compra.</p>
-          </form>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="dir-depto" class="block text-sm font-medium text-gray-700 mb-1">Depto / Oficina / Nº Casa</label>
+              <input id="dir-depto" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Depto 456">
+            </div>
+            <div>
+              <label for="dir-adicional" class="block text-sm font-medium text-gray-700 mb-1">Información adicional</label>
+              <input id="dir-adicional" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Casa esquina, portón negro">
+            </div>
+          </div>
+
+          <div class="mt-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Confirma tu domicilio en el mapa</label>
+            <div class="w-full h-64 border rounded overflow-hidden">
+              <iframe id="map-iframe" class="w-full h-full" src="https://www.google.com/maps?q=Calama&hl=es&gl=cl&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+          </div>
+
+          <!-- Mensaje de despacho y fecha estimada -->
+          <div id="delivery-summary-block" class="mt-4">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-base font-semibold text-gray-800">Despacho</h4>
+              <span id="delivery-price" class="text-base font-semibold">$2.000</span>
+            </div>
+            <div class="text-sm text-gray-600">Fecha estimada de entrega</div>
+            <div id="delivery-estimate" class="mt-1 bg-green-50 border border-green-200 text-gray-900 rounded px-3 py-2">
+              <span id="delivery-estimate-text"></span>
+            </div>
+          </div>
+
+          <!-- Botón para continuar al pago desde despacho -->
+          <div class="mt-3 flex justify-center">
+            <button id="delivery-continue" type="button" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="mostrarSectionPago()">Continuar</button>
+          </div>
+
+          <p id="addressSavedMsg" class="text-sm text-green-600 mt-2 hidden">Dirección guardada correctamente.</p>
         </div>
       </div>
     </div>
@@ -77,17 +226,27 @@ import Layout from '../layouts/Layout.astro';
       <div class="bg-white rounded-lg shadow p-6 h-fit">
         <h2 class="text-xl font-semibold mb-4">Resumen de compra</h2>
         <div class="flex justify-between text-gray-700 mb-2">
-          <span>Subtotal</span>
+          <span>Subtotal de productos</span>
           <span id="carrito-subtotal" class="font-bold">$0</span>
         </div>
-        <button id="btnCheckoutPage" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onclick="goCheckout()">
-          Continuar
+        <div id="carrito-envio-line" class="flex justify-between text-gray-700 mb-2 hidden">
+          <span>Costo de envío</span>
+          <span id="carrito-envio" class="font-bold">$0</span>
+        </div>
+        <div class="flex justify-between text-gray-900 font-semibold mt-2">
+          <span>Total</span>
+          <span id="carrito-total">$0</span>
+        </div>
+        <button id="btnCheckoutPage" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded hidden" onclick="pagar()">
+          Pagar
         </button>
       </div>
     </div>
+
   </div>
 
   <script>
+    const ENVIO_COSTO = 2000;
     const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
     const getCarrito = () => {
@@ -118,28 +277,182 @@ import Layout from '../layouts/Layout.astro';
 
     const mostrarSectionLoginGuest = () => {
       const sec = document.getElementById('checkout-login-section');
+      const secEntrega = document.getElementById('checkout-delivery-section');
+      const secPago = document.getElementById('checkout-payment-section');
       if (!sec) return;
+      // Mostrar login y ocultar otras secciones
       sec.classList.remove('hidden');
+      if (secEntrega) secEntrega.classList.add('hidden');
+      if (secPago) secPago.classList.add('hidden');
+      const pagarBtn = document.getElementById('btnCheckoutPage');
+      if (pagarBtn) pagarBtn.classList.add('hidden');
       try {
         const top = sec.getBoundingClientRect().top + window.scrollY - 16;
         window.scrollTo({ top, behavior: 'smooth' });
       } catch {}
     };
 
-    const continuarComoInvitado = (event) => {
-      event.preventDefault();
-      const nombre = document.getElementById('guest-nombre')?.value?.trim() || '';
-      const email = document.getElementById('guest-email')?.value?.trim() || '';
-      const telefono = document.getElementById('guest-telefono')?.value?.trim() || '';
-      const rut = document.getElementById('guest-rut')?.value?.trim() || '';
-      if (!nombre) {
-        alert('Por favor ingresa tu nombre para continuar.');
+    const continuarComoInvitado = () => {
+      mostrarSectionTipoEntrega();
+    };
+
+    const mostrarSectionTipoEntrega = () => {
+      const secLogin = document.getElementById('checkout-login-section');
+      const secEntrega = document.getElementById('checkout-delivery-section');
+      const secAddress = document.getElementById('checkout-address-section');
+      const secPago = document.getElementById('checkout-payment-section');
+      if (secLogin) secLogin.classList.add('hidden');
+      if (secPago) secPago.classList.add('hidden');
+      if (secEntrega) {
+        secEntrega.classList.remove('hidden');
+        const pagarBtn = document.getElementById('btnCheckoutPage');
+        if (pagarBtn) pagarBtn.classList.add('hidden');
+        try {
+          const top = secEntrega.getBoundingClientRect().top + window.scrollY - 16;
+          window.scrollTo({ top, behavior: 'smooth' });
+        } catch {}
+        try {
+          const saved = localStorage.getItem('checkoutEntrega');
+          if (saved === 'retiro' || saved === 'despacho') seleccionarTipoEntrega(saved, false);
+        } catch {}
+      }
+      if (secAddress) secAddress.classList.add('hidden');
+    };
+
+    const seleccionarTipoEntrega = (tipo, advance = true) => {
+      try { localStorage.setItem('checkoutEntrega', tipo); } catch {}
+      // Mensaje y botón de continuar removidos; ajustamos flujo automáticamente.
+
+      const retiroBtn = document.getElementById('opcion-retiro');
+      const despachoBtn = document.getElementById('opcion-despacho');
+      const retiroCheck = document.getElementById('check-retiro');
+      const despachoCheck = document.getElementById('check-despacho');
+      const secAddress = document.getElementById('checkout-address-section');
+
+      const activar = (btn, check) => {
+        if (!btn || !check) return;
+        btn.classList.remove('border-gray-200');
+        btn.classList.add('border-green-500','bg-green-50');
+        btn.setAttribute('aria-pressed','true');
+        check.classList.remove('hidden');
+      };
+      const desactivar = (btn, check) => {
+        if (!btn || !check) return;
+        btn.classList.add('border-gray-200');
+        btn.classList.remove('border-green-500','bg-green-50');
+        btn.setAttribute('aria-pressed','false');
+        check.classList.add('hidden');
+      };
+
+      if (tipo === 'retiro') {
+        activar(retiroBtn, retiroCheck);
+        desactivar(despachoBtn, despachoCheck);
+        if (secAddress) secAddress.classList.add('hidden');
+        actualizarEnvioYTotal();
+        // Para retiro, avanzamos directamente a Pago si corresponde.
+        if (advance) mostrarSectionPago();
+      } else {
+        activar(despachoBtn, despachoCheck);
+        desactivar(retiroBtn, retiroCheck);
+        if (secAddress) {
+          secAddress.classList.remove('hidden');
+          // Desplazar suavemente al formulario de dirección al seleccionar despacho
+          try {
+            const top = secAddress.getBoundingClientRect().top + window.scrollY - 16;
+            window.scrollTo({ top, behavior: 'smooth' });
+          } catch {}
+        }
+        actualizarMensajeDespacho();
+        actualizarEnvioYTotal();
+      }
+    };
+
+    const buscarEnMapa = () => {
+      const q = document.getElementById('dir-buscar')?.value?.trim();
+      const iframe = document.getElementById('map-iframe');
+      if (!iframe) return;
+      const base = 'https://www.google.com/maps?q=';
+      const ciudad = 'Calama';
+      const query = q ? encodeURIComponent(`${q}, ${ciudad}`) : encodeURIComponent(ciudad);
+      iframe.src = `${base}${query}&hl=es&gl=cl&output=embed`;
+      // Tras confirmar ubicación en el mapa, avanzamos a Pago.
+      mostrarSectionPago();
+    };
+
+    const guardarDireccion = () => {
+      const buscar = document.getElementById('dir-buscar')?.value?.trim() || '';
+      const calle = document.getElementById('dir-calle')?.value?.trim() || '';
+      const numero = document.getElementById('dir-numero')?.value?.trim() || '';
+      const depto = document.getElementById('dir-depto')?.value?.trim() || '';
+      const adicional = document.getElementById('dir-adicional')?.value?.trim() || '';
+      if (!buscar) {
+        alert('Por favor ingresa la dirección con calle y número para ubicar el mapa.');
         return;
       }
-      const data = { nombre, email, telefono, rut, ts: Date.now() };
-      try { localStorage.setItem('checkoutGuest', JSON.stringify(data)); } catch {}
-      const msg = document.getElementById('guestSavedMsg');
+      if (!calle || !numero) {
+        alert('Calle y Número son obligatorios.');
+        return;
+      }
+      const data = { buscar, calle, numero, depto, adicional };
+      // No guardar dirección de despacho en localStorage
+      const msg = document.getElementById('addressSavedMsg');
       if (msg) msg.classList.remove('hidden');
+    };
+
+    // Utilidades de despacho (mensaje y costos)
+    const calcularFechaDespacho = () => {
+      const meses = ['Ene.','Feb.','Mar.','Abr.','May.','Jun.','Jul.','Ago.','Sep.','Oct.','Nov.','Dic.'];
+      const d = new Date();
+      d.setDate(d.getDate() + 2);
+      const dia = d.getDate();
+      const mes = meses[d.getMonth()];
+      return `${dia} de ${mes} 09:00 a 17:00 horas`;
+    };
+
+    const actualizarMensajeDespacho = () => {
+      try {
+        const entrega = localStorage.getItem('checkoutEntrega');
+        if (entrega !== 'despacho') return;
+      } catch { return; }
+      const precioEl = document.getElementById('delivery-price');
+      const txtEl = document.getElementById('delivery-estimate-text');
+      if (precioEl) precioEl.textContent = `$${formatearPrecio(ENVIO_COSTO)}`;
+      if (txtEl) txtEl.textContent = calcularFechaDespacho();
+    };
+
+    const actualizarEnvioYTotal = () => {
+      const envioLine = document.getElementById('carrito-envio-line');
+      const envioEl = document.getElementById('carrito-envio');
+      const totalEl = document.getElementById('carrito-total');
+      const carrito = getCarrito();
+      const subtotal = calcularSubtotal(carrito);
+      let envio = 0;
+      try {
+        const entrega = localStorage.getItem('checkoutEntrega');
+        if (entrega === 'despacho') envio = ENVIO_COSTO;
+      } catch {}
+      if (envioLine) {
+        if (envio > 0) envioLine.classList.remove('hidden'); else envioLine.classList.add('hidden');
+      }
+      if (envioEl) envioEl.textContent = `$${formatearPrecio(envio)}`;
+      if (totalEl) totalEl.textContent = `$${formatearPrecio(subtotal + envio)}`;
+    };
+
+    const mostrarSectionPago = () => {
+      const secLogin = document.getElementById('checkout-login-section');
+      const secEntrega = document.getElementById('checkout-delivery-section');
+      const secPago = document.getElementById('checkout-payment-section');
+      if (secLogin) secLogin.classList.add('hidden');
+      if (secEntrega) secEntrega.classList.add('hidden');
+      if (secPago) {
+        secPago.classList.remove('hidden');
+        const pagarBtn = document.getElementById('btnCheckoutPage');
+        if (pagarBtn) pagarBtn.classList.remove('hidden');
+        try {
+          const top = secPago.getBoundingClientRect().top + window.scrollY - 16;
+          window.scrollTo({ top, behavior: 'smooth' });
+        } catch {}
+      }
     };
 
     const goCheckout = () => {
@@ -185,15 +498,27 @@ import Layout from '../layouts/Layout.astro';
 
       const subtotal = calcularSubtotal(carrito);
       subtotalEl.textContent = `$${formatearPrecio(subtotal)}`;
+      actualizarEnvioYTotal();
     };
 
     document.addEventListener('DOMContentLoaded', () => {
       // Render inicial
       render();
 
-      // Botón de compra
-      const btnCheckoutPage = document.getElementById('btnCheckoutPage');
-      btnCheckoutPage && btnCheckoutPage.addEventListener('click', () => goCheckout());
+      // Iniciar flujo mostrando inicio de sesión si hay productos
+      try {
+        if (getCarrito().length) mostrarSectionLoginGuest();
+      } catch {}
+
+      // Cargar Google Maps Places (si hay API key disponible)
+      loadGoogleMaps();
+
+      // Inicializar estimación si ya está seleccionado despacho
+      actualizarMensajeDespacho();
+      actualizarEnvioYTotal();
+
+      // Si hay sesión iniciada, continuar con cuenta y prellenar datos
+      try { autoflowIfLoggedIn(); } catch {}
     });
 
     // Exponer funciones globales para handlers inline
@@ -201,6 +526,260 @@ import Layout from '../layouts/Layout.astro';
     window.goCheckout = goCheckout;
     window.continuarComoInvitado = continuarComoInvitado;
     window.mostrarSectionLoginGuest = mostrarSectionLoginGuest;
+    window.mostrarSectionTipoEntrega = mostrarSectionTipoEntrega;
+    window.mostrarSectionPago = mostrarSectionPago;
+    window.seleccionarTipoEntrega = seleccionarTipoEntrega;
+    window.buscarEnMapa = buscarEnMapa;
+    window.guardarDireccion = guardarDireccion;
+    window.irADetalle = irADetalle;
+    window.pagar = async () => {
+      const carrito = getCarrito();
+      if (!carrito.length) {
+        alert('Tu carrito está vacío. Agrega productos antes de comprar.');
+        return;
+      }
+
+      // Necesitamos el usuario para registrar la venta
+      const { user, token } = getAuth();
+      const idUsuario = user && (user.id_usuario || user.id || user.idUsuario);
+      if (!idUsuario) {
+        alert('Debes iniciar sesión para finalizar la compra.');
+        window.location.href = '/login';
+        return;
+      }
+
+      // Construir detalles de la venta desde el carrito
+      const detalles = carrito.map(it => ({
+        id_producto: Number(it.id ?? it.id_producto),
+        cantidad: Number(it.cantidad || 1),
+        precio_unitario: Number(it.precio_venta ?? it.precio ?? 0)
+      }));
+
+      // Calcular total (incluye costo de envío si corresponde)
+      const subtotal = calcularSubtotal(carrito);
+      let envio = 0;
+      try { if (localStorage.getItem('checkoutEntrega') === 'despacho') envio = ENVIO_COSTO; } catch {}
+      const total = subtotal + envio;
+
+      const API = computeApiUrl();
+      const body = {
+        id_usuario: Number(idUsuario),
+        total_venta: Number(total),
+        estado: 'pendiente',
+        observaciones: envio > 0 ? `Incluye costo de envío ${ENVIO_COSTO}` : undefined,
+        detalles
+      };
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // Deshabilitar el botón mientras se procesa
+      const btn = document.getElementById('btnCheckoutPage');
+      if (btn) { btn.disabled = true; btn.classList.add('opacity-75'); }
+
+      try {
+        const resp = await fetch(`${API}/ventas/`, { method: 'POST', headers, body: JSON.stringify(body) });
+        let venta;
+        if (resp.ok) {
+          venta = await resp.json();
+        } else {
+          // No guardar ventas en localStorage; informar y permitir reintentar
+          console.warn('Fallo al registrar venta en backend. No se guardará localmente.');
+          alert('No se pudo procesar la compra. Inténtalo nuevamente.');
+          return;
+        }
+        // Limpiar carrito y estados de checkout
+        try {
+          localStorage.removeItem('carrito');
+          localStorage.removeItem('checkout_items');
+          localStorage.removeItem('checkoutEntrega');
+        } catch {}
+        // Redirigir a Ver compras
+        window.location.href = '/compras';
+      } catch (e) {
+        console.error('Error inesperado al procesar pago:', e);
+        alert('Error inesperado al procesar pago. Inténtalo nuevamente.');
+        return;
+      } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('opacity-75'); }
+      }
+    };
+
+    // Integración Google Places Autocomplete
+    let placesAutocomplete;
+    const initPlacesAutocomplete = () => {
+      const input = document.getElementById('dir-buscar');
+      if (!input || !window.google || !google.maps.places) return;
+      const centerCalama = new google.maps.LatLng(-22.455, -68.929);
+      const circle = new google.maps.Circle({ center: centerCalama, radius: 20000 });
+      const options = {
+        fields: ['address_components','geometry','formatted_address'],
+        types: ['address'],
+        componentRestrictions: { country: 'cl' },
+        bounds: circle.getBounds(),
+      };
+      placesAutocomplete = new google.maps.places.Autocomplete(input, options);
+      placesAutocomplete.addListener('place_changed', () => {
+        const place = placesAutocomplete.getPlace();
+        if (!place || !place.address_components) return;
+        const comps = place.address_components;
+        const get = (type) => comps.find(c => c.types.includes(type))?.long_name || '';
+        const calle = get('route');
+        const numero = get('street_number');
+        if (calle) {
+          const calleEl = document.getElementById('dir-calle');
+          if (calleEl) calleEl.value = calle;
+        }
+        if (numero) {
+          const numEl = document.getElementById('dir-numero');
+          if (numEl) numEl.value = numero;
+        }
+        if (place.geometry?.location) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          const iframe = document.getElementById('map-iframe');
+          if (iframe) iframe.src = `https://www.google.com/maps?q=${lat},${lng}&z=16&hl=es&gl=cl&output=embed`;
+        } else {
+          buscarEnMapa();
+        }
+      });
+    };
+
+    const loadGoogleMaps = () => {
+      try {
+        if (window.google && google.maps && google.maps.places) { initPlacesAutocomplete(); return; }
+      } catch {}
+      const key = window.GOOGLE_MAPS_API_KEY || '';
+      if (!key) { console.warn('Google Maps API key no disponible en window.GOOGLE_MAPS_API_KEY'); return; }
+      const s = document.createElement('script');
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&language=es&region=CL`;
+      s.async = true;
+      s.onload = initPlacesAutocomplete;
+      document.head.appendChild(s);
+    };
+
+    // ====== Auto-fill con sesión de usuario ======
+    const getAuth = () => {
+      try {
+        const isLoggedInFlag = localStorage.getItem('isLoggedIn') === 'true';
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token') || '';
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const isLoggedIn = isLoggedInFlag || !!token || !!(user && user.id_usuario);
+        return { isLoggedIn, token, user };
+      } catch { return { isLoggedIn: false, token: '', user: {} }; }
+    };
+
+    const computeApiUrl = () => {
+      try {
+        const env = window.__ENV__ || {};
+        return env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || 'http://localhost:8000/api';
+      } catch { return 'http://localhost:8000/api'; }
+    };
+
+    const safeJson = async (resp) => { try { return await resp.json(); } catch { return null; } };
+
+    const prefillPersonalData = (u) => {
+      try {
+        const nombreEl = document.getElementById('dp-nombre');
+        const rutEl = document.getElementById('dp-rut');
+        const telEl = document.getElementById('dp-telefono');
+        const emailEl = document.getElementById('dp-email');
+        const email2El = document.getElementById('dp-email2');
+        const nombreCompleto = [u?.nombre || '', u?.apellido || ''].filter(Boolean).join(' ');
+        if (nombreEl && nombreCompleto) nombreEl.value = nombreCompleto;
+        const rut = u?.rut || u?.username || '';
+        if (rutEl && rut) rutEl.value = rut;
+        let tel = (u?.telefono || '').replace(/^\+?56\s?9\s?/, '').replace(/\s+/g, '');
+        if (telEl && tel) telEl.value = tel;
+        if (emailEl && u?.email) emailEl.value = u.email;
+        if (email2El && u?.email) email2El.value = u.email;
+      } catch {}
+    };
+
+    const prefillAddress = (d) => {
+      try {
+        const buscarEl = document.getElementById('dir-buscar');
+        const calleEl = document.getElementById('dir-calle');
+        const numeroEl = document.getElementById('dir-numero');
+        const deptoEl = document.getElementById('dir-depto');
+        const adicionalEl = document.getElementById('dir-adicional');
+        if (buscarEl) buscarEl.value = d.buscar || '';
+        if (calleEl) calleEl.value = d.calle || '';
+        if (numeroEl) numeroEl.value = d.numero || '';
+        if (deptoEl) deptoEl.value = d.depto || '';
+        if (adicionalEl) adicionalEl.value = d.adicional || '';
+        // No sincronizar dirección con localStorage
+        // Actualizar mapa
+        const iframe = document.getElementById('map-iframe');
+        const q = d.buscar || [d.calle, d.numero, 'Calama'].filter(Boolean).join(' ');
+        if (iframe && q) iframe.src = `https://www.google.com/maps?q=${encodeURIComponent(q)}&hl=es&gl=cl&output=embed`;
+      } catch {}
+    };
+
+    const findLatestDespacho = (list) => {
+      if (!Array.isArray(list) || !list.length) return null;
+      // Ordenar por fecha_creacion si existe, si no por id_despacho descendente
+      const sorted = list.slice().sort((a,b) => {
+        const fa = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
+        const fb = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
+        if (fb !== fa) return fb - fa;
+        return (b.id_despacho || 0) - (a.id_despacho || 0);
+      });
+      return sorted[0];
+    };
+
+    const autoflowIfLoggedIn = async () => {
+      const carritoTieneItems = getCarrito().length > 0;
+      if (!carritoTieneItems) return;
+      const { isLoggedIn, token, user } = getAuth();
+      // Permitir autoflow si hay token o id_usuario, incluso si falta el flag isLoggedIn
+      if (!token && !user?.id_usuario) return;
+
+      // Saltar paso de login
+      mostrarSectionTipoEntrega();
+
+      const API = computeApiUrl();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      try {
+        // 1) Cargar usuario y prellenar datos personales
+        const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
+        if (uResp.ok) {
+          const uData = await safeJson(uResp);
+          if (uData) prefillPersonalData(uData);
+        } else {
+          // Fallback: usar datos locales
+          prefillPersonalData(user || {});
+        }
+      } catch (e) { 
+        console.warn('No se pudo cargar datos de usuario:', e);
+        // Fallback: usar datos locales
+        prefillPersonalData(user || {});
+      }
+
+      try {
+        // 2) Cargar despachos del usuario y prellenar dirección
+        const dResp = await fetch(`${API}/despachos/usuario/${user.id_usuario}`, { headers });
+        let setTipo = false;
+        if (dResp.ok) {
+          const dList = await safeJson(dResp);
+          const latest = findLatestDespacho(dList || []);
+          if (latest) {
+            prefillAddress(latest);
+            try { localStorage.setItem('checkoutEntrega', 'despacho'); } catch {}
+            seleccionarTipoEntrega('despacho', false);
+            setTipo = true;
+          }
+        }
+        // No usar fallback desde localStorage para dirección de despacho
+        if (!setTipo) {
+          // Si no hay dirección, preseleccionar retiro
+          try { localStorage.setItem('checkoutEntrega', 'retiro'); } catch {}
+          seleccionarTipoEntrega('retiro', false);
+        }
+      } catch (e) { console.warn('No se pudo cargar dirección de despacho:', e); }
+    };
 
   </script>
 </Layout>

@@ -22,7 +22,11 @@ async def obtener_usuarios(
         {
             "id_usuario": usuario.id_usuario,
             "nombre": usuario.nombre,
+            "apellido": usuario.apellido,
             "username": usuario.username,
+            "rut": usuario.rut,
+            "email": usuario.email,
+            "telefono": usuario.telefono,
             "role": usuario.role,
             "activo": usuario.activo,
             "fecha_creacion": usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
@@ -69,7 +73,11 @@ async def obtener_usuario(
     return {
         "id_usuario": usuario.id_usuario,
         "nombre": usuario.nombre,
+        "apellido": usuario.apellido,
         "username": usuario.username,
+        "rut": usuario.rut,
+        "email": usuario.email,
+        "telefono": usuario.telefono,
         "role": usuario.role,
         "activo": usuario.activo,
         "fecha_creacion": usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None

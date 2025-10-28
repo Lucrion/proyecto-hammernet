@@ -258,9 +258,11 @@ function renderizarTablaVentas() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    venta.estado === 'completada' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
+                    venta.estado === 'completada'
+                        ? 'bg-green-100 text-green-800'
+                        : (venta.estado === 'cancelada'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800')
                 }">
                     ${venta.estado}
                 </span>
@@ -394,7 +396,7 @@ async function guardarVenta() {
         const ventaData = {
             id_usuario: parseInt(formData.get('id_usuario')),
             total_venta: totalVenta,
-            estado: 'completada',
+            estado: 'pendiente',
             observaciones: null,
             detalles: state.productosVenta.map(producto => ({
                 id_producto: producto.id_producto,

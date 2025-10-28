@@ -5,6 +5,70 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('contactForm');
     const charCount = document.getElementById('charCount');
     const mensajeTextarea = document.getElementById('mensaje');
+    const nombreEl = document.getElementById('nombre');
+    const apellidoEl = document.getElementById('apellido');
+    const emailEl = document.getElementById('email');
+    
+    const getAuth = () => {
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('access_token') || '';
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            return { token, user };
+        } catch { return { token: '', user: {} }; }
+    };
+
+    const computeApiUrl = () => {
+        try {
+            const env = window.__ENV__ || {};
+            return env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || 'http://localhost:8000/api';
+        } catch { return 'http://localhost:8000/api'; }
+    };
+
+    const lockPersonalFieldsIfApplicable = () => {
+        const { token, user } = getAuth();
+        const hasSession = !!token || !!(user && user.id_usuario);
+        if (!hasSession) return;
+        // Solo bloquear si hay valor (evita dejar campos vacíos e ineditables)
+        [nombreEl, apellidoEl, emailEl].forEach((el) => {
+            if (el && el.value && el.value.trim()) {
+                el.readOnly = true;
+                el.classList.add('bg-gray-100', 'cursor-not-allowed');
+                el.setAttribute('title', 'Campo bloqueado por sesión activa');
+            }
+        });
+    };
+    // Prefill desde sesión si existe (local)
+    try {
+        const { user } = getAuth();
+        if (user && (user.id_usuario || user.id)) {
+            if (nombreEl) nombreEl.value = user.nombre || nombreEl.value || '';
+            if (apellidoEl) apellidoEl.value = user.apellido || apellidoEl.value || '';
+            if (emailEl) emailEl.value = user.email || emailEl.value || '';
+        }
+    } catch {}
+    // Intentar bloquear edición tras prefill local
+    lockPersonalFieldsIfApplicable();
+
+    // Prefill consultando el backend si hay token e id_usuario
+    (async () => {
+        try {
+            const { token, user } = getAuth();
+            const id = user && (user.id_usuario || user.id);
+            if (!token || !id) return;
+
+            const API = computeApiUrl();
+            const resp = await fetch(`${API}/usuarios/${id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (nombreEl && data?.nombre) nombreEl.value = data.nombre;
+            if (apellidoEl && data?.apellido) apellidoEl.value = data.apellido;
+            if (emailEl && data?.email) emailEl.value = data.email;
+            // Bloquear edición tras prefill desde backend
+            lockPersonalFieldsIfApplicable();
+        } catch (e) { /* silencioso */ }
+    })();
     
     // Actualizar contador de caracteres
     if (mensajeTextarea && charCount) {

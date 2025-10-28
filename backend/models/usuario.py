@@ -35,6 +35,7 @@ class UsuarioDB(Base):
     # Relaciones
     ventas = relationship("VentaDB", back_populates="usuario")
     movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="usuario")
+    direcciones_despacho = relationship("DespachoDB", back_populates="usuario", cascade="all, delete-orphan")
 
 
 # Modelos Pydantic para validación y serialización

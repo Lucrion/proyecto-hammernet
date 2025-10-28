@@ -274,8 +274,20 @@ class UsuarioController:
             # Actualizar campos
             if usuario_update.nombre is not None:
                 usuario.nombre = usuario_update.nombre
-            if usuario_update.username is not None:
-                usuario.username = usuario_update.username
+            if usuario_update.apellido is not None:
+                usuario.apellido = usuario_update.apellido
+            # Si se actualiza el RUT, normalizarlo y mantener username = rut
+            if usuario_update.rut is not None:
+                rut_norm = _normalizar_rut(usuario_update.rut)
+                usuario.rut = rut_norm
+                usuario.username = rut_norm
+            # Si se actualiza explícitamente el username y NO se envía rut, respetar el username
+            if usuario_update.username is not None and usuario_update.rut is None:
+                usuario.username = _normalizar_rut(usuario_update.username)
+            if usuario_update.email is not None:
+                usuario.email = usuario_update.email
+            if usuario_update.telefono is not None:
+                usuario.telefono = usuario_update.telefono
             if usuario_update.password is not None:
                 usuario.password = hash_contraseña(usuario_update.password)
             if usuario_update.role is not None:
@@ -287,7 +299,11 @@ class UsuarioController:
             return Usuario(
                 id_usuario=usuario.id_usuario,
                 nombre=usuario.nombre,
+                apellido=usuario.apellido,
                 username=usuario.username,
+                rut=usuario.rut,
+                email=usuario.email,
+                telefono=usuario.telefono,
                 role=usuario.role,
                 activo=usuario.activo,
                 fecha_creacion=usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
@@ -369,17 +385,37 @@ class UsuarioController:
                     detail="Usuario no encontrado"
                 )
             
-            # Verificar que el usuario esté desactivado antes de eliminar permanentemente
-            if usuario.activo:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Solo se pueden eliminar permanentemente usuarios desactivados"
-                )
-            
-            # Eliminar usuario permanentemente
+            # Borrado en cascada manual de datos relacionados al usuario
+            from models.venta import VentaDB, MovimientoInventarioDB
+            from models.despacho import DespachoDB
+
+            # 1) Eliminar movimientos de inventario asociados al usuario (sin venta)
+            movimientos_usuario = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_usuario == usuario_id).all()
+            for m in movimientos_usuario:
+                db.delete(m)
+
+            # 2) Obtener ventas del usuario
+            ventas_usuario = db.query(VentaDB).filter(VentaDB.id_usuario == usuario_id).all()
+
+            # 2a) Eliminar movimientos de inventario asociados a cada venta (id_venta)
+            for v in ventas_usuario:
+                movimientos_por_venta = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_venta == v.id_venta).all()
+                for mv in movimientos_por_venta:
+                    db.delete(mv)
+
+            # 2b) Eliminar ventas (cascade elimina detalles_venta)
+            for v in ventas_usuario:
+                db.delete(v)
+
+            # 3) Eliminar direcciones de despacho asociadas
+            despachos = db.query(DespachoDB).filter(DespachoDB.id_usuario == usuario_id).all()
+            for d in despachos:
+                db.delete(d)
+
+            # 4) Eliminar usuario
             db.delete(usuario)
             db.commit()
-            
+
             return {"message": "Usuario eliminado permanentemente"}
             
         except HTTPException:

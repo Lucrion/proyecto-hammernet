@@ -11,6 +11,7 @@ from .categoria_routes import router as categoria_router
 from .proveedor_routes import router as proveedor_router
 from .producto_routes import router as producto_router
 from .mensaje_routes import router as mensaje_router
+from .despacho_routes import router as despacho_router
 
 __all__ = [
     "auth_router",
@@ -18,5 +19,6 @@ __all__ = [
     "categoria_router",
     "proveedor_router",
     "producto_router",
-    "mensaje_router"
+    "mensaje_router",
+    "despacho_router"
 ]

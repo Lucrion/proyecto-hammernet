@@ -1,0 +1,102 @@
+---
+import Layout from '../layouts/Layout.astro';
+import perfilScriptUrl from '../scripts/pages/perfil.js?url';
+---
+
+<Layout title="Perfil del Cliente">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Perfil del Cliente</h1>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Sección: Datos de usuario -->
+      <section class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">Datos personales</h2>
+        <form id="perfilForm" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="perfilNombre" class="block text-sm font-medium text-gray-700">Nombre</label>
+              <input id="perfilNombre" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Nombre" />
+            </div>
+            <div>
+              <label for="perfilApellido" class="block text-sm font-medium text-gray-700">Apellido</label>
+              <input id="perfilApellido" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Apellido" />
+            </div>
+          </div>
+          <div>
+            <label for="perfilRut" class="block text-sm font-medium text-gray-700">RUT</label>
+            <input id="perfilRut" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="20.347.793-7" />
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="perfilEmail" class="block text-sm font-medium text-gray-700">Correo</label>
+              <input id="perfilEmail" type="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="correo@ejemplo.com" />
+            </div>
+            <div>
+              <label for="perfilTelefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
+              <input id="perfilTelefono" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="+56 9 1234 5678" />
+            </div>
+          </div>
+          <div>
+            <label for="perfilPassword" class="block text-sm font-medium text-gray-700">Contraseña</label>
+            <input id="perfilPassword" type="password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="************" />
+          </div>
+          <div class="flex justify-end gap-3">
+            <button type="button" id="btnEditarPerfil" class="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300">Editar</button>
+            <button type="submit" id="btnGuardarPerfil" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Guardar</button>
+          </div>
+          <p id="perfilStatus" class="text-sm mt-2 text-gray-600"></p>
+        </form>
+      </section>
+
+      <!-- Sección: Formulario de despacho (igual a Tipo de Entrega) -->
+      <section class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">Dirección de despacho</h2>
+        <form id="despachoForm" class="space-y-4">
+          <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded p-3 mb-4">
+            Advertencia: solo se realizan despachos dentro de la ciudad de Calama.
+          </div>
+
+          <div>
+            <label for="dir-buscar" class="block text-sm font-medium text-gray-700 mb-1">Ingresar tu dirección con calle y número*</label>
+            <div class="flex gap-2">
+              <input id="dir-buscar" type="text" class="flex-1 border rounded px-3 py-2" placeholder="Ej: Mexico 3164, Calama" required>
+              <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="buscarEnMapa()">Buscar</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="dir-calle" class="block text-sm font-medium text-gray-700 mb-1">Calle*</label>
+              <input id="dir-calle" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Mexico" required>
+            </div>
+            <div>
+              <label for="dir-numero" class="block text-sm font-medium text-gray-700 mb-1">Número*</label>
+              <input id="dir-numero" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: 3164" required>
+            </div>
+            <div>
+              <label for="dir-depto" class="block text-sm font-medium text-gray-700 mb-1">Depto / Oficina / Nº Casa</label>
+              <input id="dir-depto" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Depto 456">
+            </div>
+            <div>
+              <label for="dir-adicional" class="block text-sm font-medium text-gray-700 mb-1">Información adicional</label>
+              <input id="dir-adicional" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Casa esquina, portón negro">
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-sm font-medium text-gray-700 mb-1">Confirma tu domicilio en el mapa</h3>
+            <iframe id="map-iframe" class="w-full h-64 border rounded" src="https://www.google.com/maps?q=Calama&hl=es&gl=cl&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button type="button" id="btnEditarDespacho" class="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300">Editar</button>
+            <button type="submit" id="btnGuardarDespacho" class="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700">Guardar</button>
+          </div>
+          <p id="despachoStatus" class="text-sm mt-2 text-gray-600"></p>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src={perfilScriptUrl}></script>
+</Layout>

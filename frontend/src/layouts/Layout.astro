@@ -20,7 +20,7 @@ const { title } = Astro.props;
 	</head>
 	<body class="min-h-screen bg-gray-100">
 		{Astro.url.pathname !== '/login' && (
-			<header class="bg-white shadow-md">
+			<header class="bg-white shadow-md relative z-30">
 				<nav class="container mx-auto px-4 py-3 flex items-center justify-between">
 					<a href="/" class="flex items-center">
 						<img src="/images/logos/logo_bn.webp" alt="Ferretería Patricio" class="h-16" />
@@ -30,7 +30,7 @@ const { title } = Astro.props;
 						<a href="/productos" class="text-gray-700 hover:text-blue-600">Productos</a>
 						<a href="/nosotros" class="text-gray-700 hover:text-blue-600">Nosotros</a>
 						<a href="/contacto" class="text-gray-700 hover:text-blue-600">Contáctanos</a>
-						<div class="relative w-36 h-10 overflow-visible">
+                        <div class="relative w-56 h-10 overflow-visible">
                             <div id="userIconContainer" class="absolute inset-0 flex items-center justify-center">
                                 <button id="userIconBtn" class="text-gray-700 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-50 rounded-full p-1">
                                     <img src="/images/icons/usuario.svg" alt="Usuario" class="h-6 w-6" />
@@ -38,6 +38,19 @@ const { title } = Astro.props;
                             </div>
                             <div id="loginButtonContainer" class="absolute inset-0 flex items-center justify-center transform translate-x-full opacity-0">
                                 <a href="/login" id="login-link" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-md whitespace-nowrap text-sm font-medium">Iniciar Sesión</a>
+                            </div>
+                            <div id="userLoggedContainer" class="absolute inset-0 hidden items-center justify-center gap-2">
+                                <span id="userNameDisplay" class="text-gray-700 font-medium truncate max-w-[8rem]"></span>
+                                <div class="relative">
+                                    <button id="userMenuButton" class="text-gray-700 hover:text-blue-600 focus:outline-none rounded-full p-1" aria-haspopup="true" aria-expanded="false">
+                                        <img src="/images/icons/usuario.svg" alt="Usuario" class="h-5 w-5" />
+                                    </button>
+                                    <div id="userMenuDropdown" class="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg hidden z-50">
+                                        <a href="/perfil" id="menuVerPerfil" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Ver perfil</a>
+                                        <a href="/compras" id="menuVerCompras" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Ver compras</a>
+                                        <button id="menuCerrarSesion" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Cerrar sesión</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 						<!-- Botón Carrito -->
@@ -104,6 +117,12 @@ const { title } = Astro.props;
 		  const btnCliente = document.getElementById('btnLoginCliente');
 		  const btnTrabajador = document.getElementById('btnLoginTrabajador');
 		  const cerrarModalLogin = document.getElementById('cerrarModalLogin');
+          const userLoggedContainer = document.getElementById('userLoggedContainer');
+          const userNameDisplay = document.getElementById('userNameDisplay');
+          const userIconContainer = document.getElementById('userIconContainer');
+          const userMenuButton = document.getElementById('userMenuButton');
+          const userMenuDropdown = document.getElementById('userMenuDropdown');
+          const menuCerrarSesion = document.getElementById('menuCerrarSesion');
 
 		  if (loginLink) {
 		    loginLink.addEventListener('click', (e) => {
@@ -120,6 +139,76 @@ const { title } = Astro.props;
 		  cerrarModalLogin && cerrarModalLogin.addEventListener('click', () => {
 		    modal.style.display = 'none';
 		  });
+
+          // Mostrar nombre y tuerca si está logueado como cliente
+          try {
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            const token = localStorage.getItem('token');
+            const tipo = localStorage.getItem('loginTipo') || 'cliente';
+            const userRaw = localStorage.getItem('user');
+            const user = userRaw ? JSON.parse(userRaw) : null;
+            const nombreUsuario = (user && user.nombre) || localStorage.getItem('nombreUsuario') || '';
+            const rol = (user && (user.rol || user.role)) || 'cliente';
+
+            if (isLoggedIn && token && (tipo === 'cliente' || rol !== 'admin')) {
+              if (userNameDisplay) userNameDisplay.textContent = nombreUsuario || 'Cliente';
+              if (userLoggedContainer) {
+                userLoggedContainer.classList.remove('hidden');
+                userLoggedContainer.classList.add('flex');
+              }
+              if (userIconContainer) userIconContainer.style.display = 'none';
+            }
+          } catch {}
+
+          // Menú de usuario (toggle y cierre fuera)
+          const toggleUserMenu = (open) => {
+            if (!userMenuDropdown || !userMenuButton) return;
+            const isOpen = open ?? userMenuDropdown.classList.contains('hidden');
+            if (isOpen) {
+              userMenuDropdown.classList.remove('hidden');
+              userMenuButton.setAttribute('aria-expanded', 'true');
+            } else {
+              userMenuDropdown.classList.add('hidden');
+              userMenuButton.setAttribute('aria-expanded', 'false');
+            }
+          };
+
+          userMenuButton && userMenuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const hidden = userMenuDropdown?.classList.contains('hidden');
+            toggleUserMenu(hidden);
+          });
+
+          document.addEventListener('click', (e) => {
+            if (!userMenuDropdown || !userMenuButton) return;
+            const within = userMenuDropdown.contains(e.target) || userMenuButton.contains(e.target);
+            if (!within) toggleUserMenu(false);
+          });
+
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') toggleUserMenu(false);
+          });
+
+          // Acción de cerrar sesión
+          menuCerrarSesion && menuCerrarSesion.addEventListener('click', () => {
+            try {
+              localStorage.removeItem('isLoggedIn');
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              localStorage.removeItem('role');
+              // Mantener loginTipo para experiencia, opcionalmente limpiar si quieres: localStorage.removeItem('loginTipo')
+              localStorage.removeItem('nombreUsuario');
+            } catch {}
+            toggleUserMenu(false);
+            // Restaurar UI
+            if (userLoggedContainer) {
+              userLoggedContainer.classList.add('hidden');
+              userLoggedContainer.classList.remove('flex');
+            }
+            if (userIconContainer) userIconContainer.style.display = '';
+            // Redirigir al inicio
+            window.location.href = '/';
+          });
 
 		  // Carrito
 		  const carritoBtn = document.getElementById('carritoBtn');

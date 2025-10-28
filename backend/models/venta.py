@@ -158,3 +158,8 @@ class MovimientoInventario(MovimientoInventarioBase):
     
     class Config:
         from_attributes = True
+
+
+# Actualizar referencias forward
+VentaCreate.update_forward_refs()
+Venta.update_forward_refs()
