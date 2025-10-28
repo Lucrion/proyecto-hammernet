@@ -147,13 +147,19 @@ set DATABASE_URL=postgresql://usuario:password@host:port/dbname
 2) Crear tablas en Postgres
 Si tu instancia de Postgres está vacía, crea las tablas:
 ```
+# Ruta estándar:
 python backend/scripts/setup_postgres.py
+# Si moviste el script a backend/:
+python backend/setup_postgres.py
 ```
 
 3) Migrar datos desde SQLite a Postgres
 Ejecuta el script de migración (preserva IDs y ajusta secuencias):
 ```
+# Ruta estándar:
 python backend/scripts/migrate_sqlite_to_postgres.py
+# Si moviste el script a backend/:
+python backend/migrate_sqlite_to_postgres.py
 ```
 
 4) Verificar esquema y conteos
@@ -170,3 +176,4 @@ python backend/utils/test_sale_creation.py  # imprime conteos de ventas/detalles
 Notas:
 - Haz un respaldo de `ferreteria.db` antes de migrar.
 - Si cambiaste columnas en SQLite recientemente, el backend ya incluye ajustes ligeros automáticos para desarrollo.
+- La migración también corre automáticamente durante el build en Render si `DATABASE_URL` apunta a Postgres y existe `backend/ferreteria.db`. Es idempotente: si una tabla ya tiene datos en Postgres, se omite.
