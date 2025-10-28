@@ -1,5 +1,5 @@
 // Script para manejar la animación optimizada del icono de usuario con deslizamiento horizontal
-document.addEventListener('DOMContentLoaded', function() {
+function initUserIcon() {
     const userIconBtn = document.getElementById('userIconBtn');
     const userIconContainer = document.getElementById('userIconContainer');
     const loginButtonContainer = document.getElementById('loginButtonContainer');
@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let isLoginVisible = false;
     
     if (userIconBtn && loginButtonContainer && userIconContainer) {
+        console.debug('[user-icon] Script cargado, elementos encontrados');
         // Agregar estilos CSS para animaciones más fluidas
         const style = document.createElement('style');
         style.textContent = `
@@ -113,8 +114,16 @@ document.addEventListener('DOMContentLoaded', function() {
         userIconContainer.style.display = 'block';
         userIconContainer.style.transform = 'translateX(0) scale(1)';
         userIconContainer.style.opacity = '1';
+    } else {
+        console.debug('[user-icon] No se encontraron elementos, esperando DOMContentLoaded');
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initUserIcon);
+} else {
+    initUserIcon();
+}
 
 // Exportar funciones si se necesitan en otros módulos
 export function toggleUserIcon() {
