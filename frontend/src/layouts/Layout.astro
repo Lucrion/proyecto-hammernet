@@ -4,6 +4,7 @@ interface Props {
 }
 
 const { title } = Astro.props;
+import EnvLoader from '../components/EnvLoader.astro';
 ---
 
 <!DOCTYPE html>
@@ -16,6 +17,8 @@ const { title } = Astro.props;
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
 		<script src="https://unpkg.com/htmx.org@1.9.9" integrity="sha384-QFjmbokDn2DjBjq+fM+8LUIVrAgqcNW2s0PjAxHETgRn9l4fvX31ZxDxvwQnyMOX" crossorigin="anonymous"></script>
+        <!-- Inyección de variables de entorno para frontend -->
+        <EnvLoader />
         <script type="module" src="/scripts/user-icon.js"></script>
 	</head>
 	<body class="min-h-screen bg-gray-100">

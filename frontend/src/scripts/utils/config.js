@@ -39,8 +39,8 @@ export async function checkServerAvailability() {
                 message: 'Modo desarrollo: verificación omitida'
             };
         }
-        // Ping mediante un endpoint proxied en desarrollo para evitar /docs
-        const response = await fetch(`${API_URL}/productos/catalogo`, { method: 'GET' });
+        // Ping estable del backend en cualquier entorno
+        const response = await fetch(`${API_URL}/health`, { method: 'GET' });
         return {
             available: !!response && response.ok,
             message: (response && response.ok) ? 'Servidor disponible' : 'Servidor no disponible'

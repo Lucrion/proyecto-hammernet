@@ -113,6 +113,12 @@ function showLoading(isLoading) {
 function normalizeRut(value) {
     if (!value) return '';
     const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
+    // Reconstruir poniendo guion antes del dígito verificador
+    if (cleaned.length >= 2) {
+        const dv = cleaned.slice(-1);
+        const body = cleaned.slice(0, -1);
+        return `${body}-${dv}`;
+    }
     return cleaned;
 }
 
