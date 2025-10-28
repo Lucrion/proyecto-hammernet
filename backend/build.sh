@@ -51,25 +51,17 @@ mkdir -p data  # Almacenamiento de datos JSON (fallback)
 mkdir -p logs  # Logs de la aplicación
 
 log_step "Configurando base de datos en PostgreSQL"
-# Detectar ruta del setup para mayor robustez
-SETUP_SCRIPT="scripts/setup_postgres.py"
-if [ ! -f "$SETUP_SCRIPT" ] && [ -f "setup_postgres.py" ]; then
-  SETUP_SCRIPT="setup_postgres.py"
-fi
-if [ -f "$SETUP_SCRIPT" ]; then
-  python "$SETUP_SCRIPT"
+# Ejecutar setup desde raíz de backend
+if [ -f "setup_postgres.py" ]; then
+  python setup_postgres.py
 else
-  echo "ℹ️ No se encontró script de setup ($SETUP_SCRIPT); se omite creación de tablas"
+  echo "❌ ERROR: no se encontró backend/setup_postgres.py"; exit 1
 fi
 
 # Migración automática de SQLite a PostgreSQL si hay archivo local
 if [[ "$DATABASE_URL" == *"postgres"* ]]; then
   SQLITE_PATH="${SQLITE_PATH:-$(pwd)/ferreteria.db}"
-  # Detectar ruta del script de migración (soporta moverlo a backend/)
-  MIGRATION_SCRIPT="scripts/migrate_sqlite_to_postgres.py"
-  if [ ! -f "$MIGRATION_SCRIPT" ] && [ -f "migrate_sqlite_to_postgres.py" ]; then
-    MIGRATION_SCRIPT="migrate_sqlite_to_postgres.py"
-  fi
+  MIGRATION_SCRIPT="migrate_sqlite_to_postgres.py"
   if [ -f "$SQLITE_PATH" ] && [ -f "$MIGRATION_SCRIPT" ]; then
     log_step "Migrando datos desde SQLite a PostgreSQL (automático)"
     echo "Usando SQLITE_PATH=$SQLITE_PATH"
@@ -81,6 +73,11 @@ if [[ "$DATABASE_URL" == *"postgres"* ]]; then
     echo "ℹ️ No se encontró archivo SQLite en $SQLITE_PATH o script $MIGRATION_SCRIPT; se omite migración"
   fi
 fi
+
+# Diagnóstico básico del directorio para logs de Render
+log_step "Contenido de backend tras build"
+pwd
+ls -la
 
 log_step "Verificando instalación"
 python - <<'PY'
