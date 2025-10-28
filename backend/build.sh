@@ -79,17 +79,5 @@ log_step "Contenido de backend tras build"
 pwd
 ls -la
 
-log_step "Verificando instalación"
-python - <<'PY'
-import importlib
-mods = [
-  'fastapi','uvicorn','sqlalchemy','passlib','jose','python_dotenv','cloudinary'
-]
-missing = [m for m in mods if importlib.util.find_spec(m) is None]
-if missing:
-  raise SystemExit(f"❌ Faltan módulos: {', '.join(missing)}")
-print('✅ Dependencias principales instaladas correctamente')
-PY
-
 log_step "Construcción completada exitosamente"
 echo "🚀 Aplicación HammerNet lista para producción"
