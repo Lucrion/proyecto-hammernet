@@ -16,38 +16,70 @@
 # durante el despliegue.
 #############################################################################
 
-# Detener la ejecución si cualquier comando falla
-set -o errexit
+# Modo estricto: detener ante errores y variables no definidas
+set -Eeuo pipefail
 
-echo "=== Iniciando proceso de construcción para Hammernet ==="
+log_step() {
+  echo "\n=== $1 ==="
+}
+
+log_step "Iniciando proceso de construcción para HammerNet"
 
 # Verificar variables de entorno críticas
-echo "Verificando variables de entorno..."
-if [ -z "$DATABASE_URL" ]; then
-    echo "❌ ERROR: Variable DATABASE_URL no configurada"
-    exit 1
+log_step "Verificando variables de entorno"
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "❌ ERROR: Variable DATABASE_URL no configurada"; exit 1
+fi
+if [ -z "${JWT_SECRET_KEY:-}" ]; then
+  echo "❌ ERROR: Variable JWT_SECRET_KEY no configurada"; exit 1
 fi
 
-if [ -z "$JWT_SECRET_KEY" ]; then
-    echo "❌ ERROR: Variable JWT_SECRET_KEY no configurada"
-    exit 1
-fi
+# Sugerencia: debe ser Postgres en producción
+case "$DATABASE_URL" in
+  *postgres*) echo "✅ DATABASE_URL apunta a PostgreSQL" ;;
+  *) echo "⚠️ Aviso: DATABASE_URL no parece PostgreSQL (valor: $DATABASE_URL)" ;;
+esac
 
-echo "✅ Variables de entorno verificadas correctamente"
+echo "✅ Variables de entorno críticas presentes"
 
-echo "Instalando dependencias Python..."
-pip install --upgrade pip
-pip install -r requirements.txt
+log_step "Instalando dependencias Python"
+python -m pip install --upgrade pip wheel
+python -m pip install -r requirements.txt
 
-echo "Creando estructura de directorios necesaria..."
-mkdir -p data  # Directorio para almacenamiento de datos JSON (fallback)
-mkdir -p logs  # Directorio para logs de la aplicación
+log_step "Creando estructura de directorios"
+mkdir -p data  # Almacenamiento de datos JSON (fallback)
+mkdir -p logs  # Logs de la aplicación
 
-echo "Configurando base de datos PostgreSQL para producción..."
+log_step "Configurando base de datos en PostgreSQL"
 python scripts/setup_postgres.py
 
-echo "Verificando instalación..."
-python -c "import fastapi, uvicorn, sqlalchemy, passlib, jose; print('✅ Todas las dependencias principales instaladas correctamente')"
+# Migración opcional de SQLite a PostgreSQL (solo si se solicita)
+if [ "${MIGRATE_FROM_SQLITE:-0}" = "1" ]; then
+  log_step "Migrando datos desde SQLite a PostgreSQL"
+  if [ -z "${SQLITE_PATH:-}" ]; then
+    # Fallback al ferreteria.db del backend
+    SQLITE_PATH="$(pwd)/ferreteria.db"
+  fi
+  if [ -f "$SQLITE_PATH" ]; then
+    echo "Usando SQLITE_PATH=$SQLITE_PATH"
+    DATABASE_URL="$DATABASE_URL" SQLITE_PATH="$SQLITE_PATH" \
+      python scripts/migrate_sqlite_to_postgres.py
+  else
+    echo "⚠️ No se encontró archivo SQLite en $SQLITE_PATH; se omite migración"
+  fi
+fi
 
-echo "=== Construcción completada exitosamente ==="
-echo "🚀 Aplicación Hammernet lista para producción"
+log_step "Verificando instalación"
+python - <<'PY'
+import importlib
+mods = [
+  'fastapi','uvicorn','sqlalchemy','passlib','jose','python_dotenv','cloudinary'
+]
+missing = [m for m in mods if importlib.util.find_spec(m) is None]
+if missing:
+  raise SystemExit(f"❌ Faltan módulos: {', '.join(missing)}")
+print('✅ Dependencias principales instaladas correctamente')
+PY
+
+log_step "Construcción completada exitosamente"
+echo "🚀 Aplicación HammerNet lista para producción"

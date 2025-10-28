@@ -129,3 +129,44 @@ El proyecto está configurado para deployment en Render:
 - Archivo `render.yaml` incluido
 - Variables de entorno configuradas
 - Base de datos PostgreSQL
+
+## Migración a PostgreSQL (Render)
+
+Sigue estos pasos para exportar los datos desde SQLite y migrarlos a PostgreSQL en Render.
+
+1) Configurar variables de entorno
+- `DATABASE_URL`: cadena de conexión de Postgres (Render)
+- `SQLITE_PATH` (opcional): ruta al archivo SQLite local si no usas el `ferreteria.db` del backend
+
+Ejemplo en Windows PowerShell:
+```
+set SQLITE_PATH=c:\Users\darky\Desktop\proyecto\backend\ferreteria.db
+set DATABASE_URL=postgresql://usuario:password@host:port/dbname
+```
+
+2) Crear tablas en Postgres
+Si tu instancia de Postgres está vacía, crea las tablas:
+```
+python backend/scripts/setup_postgres.py
+```
+
+3) Migrar datos desde SQLite a Postgres
+Ejecuta el script de migración (preserva IDs y ajusta secuencias):
+```
+python backend/scripts/migrate_sqlite_to_postgres.py
+```
+
+4) Verificar esquema y conteos
+Opcionalmente, verifica el estado de tablas y registros:
+```
+python backend/utils/check_table_structure.py
+python backend/utils/test_sale_creation.py  # imprime conteos de ventas/detalles
+```
+
+5) Configurar producción en Render
+- Define `DATABASE_URL` en Render (dashboard o `render.yaml`)
+- No uses `.env` en producción; Render inyecta variables del servicio
+
+Notas:
+- Haz un respaldo de `ferreteria.db` antes de migrar.
+- Si cambiaste columnas en SQLite recientemente, el backend ya incluye ajustes ligeros automáticos para desarrollo.
