@@ -16,7 +16,7 @@ const { title } = Astro.props;
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
 		<script src="https://unpkg.com/htmx.org@1.9.9" integrity="sha384-QFjmbokDn2DjBjq+fM+8LUIVrAgqcNW2s0PjAxHETgRn9l4fvX31ZxDxvwQnyMOX" crossorigin="anonymous"></script>
-		<script type="module" src="/src/scripts/components/user-icon.js"></script>
+        <script type="module" src="/scripts/user-icon.js"></script>
 	</head>
 	<body class="min-h-screen bg-gray-100">
 		{Astro.url.pathname !== '/login' && (
