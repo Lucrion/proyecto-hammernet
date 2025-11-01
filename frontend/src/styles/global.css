@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Evitar cambios de ancho por aparición de scrollbar (previene parpadeos) */
+html, body {
+    scrollbar-gutter: stable both-edges;
+}
+
 /* Animaciones personalizadas */
 @keyframes float {
     0% { transform: translateY(0px); }

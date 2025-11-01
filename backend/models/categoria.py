@@ -22,6 +22,8 @@ class CategoriaDB(Base):
     
     # Relación con productos
     productos = relationship("ProductoDB", back_populates="categoria")
+    # Relación con subcategorías
+    subcategorias = relationship("SubCategoriaDB", back_populates="categoria", cascade="all, delete-orphan")
 
 
 # Modelos Pydantic para validación y serialización

@@ -189,6 +189,38 @@ import catalogoScriptUrl from '../../../scripts/admin/catalogo.js?url';
                         <textarea id="catalogarCaracteristicas" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" placeholder="Características del producto (opcional)" required></textarea>
                         <p class="text-xs text-gray-500 mt-1">Describe las características principales del producto de forma detallada</p>
                     </div>
+
+                    <!-- Oferta del producto -->
+                    <div class="border-t border-gray-200 pt-4 space-y-3">
+                        <h4 class="text-md font-medium text-gray-900">Oferta del producto</h4>
+                        <div class="flex items-center space-x-2">
+                            <input id="catalogarOfertaActiva" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                            <label for="catalogarOfertaActiva" class="text-sm">Oferta activa</label>
+                        </div>
+                        <div>
+                            <label for="catalogarTipoOferta" class="block text-sm font-medium">Tipo de oferta</label>
+                            <select id="catalogarTipoOferta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Sin oferta</option>
+                                <option value="porcentaje">Porcentaje</option>
+                                <option value="fijo">Monto fijo</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="catalogarValorOferta" class="block text-sm font-medium">Valor de oferta</label>
+                            <input id="catalogarValorOferta" type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="catalogarInicioOferta" class="block text-sm font-medium">Inicio</label>
+                                <input id="catalogarInicioOferta" type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label for="catalogarFinOferta" class="block text-sm font-medium">Fin</label>
+                                <input id="catalogarFinOferta" type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500">Si eliges porcentaje, indica el % (0-100). Para monto fijo, indica el valor en moneda.</p>
+                    </div>
                     
                     <div class="flex justify-end space-x-3 pt-4">
                         <button type="button" onclick="cerrarCatalogarModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500">
@@ -278,6 +310,39 @@ import catalogoScriptUrl from '../../../scripts/admin/catalogo.js?url';
                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" 
                                   placeholder="Características del producto (opcional)"></textarea>
                         <p class="text-xs text-gray-500 mt-1">Describe las características principales del producto de forma detallada</p>
+                    </div>
+                    
+                    <!-- Oferta del producto -->
+                    <div class="border-t pt-4">
+                        <h4 class="text-sm font-semibold mb-2">Oferta</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="flex items-center gap-2">
+                                <input id="editarOfertaActiva" type="checkbox" />
+                                <label for="editarOfertaActiva" class="text-sm">Oferta activa</label>
+                            </div>
+                            <div>
+                                <label for="editarTipoOferta" class="block text-sm font-medium">Tipo de oferta</label>
+                                <select id="editarTipoOferta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Sin oferta</option>
+                                    <option value="porcentaje">Porcentaje</option>
+                                    <option value="fijo">Monto fijo</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="editarValorOferta" class="block text-sm font-medium">Valor de oferta</label>
+                                <input id="editarValorOferta" type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="editarInicioOferta" class="block text-sm font-medium">Inicio</label>
+                                    <input id="editarInicioOferta" type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                </div>
+                                <div>
+                                    <label for="editarFinOferta" class="block text-sm font-medium">Fin</label>
+                                    <input id="editarFinOferta" type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
 

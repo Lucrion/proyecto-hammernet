@@ -10,8 +10,9 @@ from controllers.producto_controller import ProductoController
 from models.producto import Producto, ProductoCreate, ProductoUpdate, ProductoInventario
 from models.catalogo import ProductoCatalogo, AgregarACatalogo
 from core.auth import get_current_user, require_admin
+from config.constants import API_PREFIX
 
-router = APIRouter(prefix="/api/productos", tags=["Productos"])
+router = APIRouter(prefix=f"{API_PREFIX}/productos", tags=["Productos"])
 
 
 @router.get("/", response_model=List[Producto])

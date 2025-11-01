@@ -7,8 +7,9 @@ from config.database import get_db
 from controllers.proveedor_controller import ProveedorController
 from models.proveedor import Proveedor, ProveedorCreate, ProveedorUpdate
 from core.auth import get_current_user, require_admin
+from config.constants import API_PREFIX
 
-router = APIRouter(prefix="/api/proveedores", tags=["Proveedores"])
+router = APIRouter(prefix=f"{API_PREFIX}/proveedores", tags=["Proveedores"])
 
 
 @router.get("/", response_model=List[Proveedor])

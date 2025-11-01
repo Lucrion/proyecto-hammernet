@@ -1,10 +1,5 @@
-// Configuración base de API
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_URL = isDevelopment 
-  ? (window.__ENV__?.PUBLIC_API_URL || 'http://localhost:8000/api')
-  : (window.__ENV__?.PUBLIC_API_URL_PRODUCTION || 'https://hammernet-backend.onrender.com/api');
-
-const API_TIMEOUT = parseInt(window.__ENV__?.PUBLIC_API_TIMEOUT || '10000');
+// Configuración centralizada
+import { API_URL, API_TIMEOUT } from '../utils/config.js';
 
 function showStatus(message, type = 'info') {
   const el = document.getElementById('statusMessage');
@@ -55,7 +50,8 @@ function normalizeRut(value) {
 }
 
 function formatRut(value) {
-  const cleaned = normalizeRut(value);
+  if (!value) return '';
+  const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
   if (cleaned.length <= 1) return cleaned;
   const dv = cleaned.slice(-1);
   let body = cleaned.slice(0, -1);

@@ -123,7 +123,8 @@ function normalizeRut(value) {
 }
 
 function formatRut(value) {
-    const cleaned = normalizeRut(value);
+    if (!value) return '';
+    const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
     if (cleaned.length <= 1) return cleaned;
     const dv = cleaned.slice(-1);
     let body = cleaned.slice(0, -1);
@@ -193,7 +194,7 @@ async function handleLogin(e) {
             ...corsConfig
         };
         
-        const response = await fetch(`${API_URL}/auth/login`, fetchOptions);
+        let response = await fetch(`${API_URL}/auth/login`, fetchOptions);
         
         // Limpiar el timeout ya que la solicitud se completó
         clearTimeout(timeoutId);
@@ -210,13 +211,52 @@ async function handleLogin(e) {
             console.error('- URL:', response.url);
             console.error('- Headers:', [...response.headers.entries()]);
             
+            // Intento de respaldo: si es 401 y el usuario es RUT con guion, reintentar sin guion
+            if (response.status === 401 && tipoSeleccionado !== 'trabajador' && /-/.test(username)) {
+                try {
+                    const usernameAlt = username.replace(/-/g, '');
+                    const formDataAlt = new URLSearchParams();
+                    formDataAlt.append('username', usernameAlt);
+                    formDataAlt.append('password', password);
+                    formDataAlt.append('grant_type', 'password');
+                    const fetchOptionsAlt = { method: 'POST', body: formDataAlt, signal: controller.signal, ...corsConfig };
+                    console.warn('401 con RUT con guion. Reintentando sin guion:', formDataAlt.toString());
+                    response = await fetch(`${API_URL}/auth/login`, fetchOptionsAlt);
+                    if (response.ok) {
+                        clearTimeout(timeoutId);
+                        const data = await response.json();
+                        console.log('Respuesta de autenticación (fallback):', JSON.stringify(data));
+
+                        const user = {
+                            id_usuario: data.id_usuario,
+                            nombre: data.nombre,
+                            username: data.username,
+                            rol: data.role || data.rol || 'cliente'
+                        };
+
+                        localStorage.setItem('isLoggedIn', 'true');
+                        localStorage.setItem('token', data.access_token);
+                        localStorage.setItem('user', JSON.stringify(user));
+                        localStorage.setItem('role', user.rol);
+                        localStorage.setItem('nombreUsuario', user.nombre || usernameAlt);
+                        showStatus('Autenticación exitosa. Redirigiendo...', 'success');
+                        const tipoFinal = tipoSeleccionado || (user.rol === 'admin' ? 'trabajador' : 'cliente');
+                        const destino = tipoFinal === 'cliente' ? '/' : '/admin';
+                        setTimeout(() => { window.location.href = destino; }, 800);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Fallback de login sin guion falló:', e);
+                }
+            }
+
             // Información específica para error 422
             if (response.status === 422) {
                 console.error('Error 422 (Unprocessable Content): FastAPI está rechazando los datos enviados');
                 console.error('Datos enviados:', formData.toString());
                 console.error('Headers enviados:', fetchOptions.headers);
-                console.error('URL completa:', `${API_URL}/login`);
-                
+                console.error('URL completa:', `${API_URL}/auth/login`);
+
                 // Intentar obtener más información sobre el error
                 console.error('Método HTTP:', fetchOptions.method);
                 console.error('Cuerpo de la solicitud:', fetchOptions.body);
@@ -277,7 +317,7 @@ async function handleLogin(e) {
         showStatus('Autenticación exitosa. Redirigiendo...', 'success');
         
         // Redirigir según tipo seleccionado (cliente/trabajador)
-        const tipoFinal = tipoSeleccionado || (user.rol === 'admin' ? 'trabajador' : 'cliente');
+        const tipoFinal = tipoSeleccionado || (user.rol === 'administrador' ? 'trabajador' : 'cliente');
         const destino = tipoFinal === 'cliente' ? '/' : '/admin';
         setTimeout(() => {
             window.location.href = destino;

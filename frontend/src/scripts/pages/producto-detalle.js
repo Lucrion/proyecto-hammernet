@@ -7,6 +7,24 @@ function formatearPrecio(precio) {
     return precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+// Calcular precio final considerando oferta vigente
+function calcularPrecioFinal(p) {
+    const base = Number(p.precio_venta ?? p.precio ?? 0);
+    const inicio = p.fecha_inicio_oferta ? new Date(p.fecha_inicio_oferta) : null;
+    const fin = p.fecha_fin_oferta ? new Date(p.fecha_fin_oferta) : null;
+    const ahora = new Date();
+    const vigente = !!p.oferta_activa && (!inicio || ahora >= inicio) && (!fin || ahora <= fin);
+    if (!vigente || !p.tipo_oferta || Number(p.valor_oferta) <= 0) return { precio_final: base, tiene_oferta: false };
+    let final = base;
+    if (p.tipo_oferta === 'porcentaje') {
+        const desc = Math.min(100, Math.max(0, Number(p.valor_oferta)));
+        final = Math.max(0, base * (1 - desc / 100));
+    } else if (p.tipo_oferta === 'fijo') {
+        final = Math.max(0, base - Number(p.valor_oferta));
+    }
+    return { precio_final: final, tiene_oferta: true };
+}
+
 // Estado global
 const state = {
     producto: null,
@@ -62,6 +80,10 @@ export async function cargarDetalleProducto() {
         }
 
         const producto = await response.json();
+        const { precio_final, tiene_oferta } = calcularPrecioFinal(producto);
+        producto.precio_final = precio_final;
+        producto.tiene_oferta = tiene_oferta;
+        producto.precio_original = tiene_oferta ? (producto.precio_venta ?? producto.precio) : null;
         state.producto = producto;
         
         // Mostrar detalles del producto
@@ -130,8 +152,12 @@ function mostrarDetalleProducto(producto) {
                 <p class="text-sm text-gray-500 mt-2">${producto.categoria_nombre || 'Sin categoría'}</p>
             </div>
             
-            <div class="text-3xl font-bold text-blue-600">
-                $${formatearPrecio(producto.precio)}
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl font-bold text-blue-600">$${formatearPrecio(Math.round(producto.precio_final))}</span>
+                ${producto.tiene_oferta ? `
+                <span class="text-xl text-gray-500 line-through">$${formatearPrecio(Math.round(producto.precio_original))}</span>
+                <span class="text-sm px-2 py-1 bg-red-100 text-red-700 rounded">Oferta</span>
+                ` : ''}
             </div>
             
             <div class="space-y-4">

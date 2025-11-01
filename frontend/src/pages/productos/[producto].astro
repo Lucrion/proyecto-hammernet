@@ -57,11 +57,26 @@ try {
       
       // Verificar si el producto está en catálogo y disponible
       if (productoData.cantidad_disponible > 0 && productoData.precio_venta > 0) {
+        const now = new Date();
+        const inicio = productoData.fecha_inicio_oferta ? new Date(productoData.fecha_inicio_oferta) : null;
+        const fin = productoData.fecha_fin_oferta ? new Date(productoData.fecha_fin_oferta) : null;
+        const ofertaVigente = !!productoData.oferta_activa && (!inicio || now >= inicio) && (!fin || now <= fin);
+        let precioFinal = Number(productoData.precio_venta);
+        if (ofertaVigente && productoData.tipo_oferta && Number(productoData.valor_oferta) > 0) {
+          if (productoData.tipo_oferta === 'porcentaje') {
+            const desc = Math.min(100, Math.max(0, Number(productoData.valor_oferta)));
+            precioFinal = Math.max(0, precioFinal * (1 - desc / 100));
+          } else if (productoData.tipo_oferta === 'fijo') {
+            precioFinal = Math.max(0, precioFinal - Number(productoData.valor_oferta));
+          }
+        }
         producto = {
           id: productoData.id_producto,
           nombre: productoData.nombre,
           descripcion: productoData.descripcion || '',
-          precio: productoData.precio_venta,
+          precio: precioFinal,
+          precio_original: ofertaVigente ? productoData.precio_venta : null,
+          tiene_oferta: ofertaVigente,
           imagen: productoData.imagen_url,
           categoria: productoData.categoria || 'Sin categoría',
           caracteristicas: productoData.caracteristicas || '',
@@ -148,15 +163,23 @@ if (!producto) {
 					</div>
 				</div>
 
-				<!-- Detalles del producto -->
-				<div class="space-y-6">
-					<!-- Título y precio -->
-					<div>
-						<h1 class="text-4xl font-bold text-gray-900 mb-2">{producto.nombre}</h1>
-						<div class="flex items-center space-x-4 mb-4">
-							<span class="text-3xl font-bold text-blue-600">${producto.precio}</span>
+					<!-- Detalles del producto -->
+					<div class="space-y-6">
+						<!-- Título y precio -->
+						<div>
+							<h1 class="text-4xl font-bold text-gray-900 mb-2">{producto.nombre}</h1>
+							<div class="flex items-center space-x-4 mb-4">
+								{producto.tiene_oferta ? (
+									<>
+										<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(producto.precio)}</span>
+										<span class="text-xl text-gray-500 line-through">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(producto.precio_original)}</span>
+										<span class="text-sm px-2 py-1 bg-red-100 text-red-700 rounded">Oferta</span>
+									</>
+								) : (
+									<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(producto.precio)}</span>
+								)}
+							</div>
 						</div>
-					</div>
 
 					<!-- Descripción -->
 					<div class="border-t border-gray-200 pt-6">

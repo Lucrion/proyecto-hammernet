@@ -17,9 +17,11 @@ import io
 from models.producto import ProductoDB, ProductoCreate, ProductoUpdate, Producto, ProductoInventario
 from models.catalogo import ProductoCatalogo, AgregarACatalogo
 from models.categoria import CategoriaDB
+from models.subcategoria import SubCategoriaDB
 from models.proveedor import ProveedorDB
 from config.cloudinary_config import upload_image
 import cloudinary.uploader
+from datetime import datetime
 
 
 class ProductoController:
@@ -97,7 +99,8 @@ class ProductoController:
         """
         try:
             productos = db.query(ProductoDB).options(
-                joinedload(ProductoDB.categoria)
+                joinedload(ProductoDB.categoria),
+                joinedload(ProductoDB.subcategoria)
             ).filter(
                 ProductoDB.en_catalogo == True,
                 ProductoDB.estado == "activo"
@@ -106,6 +109,29 @@ class ProductoController:
             catalogo_productos = []
             for p in productos:
                 # Crear producto de catálogo con valores por defecto si faltan datos
+                # Calcular precio final con oferta si aplica
+                precio_base = float(p.precio_venta) if p.precio_venta else 0
+                precio_final = precio_base
+                try:
+                    aplica_oferta = bool(getattr(p, 'oferta_activa', False))
+                    if aplica_oferta:
+                        # Validar rango de fechas
+                        inicio_ok = True
+                        fin_ok = True
+                        if getattr(p, 'fecha_inicio_oferta', None):
+                            inicio_ok = datetime.utcnow() >= p.fecha_inicio_oferta
+                        if getattr(p, 'fecha_fin_oferta', None):
+                            fin_ok = datetime.utcnow() <= p.fecha_fin_oferta
+                        if inicio_ok and fin_ok:
+                            tipo = getattr(p, 'tipo_oferta', None)
+                            valor = float(getattr(p, 'valor_oferta', 0) or 0)
+                            if tipo == 'porcentaje' and valor > 0:
+                                precio_final = max(0.0, round(precio_base * (1 - valor / 100), 2))
+                            elif tipo == 'fijo' and valor > 0:
+                                precio_final = max(0.0, round(precio_base - valor, 2))
+                except Exception:
+                    # En caso de cualquier error, usar precio base
+                    precio_final = precio_base
                 producto_catalogo = ProductoCatalogo(
                     id_producto=p.id_producto,
                     nombre=p.nombre,
@@ -113,10 +139,15 @@ class ProductoController:
                     imagen_url=p.imagen_url or "/images/default-product.jpg",
                     marca=p.marca or "Sin marca",
                     caracteristicas=p.caracteristicas or "Sin características especificadas",
-                    precio_venta=float(p.precio_venta) if p.precio_venta else 0,
-                    categoria=p.categoria.nombre if p.categoria else "Sin categoría",
+                    precio_venta=precio_base,
+                    id_categoria=p.id_categoria,
+                    id_subcategoria=p.id_subcategoria,
                     disponible=(p.cantidad_disponible or 0) > 0,
-                    fecha_agregado_catalogo=p.fecha_actualizacion
+                    fecha_agregado_catalogo=p.fecha_actualizacion,
+                    oferta_activa=getattr(p, 'oferta_activa', False),
+                    tipo_oferta=getattr(p, 'tipo_oferta', None),
+                    valor_oferta=float(getattr(p, 'valor_oferta', 0) or 0),
+                    precio_final=precio_final
                 )
                 catalogo_productos.append(producto_catalogo)
             
@@ -144,7 +175,8 @@ class ProductoController:
         try:
             # Buscar el producto en inventario
             producto = db.query(ProductoDB).options(
-                joinedload(ProductoDB.categoria)
+                joinedload(ProductoDB.categoria),
+                joinedload(ProductoDB.subcategoria)
             ).filter(ProductoDB.id_producto == producto_id).first()
             
             if not producto:
@@ -190,12 +222,46 @@ class ProductoController:
             producto.imagen_url = imagen_url
             producto.marca = datos_catalogo.marca
             producto.caracteristicas = datos_catalogo.caracteristicas
+            # Campos de oferta al catalogar (opcionales)
+            try:
+                producto.oferta_activa = bool(getattr(datos_catalogo, 'oferta_activa', False))
+                producto.tipo_oferta = getattr(datos_catalogo, 'tipo_oferta', None)
+                # valor_oferta puede ser None
+                vo = getattr(datos_catalogo, 'valor_oferta', None)
+                producto.valor_oferta = float(vo) if vo is not None else None
+                # Fechas (pydantic convierte ISO a datetime si viene como string)
+                producto.fecha_inicio_oferta = getattr(datos_catalogo, 'fecha_inicio_oferta', None)
+                producto.fecha_fin_oferta = getattr(datos_catalogo, 'fecha_fin_oferta', None)
+            except Exception:
+                # Si algo falla, mantener valores por defecto
+                pass
             producto.en_catalogo = True
             
             db.commit()
             db.refresh(producto)
             
             # Crear y retornar el objeto ProductoCatalogo
+            # Calcular precio final con oferta si aplica
+            precio_base = float(producto.precio_venta) if producto.precio_venta else 0
+            precio_final = precio_base
+            try:
+                aplica_oferta = bool(getattr(producto, 'oferta_activa', False))
+                if aplica_oferta:
+                    inicio_ok = True
+                    fin_ok = True
+                    if getattr(producto, 'fecha_inicio_oferta', None):
+                        inicio_ok = datetime.utcnow() >= producto.fecha_inicio_oferta
+                    if getattr(producto, 'fecha_fin_oferta', None):
+                        fin_ok = datetime.utcnow() <= producto.fecha_fin_oferta
+                    if inicio_ok and fin_ok:
+                        tipo = getattr(producto, 'tipo_oferta', None)
+                        valor = float(getattr(producto, 'valor_oferta', 0) or 0)
+                        if tipo == 'porcentaje' and valor > 0:
+                            precio_final = max(0.0, round(precio_base * (1 - valor / 100), 2))
+                        elif tipo == 'fijo' and valor > 0:
+                            precio_final = max(0.0, round(precio_base - valor, 2))
+            except Exception:
+                precio_final = precio_base
             producto_catalogo = ProductoCatalogo(
                 id_producto=producto.id_producto,
                 nombre=producto.nombre,
@@ -203,10 +269,15 @@ class ProductoController:
                 imagen_url=producto.imagen_url,
                 marca=producto.marca,
                 caracteristicas=producto.caracteristicas,
-                precio_venta=float(producto.precio_venta) if producto.precio_venta else 0,
-                categoria=producto.categoria.nombre if producto.categoria else "Sin categoría",
+                precio_venta=precio_base,
+                id_categoria=producto.id_categoria,
+                id_subcategoria=producto.id_subcategoria,
                 disponible=(producto.cantidad_disponible or 0) > 0,
-                fecha_agregado_catalogo=producto.fecha_actualizacion
+                fecha_agregado_catalogo=producto.fecha_actualizacion,
+                oferta_activa=getattr(producto, 'oferta_activa', False),
+                tipo_oferta=getattr(producto, 'tipo_oferta', None),
+                valor_oferta=float(getattr(producto, 'valor_oferta', 0) or 0),
+                precio_final=precio_final
             )
             
             return producto_catalogo
@@ -440,6 +511,21 @@ class ProductoController:
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="El proveedor especificado no existe"
                     )
+
+            # Validar subcategoría si se especifica
+            if getattr(producto, 'id_subcategoria', None):
+                sub = db.query(SubCategoriaDB).filter(SubCategoriaDB.id_subcategoria == producto.id_subcategoria).first()
+                if not sub:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="La subcategoría especificada no existe"
+                    )
+                # Validar que la subcategoría pertenezca a la categoría seleccionada (si ambas existen)
+                if producto.id_categoria and sub.id_categoria != producto.id_categoria:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="La subcategoría no pertenece a la categoría seleccionada"
+                    )
             
             # Generar código interno único si no se proporciona
             if not producto.codigo_interno:
@@ -460,6 +546,7 @@ class ProductoController:
             # Cargar relaciones
             db_producto = db.query(ProductoDB).options(
                 joinedload(ProductoDB.categoria),
+                joinedload(ProductoDB.subcategoria),
                 joinedload(ProductoDB.proveedor)
             ).filter(ProductoDB.id_producto == db_producto.id_producto).first()
             
@@ -472,6 +559,7 @@ class ProductoController:
                 "imagen_url": db_producto.imagen_url,
                 "id_categoria": db_producto.id_categoria,
                 "id_proveedor": db_producto.id_proveedor,
+                "id_subcategoria": db_producto.id_subcategoria,
                 "marca": db_producto.marca,
                 "costo_bruto": float(db_producto.costo_bruto) if db_producto.costo_bruto else 0,
                 "costo_neto": float(db_producto.costo_neto) if db_producto.costo_neto else 0,
@@ -488,7 +576,8 @@ class ProductoController:
                 "fecha_ultima_venta": db_producto.fecha_ultima_venta,
                 "fecha_ultimo_ingreso": db_producto.fecha_ultimo_ingreso,
                 "categoria": db_producto.categoria.nombre if db_producto.categoria else None,
-                "proveedor": db_producto.proveedor.nombre if db_producto.proveedor else None
+                "proveedor": db_producto.proveedor.nombre if db_producto.proveedor else None,
+                "subcategoria": db_producto.subcategoria.nombre if db_producto.subcategoria else None
             }
             
             return Producto(**producto_dict)
@@ -523,6 +612,7 @@ class ProductoController:
         try:
             query = db.query(ProductoDB).options(
                 joinedload(ProductoDB.categoria),
+                joinedload(ProductoDB.subcategoria),
                 joinedload(ProductoDB.proveedor)
             )
             
@@ -542,6 +632,7 @@ class ProductoController:
                     "imagen_url": p.imagen_url,
                     "id_categoria": p.id_categoria,
                     "id_proveedor": p.id_proveedor,
+                    "id_subcategoria": p.id_subcategoria,
                     "marca": p.marca,
                     "costo_bruto": float(p.costo_bruto) if p.costo_bruto else 0,
                     "costo_neto": float(p.costo_neto) if p.costo_neto else 0,
@@ -556,7 +647,8 @@ class ProductoController:
                     "fecha_ultima_venta": p.fecha_ultima_venta,
                     "fecha_ultimo_ingreso": p.fecha_ultimo_ingreso,
                     "categoria": p.categoria.nombre if p.categoria else None,
-                    "proveedor": p.proveedor.nombre if p.proveedor else None
+                    "proveedor": p.proveedor.nombre if p.proveedor else None,
+                    "subcategoria": p.subcategoria.nombre if p.subcategoria else None
                 }
                 productos_convertidos.append(Producto(**producto_dict))
             
@@ -586,6 +678,7 @@ class ProductoController:
         try:
             producto = db.query(ProductoDB).options(
                 joinedload(ProductoDB.categoria),
+                joinedload(ProductoDB.subcategoria),
                 joinedload(ProductoDB.proveedor)
             ).filter(ProductoDB.id_producto == producto_id).first()
             
@@ -598,6 +691,7 @@ class ProductoController:
             # Crear el objeto Producto manualmente para evitar problemas de serialización
             categoria_nombre = None
             proveedor_nombre = None
+            subcategoria_nombre = None
             
             # Obtener nombre de categoría si existe
             if producto.categoria:
@@ -616,6 +710,14 @@ class ProductoController:
                 proveedor = db.query(ProveedorDB).filter(ProveedorDB.id_proveedor == producto.id_proveedor).first()
                 if proveedor:
                     proveedor_nombre = proveedor.nombre
+
+            # Obtener nombre de subcategoría si existe
+            if hasattr(producto, 'subcategoria') and producto.subcategoria:
+                subcategoria_nombre = producto.subcategoria.nombre
+            elif getattr(producto, 'id_subcategoria', None):
+                sub = db.query(SubCategoriaDB).filter(SubCategoriaDB.id_subcategoria == producto.id_subcategoria).first()
+                if sub:
+                    subcategoria_nombre = sub.nombre
             
             producto_dict = {
                 "id_producto": producto.id_producto,
@@ -625,6 +727,7 @@ class ProductoController:
                 "imagen_url": producto.imagen_url,
                 "id_categoria": producto.id_categoria,
                 "id_proveedor": producto.id_proveedor,
+                "id_subcategoria": getattr(producto, 'id_subcategoria', None),
                 "marca": producto.marca,
                 "costo_bruto": float(producto.costo_bruto) if producto.costo_bruto else 0,
                 "costo_neto": float(producto.costo_neto) if producto.costo_neto else 0,
@@ -639,7 +742,8 @@ class ProductoController:
                 "fecha_ultima_venta": producto.fecha_ultima_venta,
                 "fecha_ultimo_ingreso": producto.fecha_ultimo_ingreso,
                 "categoria": categoria_nombre,
-                "proveedor": proveedor_nombre
+                "proveedor": proveedor_nombre,
+                "subcategoria": subcategoria_nombre
             }
             
             return Producto(**producto_dict)
@@ -692,6 +796,24 @@ class ProductoController:
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="El proveedor especificado no existe"
                     )
+
+            if getattr(producto_update, 'id_subcategoria', None) is not None:
+                if producto_update.id_subcategoria is None:
+                    pass  # permitir limpiar subcategoría
+                else:
+                    sub = db.query(SubCategoriaDB).filter(SubCategoriaDB.id_subcategoria == producto_update.id_subcategoria).first()
+                    if not sub:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="La subcategoría especificada no existe"
+                        )
+                    # Si se actualiza categoría también, validar consistencia; si no, validar con categoría actual
+                    categoria_id_ref = producto_update.id_categoria if producto_update.id_categoria is not None else producto.id_categoria
+                    if categoria_id_ref and sub.id_categoria != categoria_id_ref:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="La subcategoría no pertenece a la categoría seleccionada"
+                        )
             
             # Actualizar campos
             for field, value in producto_update.dict(exclude_unset=True).items():
@@ -703,12 +825,14 @@ class ProductoController:
             # Cargar relaciones
             producto = db.query(ProductoDB).options(
                 joinedload(ProductoDB.categoria),
+                joinedload(ProductoDB.subcategoria),
                 joinedload(ProductoDB.proveedor)
             ).filter(ProductoDB.id_producto == producto_id).first()
             
             # Manejar categoria y proveedor manualmente para evitar errores de serialización
             categoria_nombre = None
             proveedor_nombre = None
+            subcategoria_nombre = None
             
             if hasattr(producto, 'categoria') and producto.categoria:
                 categoria_nombre = producto.categoria.nombre
@@ -725,23 +849,43 @@ class ProductoController:
                 proveedor = db.query(ProveedorDB).filter(ProveedorDB.id_proveedor == producto.id_proveedor).first()
                 if proveedor:
                     proveedor_nombre = proveedor.nombre
+
+            # Resolver nombre de subcategoría si existe
+            if hasattr(producto, 'subcategoria') and producto.subcategoria:
+                subcategoria_nombre = producto.subcategoria.nombre
+            elif getattr(producto, 'id_subcategoria', None):
+                sub = db.query(SubCategoriaDB).filter(SubCategoriaDB.id_subcategoria == producto.id_subcategoria).first()
+                if sub:
+                    subcategoria_nombre = sub.nombre
             
-            # Construir el objeto Producto manualmente
+            # Construir el objeto Producto manualmente (usando el modelo unificado)
             return Producto(
                 id_producto=producto.id_producto,
                 nombre=producto.nombre,
                 descripcion=producto.descripcion,
-                precio=producto.precio,
-                cantidad_disponible=producto.cantidad_disponible,
-                cantidad_minima=producto.cantidad_minima,
+                codigo_interno=producto.codigo_interno,
+                imagen_url=producto.imagen_url,
                 id_categoria=producto.id_categoria,
                 id_proveedor=producto.id_proveedor,
-                categoria=categoria_nombre,
-                proveedor=proveedor_nombre,
+                id_subcategoria=getattr(producto, 'id_subcategoria', None),
+                marca=producto.marca,
+                costo_bruto=float(producto.costo_bruto) if producto.costo_bruto else 0,
+                costo_neto=float(producto.costo_neto) if producto.costo_neto else 0,
+                precio_venta=float(producto.precio_venta) if producto.precio_venta else 0,
+                porcentaje_utilidad=float(producto.porcentaje_utilidad) if producto.porcentaje_utilidad else 0,
+                utilidad_pesos=float(producto.utilidad_pesos) if producto.utilidad_pesos else 0,
+                cantidad_disponible=producto.cantidad_disponible,
+                stock_minimo=producto.stock_minimo,
+                estado=producto.estado,
+                en_catalogo=getattr(producto, 'en_catalogo', False),
+                caracteristicas=getattr(producto, 'caracteristicas', None),
                 fecha_creacion=producto.fecha_creacion,
                 fecha_actualizacion=producto.fecha_actualizacion,
-                activo=producto.activo,
-                imagen_url=producto.imagen_url
+                fecha_ultima_venta=getattr(producto, 'fecha_ultima_venta', None),
+                fecha_ultimo_ingreso=getattr(producto, 'fecha_ultimo_ingreso', None),
+                categoria=categoria_nombre,
+                proveedor=proveedor_nombre,
+                subcategoria=subcategoria_nombre
             )
             
         except HTTPException:
@@ -1083,6 +1227,29 @@ class ProductoController:
                 producto.descripcion = datos_actualizacion['descripcion']
             if 'caracteristicas' in datos_actualizacion:
                 producto.caracteristicas = datos_actualizacion['caracteristicas']
+            # Campos de oferta
+            if 'oferta_activa' in datos_actualizacion:
+                producto.oferta_activa = bool(datos_actualizacion['oferta_activa'])
+            if 'tipo_oferta' in datos_actualizacion:
+                producto.tipo_oferta = datos_actualizacion['tipo_oferta']
+            if 'valor_oferta' in datos_actualizacion:
+                try:
+                    producto.valor_oferta = float(datos_actualizacion['valor_oferta'])
+                except Exception:
+                    producto.valor_oferta = None
+            if 'fecha_inicio_oferta' in datos_actualizacion:
+                try:
+                    # Aceptar ISO string
+                    from datetime import datetime as _dt
+                    producto.fecha_inicio_oferta = _dt.fromisoformat(datos_actualizacion['fecha_inicio_oferta']) if datos_actualizacion['fecha_inicio_oferta'] else None
+                except Exception:
+                    producto.fecha_inicio_oferta = None
+            if 'fecha_fin_oferta' in datos_actualizacion:
+                try:
+                    from datetime import datetime as _dt
+                    producto.fecha_fin_oferta = _dt.fromisoformat(datos_actualizacion['fecha_fin_oferta']) if datos_actualizacion['fecha_fin_oferta'] else None
+                except Exception:
+                    producto.fecha_fin_oferta = None
             
             # Manejar imagen si se proporciona
             if 'imagen_base64' in datos_actualizacion and datos_actualizacion['imagen_base64']:

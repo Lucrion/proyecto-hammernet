@@ -10,8 +10,9 @@ from config.database import get_db
 from controllers.mensaje_controller import MensajeController
 from models.mensaje import MensajeContacto, MensajeContactoCreate
 # TODO: Reactivar después - from auth import get_current_user, require_admin
+from config.constants import API_PREFIX
 
-router = APIRouter(prefix="/api/mensajes", tags=["Mensajes"])
+router = APIRouter(prefix=f"{API_PREFIX}/mensajes", tags=["Mensajes"])
 
 
 @router.get("/", response_model=List[MensajeContacto])

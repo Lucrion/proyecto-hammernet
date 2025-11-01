@@ -116,28 +116,43 @@ import EnvLoader from '../components/EnvLoader.astro';
 <script>
 // Script para obtener el nombre del usuario desde localStorage y manejar el logout
 document.addEventListener('DOMContentLoaded', () => {
-	const nombreUsuarioElement = document.getElementById('nombreUsuario');
-	const nombreUsuario = localStorage.getItem('nombreUsuario');
-	const btnLogout = document.getElementById('btnLogout');
-	
-	// Verificar si el usuario está autenticado
-	const isLoggedIn = localStorage.getItem('isLoggedIn');
-	const token = localStorage.getItem('token');
-	console.log('AdminLayout - Estado de autenticación:', isLoggedIn);
-	console.log('AdminLayout - Token:', token ? 'Token presente' : 'Token ausente');
-	
-	// Validación de autenticación reactivada
-	if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
-		console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
-		// Redirigir al login si no está autenticado o no tiene token
-		window.location.href = '/login';
-		return;
-	}
-	
-	// Mostrar el nombre del usuario
-	if (nombreUsuario && nombreUsuarioElement) {
-		nombreUsuarioElement.textContent = nombreUsuario;
-	}
+    const nombreUsuarioElement = document.getElementById('nombreUsuario');
+    const nombreUsuario = localStorage.getItem('nombreUsuario');
+    const btnLogout = document.getElementById('btnLogout');
+    
+    // Verificar si el usuario está autenticado
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    const token = localStorage.getItem('token');
+    const storedRole = localStorage.getItem('role');
+    const storedUserRaw = localStorage.getItem('user');
+    let storedUserRole = null;
+    try {
+        const u = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+        storedUserRole = u && (u.rol || u.role) ? (u.rol || u.role) : null;
+    } catch {}
+    console.log('AdminLayout - Estado de autenticación:', isLoggedIn);
+    console.log('AdminLayout - Token:', token ? 'Token presente' : 'Token ausente');
+    
+    // Validación de autenticación reactivada
+    if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
+        console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
+        // Redirigir al login si no está autenticado o no tiene token
+        window.location.href = '/login';
+        return;
+    }
+
+    // Validar rol de acceso a área administrativa
+    const effectiveRole = storedUserRole || storedRole || 'cliente';
+    if (effectiveRole !== 'administrador') {
+        console.warn('Acceso denegado: rol no administrador, redirigiendo al inicio');
+        window.location.href = '/';
+        return;
+    }
+    
+    // Mostrar el nombre del usuario
+    if (nombreUsuario && nombreUsuarioElement) {
+        nombreUsuarioElement.textContent = nombreUsuario;
+    }
 	
 	// El título ya está en negrita con la clase font-bold, no necesita JavaScript adicional
 	

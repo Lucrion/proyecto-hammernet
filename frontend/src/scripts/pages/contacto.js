@@ -1,5 +1,6 @@
 // Funciones para el manejo del formulario de contacto
-import { postData } from '../utils/api.js';
+import { postData, getData } from '../utils/api.js';
+import { API_URL } from '../utils/config.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('contactForm');
@@ -17,12 +18,8 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch { return { token: '', user: {} }; }
     };
 
-    const computeApiUrl = () => {
-        try {
-            const env = window.__ENV__ || {};
-            return env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || 'http://localhost:8000/api';
-        } catch { return 'http://localhost:8000/api'; }
-    };
+    // API base centralizada
+    const computeApiUrl = () => API_URL;
 
     const lockPersonalFieldsIfApplicable = () => {
         const { token, user } = getAuth();
@@ -56,12 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const id = user && (user.id_usuario || user.id);
             if (!token || !id) return;
 
-            const API = computeApiUrl();
-            const resp = await fetch(`${API}/usuarios/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!resp.ok) return;
-            const data = await resp.json();
+            const data = await getData(`/api/usuarios/${id}`);
             if (nombreEl && data?.nombre) nombreEl.value = data.nombre;
             if (apellidoEl && data?.apellido) apellidoEl.value = data.apellido;
             if (emailEl && data?.email) emailEl.value = data.email;

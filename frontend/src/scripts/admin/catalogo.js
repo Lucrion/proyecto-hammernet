@@ -643,6 +643,32 @@ function editarProductoCatalogado(e) {
         document.getElementById('editarMarca').value = producto.marca || '';
         document.getElementById('editarDescripcion').value = producto.descripcion || '';
         document.getElementById('editarCaracteristicas').value = producto.caracteristicas || '';
+        // Ofertas
+        const ofertaActivaEl = document.getElementById('editarOfertaActiva');
+        const tipoOfertaEl = document.getElementById('editarTipoOferta');
+        const valorOfertaEl = document.getElementById('editarValorOferta');
+        const inicioOfertaEl = document.getElementById('editarInicioOferta');
+        const finOfertaEl = document.getElementById('editarFinOferta');
+
+        if (ofertaActivaEl) ofertaActivaEl.checked = !!producto.oferta_activa;
+        if (tipoOfertaEl) tipoOfertaEl.value = producto.tipo_oferta || '';
+        if (valorOfertaEl) valorOfertaEl.value = (producto.valor_oferta ?? '');
+        // Fechas (si el catálogo no trae fechas, quedan vacías)
+        const toLocalInput = (iso) => {
+            try {
+                if (!iso) return '';
+                const d = new Date(iso);
+                const pad = (n) => String(n).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                const mm = pad(d.getMonth() + 1);
+                const dd = pad(d.getDate());
+                const hh = pad(d.getHours());
+                const mi = pad(d.getMinutes());
+                return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+            } catch { return ''; }
+        };
+        if (inicioOfertaEl) inicioOfertaEl.value = toLocalInput(producto.fecha_inicio_oferta);
+        if (finOfertaEl) finOfertaEl.value = toLocalInput(producto.fecha_fin_oferta);
         
         // Manejar imagen del producto
         const editarImagenPreview = document.getElementById('editarImagenPreview');
@@ -755,7 +781,22 @@ async function guardarCatalogacion() {
         descripcion: document.getElementById('catalogarDescripcion').value || null,
         caracteristicas: document.getElementById('catalogarCaracteristicas').value || null,
         marca: document.getElementById('catalogarMarca').value || null,
-        imagen_base64: null // Se actualizará si hay imagen
+        imagen_base64: null, // Se actualizará si hay imagen
+        // Oferta
+        oferta_activa: document.getElementById('catalogarOfertaActiva')?.checked || false,
+        tipo_oferta: document.getElementById('catalogarTipoOferta')?.value || null,
+        valor_oferta: (function(){
+            const v = document.getElementById('catalogarValorOferta')?.value;
+            return v !== '' ? parseFloat(v) : null;
+        })(),
+        fecha_inicio_oferta: (function(){
+            const v = document.getElementById('catalogarInicioOferta')?.value;
+            return v ? new Date(v).toISOString() : null;
+        })(),
+        fecha_fin_oferta: (function(){
+            const v = document.getElementById('catalogarFinOferta')?.value;
+            return v ? new Date(v).toISOString() : null;
+        })()
     };
 
     // Agregar imagen si existe
@@ -785,7 +826,22 @@ async function guardarEdicionCatalogado() {
         nombre: document.getElementById('editarNombre').value,
         marca: document.getElementById('editarMarca').value || null,
         descripcion: document.getElementById('editarDescripcion').value || null,
-        caracteristicas: document.getElementById('editarCaracteristicas').value || null
+        caracteristicas: document.getElementById('editarCaracteristicas').value || null,
+        // Ofertas
+        oferta_activa: document.getElementById('editarOfertaActiva')?.checked || false,
+        tipo_oferta: document.getElementById('editarTipoOferta')?.value || null,
+        valor_oferta: (function(){
+            const v = document.getElementById('editarValorOferta')?.value;
+            return v !== '' ? parseFloat(v) : null;
+        })(),
+        fecha_inicio_oferta: (function(){
+            const v = document.getElementById('editarInicioOferta')?.value;
+            return v ? new Date(v).toISOString() : null;
+        })(),
+        fecha_fin_oferta: (function(){
+            const v = document.getElementById('editarFinOferta')?.value;
+            return v ? new Date(v).toISOString() : null;
+        })()
     };
 
     // Agregar imagen si se seleccionó una nueva

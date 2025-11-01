@@ -27,6 +27,7 @@ class ProductoDB(Base):
     imagen_url = Column(String(500), nullable=True)
     id_categoria = Column(Integer, ForeignKey("categorias.id_categoria"), nullable=False)
     id_proveedor = Column(Integer, ForeignKey("proveedores.id_proveedor"), nullable=True)
+    id_subcategoria = Column(Integer, ForeignKey("subcategorias.id_subcategoria"), nullable=True)
     marca = Column(String(100), nullable=True)
     
     # Información de costos y precios
@@ -48,9 +49,17 @@ class ProductoDB(Base):
     fecha_actualizacion = Column(DateTime, default=func.now())
     fecha_ultima_venta = Column(DateTime, nullable=True)
     fecha_ultimo_ingreso = Column(DateTime, nullable=True)
+
+    # Ofertas
+    oferta_activa = Column(Boolean, default=False, nullable=False)
+    tipo_oferta = Column(String(20), nullable=True)  # 'porcentaje' | 'fijo'
+    valor_oferta = Column(DECIMAL(12,2), default=0, nullable=True)
+    fecha_inicio_oferta = Column(DateTime, nullable=True)
+    fecha_fin_oferta = Column(DateTime, nullable=True)
     
     # Relaciones
     categoria = relationship("CategoriaDB", back_populates="productos")
+    subcategoria = relationship("SubCategoriaDB", back_populates="productos")
     proveedor = relationship("ProveedorDB", back_populates="productos")
     detalles_venta = relationship("DetalleVentaDB", back_populates="producto")
     movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="producto")
@@ -66,6 +75,7 @@ class ProductoBase(BaseModel):
     imagen_url: Optional[str] = None
     id_categoria: int
     id_proveedor: Optional[int] = None
+    id_subcategoria: Optional[int] = None
     marca: Optional[str] = None
     
     # Costos y precios
@@ -83,6 +93,12 @@ class ProductoBase(BaseModel):
     estado: Optional[str] = "activo"
     en_catalogo: Optional[bool] = False  # Nuevo campo para indicar si está en catálogo público
     caracteristicas: Optional[str] = None  # Nuevo campo para características del producto
+    # Ofertas
+    oferta_activa: Optional[bool] = False
+    tipo_oferta: Optional[str] = None
+    valor_oferta: Optional[float] = 0
+    fecha_inicio_oferta: Optional[datetime] = None
+    fecha_fin_oferta: Optional[datetime] = None
 
 
 class ProductoCreate(ProductoBase):
@@ -98,6 +114,7 @@ class ProductoUpdate(BaseModel):
     imagen_url: Optional[str] = None
     id_categoria: Optional[int] = None
     id_proveedor: Optional[int] = None
+    id_subcategoria: Optional[int] = None
     marca: Optional[str] = None
     
     # Costos y precios
@@ -115,6 +132,12 @@ class ProductoUpdate(BaseModel):
     estado: Optional[str] = None
     en_catalogo: Optional[bool] = None  # Nuevo campo para indicar si está en catálogo público
     caracteristicas: Optional[str] = None  # Nuevo campo para características del producto
+    # Ofertas
+    oferta_activa: Optional[bool] = None
+    tipo_oferta: Optional[str] = None
+    valor_oferta: Optional[float] = None
+    fecha_inicio_oferta: Optional[datetime] = None
+    fecha_fin_oferta: Optional[datetime] = None
 
 
 class Producto(ProductoBase):
@@ -126,6 +149,7 @@ class Producto(ProductoBase):
     fecha_ultimo_ingreso: Optional[datetime] = None
     categoria: Optional[str] = None  # Nombre de la categoría
     proveedor: Optional[str] = None  # Nombre del proveedor
+    subcategoria: Optional[str] = None  # Nombre de la subcategoría
     
     class Config:
         orm_mode = True

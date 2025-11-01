@@ -18,6 +18,7 @@ from config.cloudinary_config import configure_cloudinary
 from views.auth_routes import router as auth_router
 from views.usuario_routes import router as usuario_router
 from views.categoria_routes import router as categoria_router
+from views.subcategoria_routes import router as subcategoria_router
 from views.proveedor_routes import router as proveedor_router
 from views.producto_routes import router as producto_router
 from views.mensaje_routes import router as mensaje_router
@@ -91,6 +92,7 @@ async def health_check():
 app.include_router(auth_router)
 app.include_router(usuario_router)
 app.include_router(categoria_router)
+app.include_router(subcategoria_router)
 app.include_router(proveedor_router)
 app.include_router(producto_router)
 app.include_router(mensaje_router)

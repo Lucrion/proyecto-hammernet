@@ -16,7 +16,9 @@ const state = {
         busqueda: '',
         precioMin: 0,
         precioMax: 100000,
-        categorias: [],
+        categoriaSeleccionadaId: null,
+        categoriaSeleccionadaNombre: '',
+        subcategoriasIds: [],
         enStock: false
     },
     paginacion: {
@@ -28,22 +30,36 @@ const state = {
 
 // Elementos del DOM
 let contenedorProductos;
+let contenedorCategorias;
+let contenedorSubcategorias;
 let inputBusqueda;
 let rangoPrecio;
-let checkboxesCategorias;
-let radioStock;
+let checkboxesSubcategorias;
+let toggleCategoriasBtn;
+let iconCategorias;
+let toggleSubcategoriasBtn;
+let iconSubcategorias;
 
 // Inicializar la aplicación cuando el DOM esté cargado
 document.addEventListener('DOMContentLoaded', () => {
     // Obtener referencias a elementos del DOM
     contenedorProductos = document.getElementById('productos-grid');
+    contenedorCategorias = document.getElementById('categorias-lista');
+    contenedorSubcategorias = document.getElementById('subcategorias-lista');
     inputBusqueda = document.getElementById('busqueda');
     rangoPrecio = document.getElementById('precio-rango');
-    checkboxesCategorias = document.querySelectorAll('input[name="categoria"]');
-    radioStock = document.querySelectorAll('input[name="stock"]');
+    // Referencias del desplegable de categorías
+    toggleCategoriasBtn = document.getElementById('toggle-categorias');
+    iconCategorias = document.getElementById('icon-categorias');
+    // Referencias del desplegable de subcategorías
+    toggleSubcategoriasBtn = document.getElementById('toggle-subcategorias');
+    iconSubcategorias = document.getElementById('icon-subcategorias');
+    // Las categorías se cargarán dinámicamente cuando se despliegue
     
-    // Configurar eventos
+    // Configurar eventos (excepto categorías, que se asignan tras cargarlas)
     configurarEventos();
+    
+    // Las categorías se cargarán al abrir el desplegable por primera vez
     
     // Cargar productos iniciales
     cargarProductos();
@@ -70,24 +86,137 @@ function configurarEventos() {
         });
     }
     
-    // Filtros de categoría
-    checkboxesCategorias.forEach(checkbox => {
-        checkbox.addEventListener('change', (e) => {
-            const categoria = e.target.value;
-            if (e.target.checked) {
-                state.filtros.categorias.push(categoria);
-            } else {
-                state.filtros.categorias = state.filtros.categorias.filter(c => c !== categoria);
+    // Desplegable de categorías
+    if (toggleCategoriasBtn && contenedorCategorias) {
+        toggleCategoriasBtn.addEventListener('click', async () => {
+            const estabaOculto = contenedorCategorias.classList.contains('hidden');
+            contenedorCategorias.classList.toggle('hidden');
+            if (iconCategorias) {
+                iconCategorias.classList.toggle('rotate-180');
             }
+            // Cargar categorías al primer despliegue si aún no están
+            if (estabaOculto && (!contenedorCategorias.innerHTML || contenedorCategorias.innerHTML.trim().length === 0)) {
+                try {
+                    await cargarCategorias();
+                    configurarEventosCategorias();
+                } catch (err) {
+                    console.error('Error al cargar categorías:', err);
+                }
+            }
+        });
+    }
+
+    // Desplegable de subcategorías
+    if (toggleSubcategoriasBtn && contenedorSubcategorias) {
+        toggleSubcategoriasBtn.addEventListener('click', async () => {
+            if (!state.filtros.categoriaSeleccionadaId) return;
+            const estabaOculto = contenedorSubcategorias.classList.contains('hidden');
+            contenedorSubcategorias.classList.toggle('hidden');
+            if (iconSubcategorias) {
+                iconSubcategorias.classList.toggle('rotate-180');
+            }
+            // Cargar subcategorías al primer despliegue si aún no están o si cambió la categoría
+            const needsLoad = (!contenedorSubcategorias.dataset.loadedFor || Number(contenedorSubcategorias.dataset.loadedFor) !== Number(state.filtros.categoriaSeleccionadaId));
+            if (estabaOculto && needsLoad) {
+                try {
+                    await cargarSubcategoriasParaCategoria(state.filtros.categoriaSeleccionadaId);
+                    configurarEventosSubcategorias();
+                    contenedorSubcategorias.dataset.loadedFor = String(state.filtros.categoriaSeleccionadaId);
+                } catch (err) {
+                    console.error('Error al cargar subcategorías:', err);
+                }
+            }
+        });
+    }
+
+    // Los eventos de categorías se asignan después de renderizar dinámicamente
+    
+    // Filtro de stock eliminado del UI
+}
+
+// Cargar categorías y renderizarlas como radios (selección única)
+async function cargarCategorias() {
+    if (!contenedorCategorias) return;
+    try {
+        const categorias = await getData('/api/categorias');
+        const listaCat = Array.isArray(categorias) ? categorias : [];
+        contenedorCategorias.innerHTML = listaCat.map(c => `
+            <label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+                <input type="radio" name="categoria" value="${c.id_categoria}" data-nombre="${c.nombre}" class="form-radio h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
+                <span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">${c.nombre}</span>
+            </label>
+        `).join('');
+        // Limpiar selecciones previas
+        state.filtros.categoriaSeleccionadaId = null;
+        state.filtros.categoriaSeleccionadaNombre = '';
+        state.filtros.subcategoriasIds = [];
+        if (toggleSubcategoriasBtn) {
+            toggleSubcategoriasBtn.disabled = true;
+        }
+    } catch (error) {
+        console.error('Error al obtener categorías:', error);
+    }
+}
+
+// Asignar eventos a los radios de categorías renderizados dinámicamente
+function configurarEventosCategorias() {
+    const radiosCategorias = document.querySelectorAll('input[name="categoria"]');
+    radiosCategorias.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const id = Number(e.target.value);
+            const nombre = e.target.getAttribute('data-nombre') || '';
+            // Actualizar estado
+            state.filtros.categoriaSeleccionadaId = id;
+            state.filtros.categoriaSeleccionadaNombre = nombre;
+            // Habilitar el toggle de subcategorías
+            if (toggleSubcategoriasBtn) {
+                toggleSubcategoriasBtn.disabled = false;
+            }
+            // Limpiar lista de subcategorías y su contenedor
+            state.filtros.subcategoriasIds = [];
+            if (contenedorSubcategorias) {
+                contenedorSubcategorias.innerHTML = '';
+                contenedorSubcategorias.classList.add('hidden');
+                if (iconSubcategorias) iconSubcategorias.classList.remove('rotate-180');
+                contenedorSubcategorias.dataset.loadedFor = '';
+            }
+            // Aplicar filtros por categoría seleccionada
             state.paginacion.paginaActual = 1;
             aplicarFiltros();
         });
     });
-    
-    // Filtro de stock
-    radioStock.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            state.filtros.enStock = e.target.value === 'true';
+}
+
+// Cargar subcategorías para la categoría seleccionada y renderizarlas como checkboxes
+async function cargarSubcategoriasParaCategoria(idCategoria) {
+    if (!contenedorSubcategorias || !idCategoria) return;
+    try {
+        const subs = await getData(`/api/subcategorias?categoria_id=${idCategoria}`);
+        const listaSub = Array.isArray(subs) ? subs : [];
+        contenedorSubcategorias.innerHTML = listaSub.map(s => `
+            <label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
+                <input type="checkbox" name="subcategoria" value="${s.id_subcategoria}" data-nombre="${s.nombre}" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+                <span class="ml-3 text-gray-700 group-hover:text-blue-600 transition-colors duration-200">${s.nombre}</span>
+            </label>
+        `).join('');
+        checkboxesSubcategorias = document.querySelectorAll('input[name="subcategoria"]');
+        state.filtros.subcategoriasIds = [];
+    } catch (error) {
+        console.error('Error al obtener subcategorías:', error);
+    }
+}
+
+// Asignar eventos a los checkboxes de subcategorías renderizados dinámicamente
+function configurarEventosSubcategorias() {
+    if (!checkboxesSubcategorias) return;
+    checkboxesSubcategorias.forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            const subcatId = Number(e.target.value);
+            if (e.target.checked) {
+                state.filtros.subcategoriasIds.push(subcatId);
+            } else {
+                state.filtros.subcategoriasIds = state.filtros.subcategoriasIds.filter(sid => sid !== subcatId);
+            }
             state.paginacion.paginaActual = 1;
             aplicarFiltros();
         });
@@ -140,21 +269,27 @@ export function aplicarFiltros() {
     
     // Filtro de precio
     productosFiltrados = productosFiltrados.filter(producto => {
-        const precio = Number(producto.precio_venta ?? producto.precio ?? 0);
+        const precio = Number(producto.precio_final ?? producto.precio_venta ?? producto.precio ?? 0);
         return precio >= state.filtros.precioMin && precio <= state.filtros.precioMax;
     });
     
-    // Filtro de categorías
-    if (state.filtros.categorias.length > 0) {
-        productosFiltrados = productosFiltrados.filter(producto =>
-            state.filtros.categorias.includes(producto.categoria)
-        );
+    // Filtro por categoría seleccionada (si existe)
+    if (state.filtros.categoriaSeleccionadaId) {
+        productosFiltrados = productosFiltrados.filter(producto => {
+            const idCat = Number(producto.id_categoria ?? 0);
+            return idCat === Number(state.filtros.categoriaSeleccionadaId);
+        });
+    }
+
+    // Filtro de subcategorías
+    if (state.filtros.subcategoriasIds.length > 0) {
+        productosFiltrados = productosFiltrados.filter(producto => {
+            const idSub = Number(producto.id_subcategoria ?? -1);
+            return state.filtros.subcategoriasIds.includes(idSub);
+        });
     }
     
-    // Filtro de stock
-    if (state.filtros.enStock) {
-        productosFiltrados = productosFiltrados.filter(producto => (producto.disponible === true) || ((producto.cantidad_disponible ?? 0) > 0));
-    }
+    // Filtro de stock removido
     
     // Calcular paginación
     state.totalProductos = productosFiltrados.length;
@@ -191,17 +326,18 @@ function mostrarProductos(productos) {
     }
     
     contenedorProductos.innerHTML = productos.map(producto => `
-        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer" onclick="verProducto(${producto.id_producto})">
-            <div class="aspect-w-1 aspect-h-1">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer flex flex-col" onclick="verProducto(${producto.id_producto})">
+            <div class="w-full h-36 flex items-center justify-center bg-white">
                 <img src="${producto.imagen_url || '/images/placeholder-product.jpg'}" 
                      alt="${producto.nombre}" 
-                     class="w-full h-48 object-cover">
+                     class="h-32 w-auto object-contain">
             </div>
-            <div class="p-4">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
-                <p class="text-gray-600 text-sm mb-3 line-clamp-2 text-center">${producto.descripcion || 'Sin descripción'}</p>
-                <div class="flex justify-center items-center my-3">
-                    <span class="px-4 py-2 bg-black text-white rounded text-xl font-bold">$${formatearPrecio(producto.precio_venta)}</span>
+            <div class="p-4 flex-1 flex flex-col">
+                <h3 class="text-base font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
+                <p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${producto.descripcion || 'Sin descripción'}</p>
+                <div class="mt-auto flex justify-center items-center gap-2">
+                    ${producto.oferta_activa ? `<span class="text-xs line-through text-gray-500">$${formatearPrecio(producto.precio_venta ?? producto.precio ?? 0)}</span>` : ''}
+                    <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(producto.precio_final ?? producto.precio_venta ?? producto.precio ?? 0)}</span>
                 </div>
             </div>
         </div>

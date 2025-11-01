@@ -19,9 +19,15 @@ class ProductoCatalogo(BaseModel):
     marca: str
     caracteristicas: str
     precio_venta: float
-    categoria: str
+    id_categoria: int
+    id_subcategoria: Optional[int] = None
     disponible: bool
     fecha_agregado_catalogo: Optional[datetime] = None
+    # Ofertas
+    oferta_activa: Optional[bool] = False
+    tipo_oferta: Optional[str] = None
+    valor_oferta: Optional[float] = 0
+    precio_final: Optional[float] = None
     
     class Config:
         orm_mode = True
@@ -37,6 +43,12 @@ class AgregarACatalogo(BaseModel):
     imagen_base64: Optional[str] = None
     marca: str
     caracteristicas: str
+    # Ofertas (opcionales al catalogar)
+    oferta_activa: Optional[bool] = False
+    tipo_oferta: Optional[str] = None  # 'porcentaje' | 'fijo'
+    valor_oferta: Optional[float] = None
+    fecha_inicio_oferta: Optional[datetime] = None
+    fecha_fin_oferta: Optional[datetime] = None
     
     class Config:
         schema_extra = {
@@ -45,6 +57,11 @@ class AgregarACatalogo(BaseModel):
                 "imagen_url": "https://example.com/martillo.jpg",
                 "imagen_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...",
                 "marca": "Stanley",
-                "caracteristicas": "Peso: 500g, Mango antideslizante, Cabeza forjada"
+                "caracteristicas": "Peso: 500g, Mango antideslizante, Cabeza forjada",
+                "oferta_activa": True,
+                "tipo_oferta": "porcentaje",
+                "valor_oferta": 15,
+                "fecha_inicio_oferta": "2024-10-01T00:00:00Z",
+                "fecha_fin_oferta": "2024-10-31T23:59:59Z"
             }
         }

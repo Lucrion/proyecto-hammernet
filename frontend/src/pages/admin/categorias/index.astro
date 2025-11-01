@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import categoriasScriptUrl from '../../../scripts/admin/categorias.js?url';
 ---
 
 <AdminLayout title="Gestión de Categorías">
@@ -109,5 +110,5 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 		</div>
 	</main>
 
-	<script type="module" src="/src/scripts/admin/categorias.js"></script>
+	<script type="module" src={categoriasScriptUrl}></script>
 </AdminLayout>

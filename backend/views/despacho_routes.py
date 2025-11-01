@@ -6,8 +6,9 @@ from typing import List
 from config.database import get_db
 from controllers.despacho_controller import DespachoController
 from models.despacho import Despacho, DespachoCreate, DespachoUpdate
+from config.constants import API_PREFIX
 
-router = APIRouter(prefix="/api/despachos", tags=["Despachos"])
+router = APIRouter(prefix=f"{API_PREFIX}/despachos", tags=["Despachos"])
 
 
 @router.get("/usuario/{usuario_id}", response_model=List[Despacho])

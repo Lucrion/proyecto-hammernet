@@ -12,8 +12,9 @@ from config.database import get_db
 from controllers.categoria_controller import CategoriaController
 from models.categoria import Categoria, CategoriaCreate, CategoriaUpdate
 from core.auth import get_current_user, require_admin
+from config.constants import API_PREFIX
 
-router = APIRouter(prefix="/api/categorias", tags=["Categorías"])
+router = APIRouter(prefix=f"{API_PREFIX}/categorias", tags=["Categorías"])
 
 
 @router.get("/", response_model=List[Categoria])

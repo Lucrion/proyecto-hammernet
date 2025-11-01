@@ -49,8 +49,8 @@ export async function cargarProductosDestacados() {
             throw new Error('La respuesta no es un array válido');
         }
 
-        // Filtrar productos destacados (primeros 8)
-        const productosDestacados = productos.slice(0, 8);
+        // Filtrar productos destacados (primeros 4)
+        const productosDestacados = productos.slice(0, 4);
         state.productos = productosDestacados;
         
         mostrarProductosDestacados(productosDestacados);
@@ -79,8 +79,8 @@ export async function cargarProductosInicio() {
             throw new Error('La respuesta no es un array válido');
         }
 
-        // Mostrar los primeros 12 productos generales
-        const productosGenerales = productos.slice(0, 12);
+        // Mostrar los primeros 4 productos generales
+        const productosGenerales = productos.slice(0, 4);
         mostrarProductosGenerales(productosGenerales);
     } catch (error) {
         console.error('Error al cargar productos:', error);
@@ -125,22 +125,32 @@ function mostrarProductosGenerales(productos) {
 
     productos.forEach(producto => {
         const imagen = producto.imagen_url || '/images/logos/herramientas.webp';
-        const precio = producto.precio_venta ?? 0;
+    const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
+    const precio = Number(producto.precio_final ?? precioBase);
+    const tieneOferta = precioBase > 0 && precio < precioBase;
+    const tipo = producto.tipo_oferta;
+    const valor = Number(producto.valor_oferta ?? 0);
+    const porcentajeOferta = tipo === 'porcentaje' && valor > 0
+        ? Math.round(Math.min(100, Math.max(0, valor)))
+        : (tieneOferta && precioBase > 0 ? Math.round(100 * (precioBase - precio) / precioBase) : 0);
         const id = producto.id_producto ?? producto.id;
         const productoHTML = `
-            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer" data-aos="fade-up" onclick="verProducto(${id})">
-                <div class="w-full h-48 flex items-center justify-center bg-white">
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer flex flex-col" data-aos="fade-up" onclick="verProducto(${id})">
+                <div class="w-full h-36 flex items-center justify-center bg-white">
                     <img src="${imagen}"
                          alt="${producto.nombre}"
-                         class="max-h-48 w-auto object-contain" />
+                         class="h-32 w-auto object-contain" />
                 </div>
-                <div class="p-4">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
-                    <div class="flex items-center justify-center mt-1">
-                        <span class="px-4 py-2 bg-black text-white rounded text-xl font-bold">$${formatearPrecio(precio)}</span>
-                    </div>
+                <div class="p-4 flex-1 flex flex-col">
+                    <h3 class="text-base font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
+                    ${(() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc?`<p class="text-xs text-gray-600 mb-3 text-center">${dc}</p>`:''; })()}
+                    <div class="mt-auto flex items-center justify-center space-x-2">
+                        ${tieneOferta ? `<span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded font-semibold">-${porcentajeOferta}%</span>` : ''}
+                        <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
+                        ${tieneOferta ? `<span class="text-xs text-gray-500 line-through">$${formatearPrecio(precioBase)}</span>` : ''}
                 </div>
             </div>
+        </div>
         `;
         contenedor.innerHTML += productoHTML;
     });
@@ -154,22 +164,32 @@ function mostrarProductosDestacados(productos) {
 
     productos.forEach(producto => {
         const imagen = producto.imagen_url || '/images/logos/herramientas.webp';
-        const precio = producto.precio_venta ?? 0;
+    const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
+    const precio = Number(producto.precio_final ?? precioBase);
+    const tieneOferta = precioBase > 0 && precio < precioBase;
+    const tipo = producto.tipo_oferta;
+    const valor = Number(producto.valor_oferta ?? 0);
+    const porcentajeOferta = tipo === 'porcentaje' && valor > 0
+        ? Math.round(Math.min(100, Math.max(0, valor)))
+        : (tieneOferta && precioBase > 0 ? Math.round(100 * (precioBase - precio) / precioBase) : 0);
         const id = producto.id_producto ?? producto.id;
         const productoHTML = `
-            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer" data-aos="fade-up" onclick="verProducto(${id})">
-                <div class="w-full h-48 flex items-center justify-center bg-white">
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer flex flex-col" data-aos="fade-up" onclick="verProducto(${id})">
+                <div class="w-full h-36 flex items-center justify-center bg-white">
                     <img src="${imagen}"
                          alt="${producto.nombre}"
-                         class="max-h-48 w-auto object-contain" />
+                         class="h-32 w-auto object-contain" />
                 </div>
-                <div class="p-4">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
-                    <div class="flex items-center justify-between">
-                        <span class="px-4 py-2 bg-black text-white rounded text-xl font-bold">$${formatearPrecio(precio)}</span>
-                    </div>
+                <div class="p-4 flex-1 flex flex-col">
+                    <h3 class="text-base font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
+                    ${(() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc?`<p class="text-xs text-gray-600 mb-3 text-center">${dc}</p>`:''; })()}
+                    <div class="mt-auto flex items-center justify-center space-x-2">
+                        ${tieneOferta ? `<span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded font-semibold">-${porcentajeOferta}%</span>` : ''}
+                        <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
+                        ${tieneOferta ? `<span class="text-xs text-gray-500 line-through">$${formatearPrecio(precioBase)}</span>` : ''}
                 </div>
             </div>
+        </div>
         `;
         contenedor.innerHTML += productoHTML;
     });
@@ -345,7 +365,7 @@ window.agregarAlCarrito = async function(id) {
             try {
                 const producto = await getData(`/api/productos/${id}`);
                 const nombre = producto?.nombre || `Producto ${id}`;
-                const precio_venta = Number(producto?.precio_venta ?? producto?.precio ?? 0);
+    const precio_venta = Number(producto?.precio_final ?? producto?.precio_venta ?? producto?.precio ?? 0);
                 const imagen_url = producto?.imagen_url || '/images/logos/herramientas.webp';
                 carrito.push({ id, cantidad: 1, nombre, precio_venta, imagen_url });
             } catch (e) {

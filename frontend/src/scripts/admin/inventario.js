@@ -7,6 +7,7 @@ let inventarios = [];
 let productos = [];
 let categorias = [];
 let proveedores = [];
+let subcategorias = [];
 let paginaActual = 0;
 const registrosPorPagina = 10;
 let totalRegistros = 0;
@@ -22,6 +23,7 @@ const tituloModal = document.getElementById('tituloModal');
 const btnNuevoInventario = document.getElementById('btnNuevoInventario');
 const btnProveedores = document.getElementById('btnProveedores');
 const btnCategorias = document.getElementById('btnCategorias');
+const btnSubcategorias = document.getElementById('btnSubcategorias');
 const btnCancelar = document.getElementById('btnCancelar');
 const btnCancelarEliminar = document.getElementById('btnCancelarEliminar');
 const btnConfirmarEliminar = document.getElementById('btnConfirmarEliminar');
@@ -94,6 +96,14 @@ async function cargarCategorias() {
                     categoriaProducto.add(option2);
                 }
             });
+            // Vincular cambio de categoría para cargar subcategorías dependientes
+            if (categoriaProducto) {
+                // Evitar listeners duplicados cuando se reabre el modal
+                categoriaProducto.onchange = async (e) => {
+                    const categoriaId = parseInt(e.target.value) || null;
+                    await cargarSubcategorias(categoriaId);
+                };
+            }
     } catch (error) {
         console.error('Error al cargar categorías:', error);
     }
@@ -134,6 +144,42 @@ async function cargarProveedores() {
             }
     } catch (error) {
         console.error('Error al cargar proveedores:', error);
+    }
+}
+
+// Cargar subcategorías dependientes de una categoría
+async function cargarSubcategorias(categoriaId) {
+    try {
+        const subcategoriaProducto = document.getElementById('subcategoriaProducto');
+        if (!subcategoriaProducto) return;
+
+        subcategoriaProducto.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+
+        if (!categoriaId) {
+            subcategoriaProducto.disabled = true;
+            subcategorias = [];
+            return;
+        }
+
+        console.log('Cargando subcategorías para categoría:', categoriaId);
+        const data = await getData(`/api/subcategorias?categoria_id=${categoriaId}`);
+        subcategorias = data;
+
+        if (Array.isArray(subcategorias) && subcategorias.length > 0) {
+            subcategorias.forEach(sub => {
+                const option = new Option(sub.nombre, sub.id_subcategoria);
+                subcategoriaProducto.add(option);
+            });
+            subcategoriaProducto.disabled = false;
+        } else {
+            subcategoriaProducto.disabled = true;
+        }
+    } catch (error) {
+        console.error('Error al cargar subcategorías:', error);
+        const subcategoriaProducto = document.getElementById('subcategoriaProducto');
+        if (subcategoriaProducto) {
+            subcategoriaProducto.disabled = true;
+        }
     }
 }
 
@@ -347,6 +393,12 @@ function abrirModalNuevo() {
     // Cargar categorías y proveedores
     cargarCategorias();
     cargarProveedores();
+    // Resetear subcategorías
+    const subcategoriaProducto = document.getElementById('subcategoriaProducto');
+    if (subcategoriaProducto) {
+        subcategoriaProducto.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+        subcategoriaProducto.disabled = true;
+    }
     
     modalInventario.classList.remove('hidden');
 }
@@ -403,6 +455,15 @@ async function editarInventario(id) {
                 // Seleccionar categoría
                 if (producto.id_categoria) {
                     document.getElementById('categoriaProducto').value = producto.id_categoria;
+                    // Cargar y seleccionar subcategoría dependiente
+                    await cargarSubcategorias(producto.id_categoria);
+                }
+                // Seleccionar subcategoría
+                if (producto.id_subcategoria) {
+                    const subEl = document.getElementById('subcategoriaProducto');
+                    if (subEl) {
+                        subEl.value = producto.id_subcategoria;
+                    }
                 }
                 
                 // Seleccionar proveedor
@@ -584,6 +645,10 @@ async function guardarInventario(event) {
                     nombre: nombreProducto,
                     id_categoria: parseInt(formData.get('categoriaProducto')) || producto.id_categoria,
                     id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
+                    id_subcategoria: (function(){
+                        const val = formData.get('subcategoriaProducto');
+                        return val && val !== '' ? parseInt(val) : null;
+                    })(),
                     codigo_interno: formData.get('codigoInterno') || producto.codigo_interno,
                     costo_bruto: parseFloat(formData.get('costoBruto')) || producto.costo_bruto || 0,
                     costo_neto: parseFloat(formData.get('costoNeto')) || producto.costo_neto || 0,
@@ -600,6 +665,10 @@ async function guardarInventario(event) {
                 // Si id_proveedor es 0 o NaN, convertir a null
                 if (!productoActualizado.id_proveedor || isNaN(productoActualizado.id_proveedor)) {
                     productoActualizado.id_proveedor = null;
+                }
+                // Validar id_subcategoria opcional
+                if (productoActualizado.id_subcategoria !== null && isNaN(productoActualizado.id_subcategoria)) {
+                    productoActualizado.id_subcategoria = null;
                 }
                 
                 console.log('Datos de producto a actualizar:', productoActualizado);
@@ -675,6 +744,10 @@ async function guardarInventario(event) {
                 nombre: formData.get('nombreProducto'),
                 id_categoria: parseInt(formData.get('categoriaProducto')) || null,
                 id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
+                id_subcategoria: (function(){
+                    const val = formData.get('subcategoriaProducto');
+                    return val && val !== '' ? parseInt(val) : null;
+                })(),
                 codigo_interno: formData.get('codigoInterno') || null,
                 costo_bruto: parseFloat(formData.get('costoBruto')) || 0,
                 costo_neto: parseFloat(formData.get('costoNeto')) || 0,
@@ -694,6 +767,10 @@ async function guardarInventario(event) {
             // Si id_proveedor es 0 o NaN, convertir a null
             if (!nuevoProducto.id_proveedor || isNaN(nuevoProducto.id_proveedor)) {
                 nuevoProducto.id_proveedor = null;
+            }
+            // Validar id_subcategoria opcional
+            if (nuevoProducto.id_subcategoria !== null && isNaN(nuevoProducto.id_subcategoria)) {
+                nuevoProducto.id_subcategoria = null;
             }
             
             console.log('Creando nuevo producto:', nuevoProducto);
@@ -787,6 +864,11 @@ btnProveedores.addEventListener('click', () => {
 btnCategorias.addEventListener('click', () => {
     window.location.href = '/admin/categorias';
 });
+if (btnSubcategorias) {
+    btnSubcategorias.addEventListener('click', () => {
+        window.location.href = '/admin/subcategorias';
+    });
+}
 btnCancelar.addEventListener('click', () => modalInventario.classList.add('hidden'));
 btnCancelarEliminar.addEventListener('click', () => modalEliminar.classList.add('hidden'));
 btnConfirmarEliminar.addEventListener('click', confirmarEliminacion);

@@ -78,6 +78,44 @@ def _ensure_usuario_extra_columns_sqlite():
 # Ejecutar verificación/migración al importar el módulo
 _ensure_usuario_extra_columns_sqlite()
 
+def _ensure_producto_subcategoria_column_sqlite():
+    """Agrega la columna id_subcategoria a productos en SQLite si no existe."""
+    try:
+        if engine.dialect.name != 'sqlite':
+            return
+        with engine.begin() as conn:
+            cols = [row[1] for row in conn.execute(text("PRAGMA table_info(productos)")).fetchall()]
+            if 'id_subcategoria' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN id_subcategoria INTEGER"))
+    except Exception as e:
+        print(f"[DB] Aviso: migración productos parcialmente fallida: {e}")
+
+# Ejecutar verificación para productos
+_ensure_producto_subcategoria_column_sqlite()
+
+# Nueva verificación: columnas de oferta en productos (SQLite)
+def _ensure_producto_oferta_columns_sqlite():
+    """Agrega columnas de oferta a productos en SQLite si no existen."""
+    try:
+        if engine.dialect.name != 'sqlite':
+            return
+        with engine.begin() as conn:
+            cols = [row[1] for row in conn.execute(text("PRAGMA table_info(productos)")).fetchall()]
+            if 'oferta_activa' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN oferta_activa INTEGER DEFAULT 0"))
+            if 'tipo_oferta' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN tipo_oferta TEXT"))
+            if 'valor_oferta' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN valor_oferta NUMERIC"))
+            if 'fecha_inicio_oferta' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN fecha_inicio_oferta TEXT"))
+            if 'fecha_fin_oferta' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN fecha_fin_oferta TEXT"))
+    except Exception as e:
+        print(f"[DB] Aviso: migración columnas de oferta parcialmente fallida: {e}")
+
+# Ejecutar verificación para columnas de oferta
+_ensure_producto_oferta_columns_sqlite()
 # Gestión de dependencias y acceso a datos
 # --------------------------------------
 

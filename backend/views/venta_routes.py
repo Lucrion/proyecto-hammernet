@@ -14,8 +14,9 @@ from models.venta import (
     MovimientoInventario
 )
 from core.auth import get_current_user, require_admin
+from config.constants import API_PREFIX
 
-router = APIRouter(prefix="/api/ventas", tags=["Ventas"])
+router = APIRouter(prefix=f"{API_PREFIX}/ventas", tags=["Ventas"])
 
 
 @router.post("/", response_model=Venta)

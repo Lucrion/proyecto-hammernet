@@ -14,8 +14,9 @@ from controllers.auth_controller import AuthController
 from controllers.usuario_controller import UsuarioController
 from controllers.google_auth_controller import GoogleAuthController
 from models.usuario import Token, UsuarioCreate, Usuario
+from config.constants import API_PREFIX
 
-router = APIRouter(prefix="/api/auth", tags=["Autenticación"])
+router = APIRouter(prefix=f"{API_PREFIX}/auth", tags=["Autenticación"])
 
 
 @router.post("/login", response_model=Token)

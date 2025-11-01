@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import mensajesScriptUrl from '../../../scripts/admin/mensajes.js?url';
 ---
 
 <AdminLayout title="Gestión de Mensajes">
@@ -99,4 +100,4 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     </div>
 </AdminLayout>
 
-<script type="module" src="/src/scripts/admin/mensajes.js"></script>
+<script type="module" src={mensajesScriptUrl}></script>
