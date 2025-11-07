@@ -68,18 +68,7 @@ export async function cargarDetalleProducto() {
         }
 
         // Cargar datos del producto
-        const response = await getData(`/api/productos/${productoId}`);
-        
-        if (!response.ok) {
-            if (response.status === 404) {
-                mostrarError('Producto no encontrado');
-            } else {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            return;
-        }
-
-        const producto = await response.json();
+        const producto = await getData(`/api/productos/${productoId}`);
         const { precio_final, tiene_oferta } = calcularPrecioFinal(producto);
         producto.precio_final = precio_final;
         producto.tiene_oferta = tiene_oferta;
@@ -109,18 +98,14 @@ async function cargarProductosSimilares(categoriaId) {
     try {
         if (!categoriaId) return;
         
-        const response = await getData(`/productos?categoria_id=${categoriaId}`);
+        const productos = await getData(`/api/productos?categoria_id=${categoriaId}`);
+        // Filtrar el producto actual y tomar solo 4 productos similares
+        const productosSimilares = (Array.isArray(productos) ? productos : [])
+            .filter(p => p.id !== state.producto.id && p.activo !== false)
+            .slice(0, 4);
         
-        if (response.ok) {
-            const productos = await response.json();
-            // Filtrar el producto actual y tomar solo 4 productos similares
-            const productosSimilares = productos
-                .filter(p => p.id !== state.producto.id && p.activo !== false)
-                .slice(0, 4);
-            
-            state.productosSimilares = productosSimilares;
-            mostrarProductosSimilares(productosSimilares);
-        }
+        state.productosSimilares = productosSimilares;
+        mostrarProductosSimilares(productosSimilares);
     } catch (error) {
         console.error('Error al cargar productos similares:', error);
         // No mostrar error para productos similares, es opcional

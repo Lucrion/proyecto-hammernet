@@ -117,14 +117,14 @@ import EnvLoader from '../components/EnvLoader.astro';
 // Script para obtener el nombre del usuario desde localStorage y manejar el logout
 document.addEventListener('DOMContentLoaded', () => {
     const nombreUsuarioElement = document.getElementById('nombreUsuario');
-    const nombreUsuario = localStorage.getItem('nombreUsuario');
+    const nombreUsuario = (sessionStorage.getItem('nombreUsuario') || localStorage.getItem('nombreUsuario'));
     const btnLogout = document.getElementById('btnLogout');
     
-    // Verificar si el usuario está autenticado
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const token = localStorage.getItem('token');
-    const storedRole = localStorage.getItem('role');
-    const storedUserRaw = localStorage.getItem('user');
+    // Verificar si el usuario está autenticado (priorizar sessionStorage para trabajador)
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    const storedRole = sessionStorage.getItem('role') || localStorage.getItem('role');
+    const storedUserRaw = sessionStorage.getItem('user') || localStorage.getItem('user');
     let storedUserRole = null;
     try {
         const u = storedUserRaw ? JSON.parse(storedUserRaw) : null;
@@ -156,19 +156,27 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// El título ya está en negrita con la clase font-bold, no necesita JavaScript adicional
 	
-	// Manejar el evento de logout
-	if (btnLogout) {
-		btnLogout.addEventListener('click', () => {
-			// Limpiar datos de autenticación
-			localStorage.removeItem('isLoggedIn');
-			localStorage.removeItem('nombreUsuario');
-			localStorage.removeItem('token');
-			localStorage.removeItem('userId');
-			localStorage.removeItem('role');
-			
-			// Redirigir al login
-			window.location.href = '/login';
-		});
-	}
+    // Manejar el evento de logout: limpiar ambos storages
+    if (btnLogout) {
+        btnLogout.addEventListener('click', () => {
+            try {
+                sessionStorage.removeItem('isLoggedIn');
+                sessionStorage.removeItem('nombreUsuario');
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('user');
+                sessionStorage.removeItem('role');
+            } catch {}
+            try {
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('nombreUsuario');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('role');
+            } catch {}
+            
+            // Redirigir al inicio
+            window.location.href = '/';
+        });
+    }
 });
 </script>

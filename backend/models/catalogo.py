@@ -18,6 +18,11 @@ class ProductoCatalogo(BaseModel):
     imagen_url: str
     marca: str
     caracteristicas: str
+    # Detalles adicionales
+    garantia_meses: Optional[int] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+    material: Optional[str] = None
     precio_venta: float
     id_categoria: int
     id_subcategoria: Optional[int] = None
@@ -43,6 +48,11 @@ class AgregarACatalogo(BaseModel):
     imagen_base64: Optional[str] = None
     marca: str
     caracteristicas: str
+    # Detalles adicionales
+    garantia_meses: Optional[int] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+    material: Optional[str] = None
     # Ofertas (opcionales al catalogar)
     oferta_activa: Optional[bool] = False
     tipo_oferta: Optional[str] = None  # 'porcentaje' | 'fijo'
@@ -58,6 +68,10 @@ class AgregarACatalogo(BaseModel):
                 "imagen_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...",
                 "marca": "Stanley",
                 "caracteristicas": "Peso: 500g, Mango antideslizante, Cabeza forjada",
+                "garantia_meses": 12,
+                "modelo": "ST-500",
+                "color": "Negro",
+                "material": "Acero",
                 "oferta_activa": True,
                 "tipo_oferta": "porcentaje",
                 "valor_oferta": 15,

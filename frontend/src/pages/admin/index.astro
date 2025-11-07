@@ -125,8 +125,8 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 <script>
 // Verificar si el usuario está autenticado
 document.addEventListener('DOMContentLoaded', () => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const token = localStorage.getItem('token');
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     
     console.log('Admin Index - Estado de autenticación:', isLoggedIn);
     console.log('Admin Index - Token:', token ? 'Token presente' : 'Token ausente');

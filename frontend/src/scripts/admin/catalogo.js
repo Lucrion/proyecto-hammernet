@@ -599,6 +599,15 @@ function catalogarProducto(idProducto) {
         document.getElementById('catalogarDescripcion').value = producto.descripcion || '';
         document.getElementById('catalogarCaracteristicas').value = producto.caracteristicas || '';
         document.getElementById('catalogarMarca').value = producto.marca || '';
+        // Detalles
+        const cGar = document.getElementById('catalogarGarantiaMeses');
+        const cMod = document.getElementById('catalogarModelo');
+        const cCol = document.getElementById('catalogarColor');
+        const cMat = document.getElementById('catalogarMaterial');
+        if (cGar) cGar.value = (producto.garantia_meses ?? '');
+        if (cMod) cMod.value = producto.modelo ?? '';
+        if (cCol) cCol.value = producto.color ?? '';
+        if (cMat) cMat.value = producto.material ?? '';
         
         modal.classList.remove('hidden');
     }
@@ -643,6 +652,15 @@ function editarProductoCatalogado(e) {
         document.getElementById('editarMarca').value = producto.marca || '';
         document.getElementById('editarDescripcion').value = producto.descripcion || '';
         document.getElementById('editarCaracteristicas').value = producto.caracteristicas || '';
+        // Detalles
+        const editarGarantiaEl = document.getElementById('editarGarantiaMeses');
+        const editarModeloEl = document.getElementById('editarModelo');
+        const editarColorEl = document.getElementById('editarColor');
+        const editarMaterialEl = document.getElementById('editarMaterial');
+        if (editarGarantiaEl) editarGarantiaEl.value = (producto.garantia_meses ?? '');
+        if (editarModeloEl) editarModeloEl.value = producto.modelo ?? '';
+        if (editarColorEl) editarColorEl.value = producto.color ?? '';
+        if (editarMaterialEl) editarMaterialEl.value = producto.material ?? '';
         // Ofertas
         const ofertaActivaEl = document.getElementById('editarOfertaActiva');
         const tipoOfertaEl = document.getElementById('editarTipoOferta');
@@ -782,6 +800,14 @@ async function guardarCatalogacion() {
         caracteristicas: document.getElementById('catalogarCaracteristicas').value || null,
         marca: document.getElementById('catalogarMarca').value || null,
         imagen_base64: null, // Se actualizará si hay imagen
+        // Detalles
+        garantia_meses: (function(){
+            const v = document.getElementById('catalogarGarantiaMeses')?.value;
+            return v !== '' ? parseInt(v, 10) : null;
+        })(),
+        modelo: document.getElementById('catalogarModelo')?.value || null,
+        color: document.getElementById('catalogarColor')?.value || null,
+        material: document.getElementById('catalogarMaterial')?.value || null,
         // Oferta
         oferta_activa: document.getElementById('catalogarOfertaActiva')?.checked || false,
         tipo_oferta: document.getElementById('catalogarTipoOferta')?.value || null,
@@ -827,6 +853,14 @@ async function guardarEdicionCatalogado() {
         marca: document.getElementById('editarMarca').value || null,
         descripcion: document.getElementById('editarDescripcion').value || null,
         caracteristicas: document.getElementById('editarCaracteristicas').value || null,
+        // Detalles
+        garantia_meses: (function(){
+            const v = document.getElementById('editarGarantiaMeses')?.value;
+            return v !== '' ? parseInt(v, 10) : null;
+        })(),
+        modelo: document.getElementById('editarModelo')?.value || null,
+        color: document.getElementById('editarColor')?.value || null,
+        material: document.getElementById('editarMaterial')?.value || null,
         // Ofertas
         oferta_activa: document.getElementById('editarOfertaActiva')?.checked || false,
         tipo_oferta: document.getElementById('editarTipoOferta')?.value || null,

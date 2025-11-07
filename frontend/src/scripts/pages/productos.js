@@ -326,16 +326,17 @@ function mostrarProductos(productos) {
     }
     
     contenedorProductos.innerHTML = productos.map(producto => `
-        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer flex flex-col" onclick="verProducto(${producto.id_producto})">
-            <div class="w-full h-36 flex items-center justify-center bg-white">
+        <div class="bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col" onclick="verProducto(${producto.id_producto})">
+            <div class="relative w-full h-40 flex items-center justify-center bg-white">
+                ${producto.oferta_activa ? `<span class='absolute top-2 left-2 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded'>Oferta</span>` : ''}
                 <img src="${producto.imagen_url || '/images/placeholder-product.jpg'}" 
                      alt="${producto.nombre}" 
                      class="h-32 w-auto object-contain">
             </div>
             <div class="p-4 flex-1 flex flex-col">
-                <h3 class="text-base font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
+                <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${producto.nombre}</h3>
                 <p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${producto.descripcion || 'Sin descripción'}</p>
-                <div class="mt-auto flex justify-center items-center gap-2">
+                <div class="mt-auto flex items-center justify-center gap-2">
                     ${producto.oferta_activa ? `<span class="text-xs line-through text-gray-500">$${formatearPrecio(producto.precio_venta ?? producto.precio ?? 0)}</span>` : ''}
                     <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(producto.precio_final ?? producto.precio_venta ?? producto.precio ?? 0)}</span>
                 </div>
@@ -358,7 +359,7 @@ function actualizarInfoPaginacion() {
     const fin = Math.min(state.paginacion.paginaActual * state.paginacion.productosPorPagina, state.totalProductos);
     
     infoPaginacionContainer.innerHTML = `
-        <p>Mostrando ${inicio} a ${fin} de ${state.totalProductos} resultados</p>
+        <p class="text-sm text-gray-500">Mostrando ${inicio} a ${fin} de ${state.totalProductos} resultados</p>
     `;
 }
 
@@ -393,14 +394,14 @@ function actualizarPaginacion() {
     for (let i = 1; i <= state.paginacion.totalPaginas; i++) {
         if (i === state.paginacion.paginaActual) {
             paginacionHTML += `
-                <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                <button class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-900 transition-colors duration-200 text-sm">
                     ${i}
                 </button>
             `;
         } else {
             paginacionHTML += `
                 <button onclick="cambiarPagina(${i})" 
-                        class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                        class="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-full transition-colors duration-200 text-sm">
                     ${i}
                 </button>
             `;

@@ -139,6 +139,10 @@ class ProductoController:
                     imagen_url=p.imagen_url or "/images/default-product.jpg",
                     marca=p.marca or "Sin marca",
                     caracteristicas=p.caracteristicas or "Sin características especificadas",
+                    garantia_meses=getattr(p, 'garantia_meses', None),
+                    modelo=getattr(p, 'modelo', None),
+                    color=getattr(p, 'color', None),
+                    material=getattr(p, 'material', None),
                     precio_venta=precio_base,
                     id_categoria=p.id_categoria,
                     id_subcategoria=p.id_subcategoria,
@@ -222,6 +226,14 @@ class ProductoController:
             producto.imagen_url = imagen_url
             producto.marca = datos_catalogo.marca
             producto.caracteristicas = datos_catalogo.caracteristicas
+            # Nuevos campos de detalle
+            try:
+                producto.garantia_meses = getattr(datos_catalogo, 'garantia_meses', None)
+                producto.modelo = getattr(datos_catalogo, 'modelo', None)
+                producto.color = getattr(datos_catalogo, 'color', None)
+                producto.material = getattr(datos_catalogo, 'material', None)
+            except Exception:
+                pass
             # Campos de oferta al catalogar (opcionales)
             try:
                 producto.oferta_activa = bool(getattr(datos_catalogo, 'oferta_activa', False))
@@ -269,6 +281,10 @@ class ProductoController:
                 imagen_url=producto.imagen_url,
                 marca=producto.marca,
                 caracteristicas=producto.caracteristicas,
+                garantia_meses=getattr(producto, 'garantia_meses', None),
+                modelo=getattr(producto, 'modelo', None),
+                color=getattr(producto, 'color', None),
+                material=getattr(producto, 'material', None),
                 precio_venta=precio_base,
                 id_categoria=producto.id_categoria,
                 id_subcategoria=producto.id_subcategoria,
@@ -598,13 +614,17 @@ class ProductoController:
             )
     
     @staticmethod
-    async def obtener_productos(db: Session, categoria_id: Optional[int] = None) -> List[Producto]:
+    async def obtener_productos(db: Session, categoria_id: Optional[int] = None, proveedor_id: Optional[int] = None, skip: int = 0, limit: Optional[int] = None) -> List[Producto]:
         """
         Obtiene todos los productos con información de inventario integrada
         
         Args:
             db: Sesión de base de datos
             categoria_id: ID de categoría para filtrar (opcional)
+            proveedor_id: ID de proveedor para filtrar (opcional)
+            skip: Número de registros a omitir (opcional, por defecto 0)
+            limit: Número máximo de registros a devolver (opcional; si no se
+                especifica, se devuelve todo)
             
         Returns:
             List[Producto]: Lista de productos
@@ -618,7 +638,11 @@ class ProductoController:
             
             if categoria_id:
                 query = query.filter(ProductoDB.id_categoria == categoria_id)
+            if proveedor_id:
+                query = query.filter(ProductoDB.id_proveedor == proveedor_id)
             
+            if limit is not None:
+                query = query.offset(skip).limit(limit)
             productos = query.all()
             
             # Convertir manualmente para manejar fechas y relaciones
@@ -729,6 +753,10 @@ class ProductoController:
                 "id_proveedor": producto.id_proveedor,
                 "id_subcategoria": getattr(producto, 'id_subcategoria', None),
                 "marca": producto.marca,
+                "garantia_meses": getattr(producto, 'garantia_meses', None),
+                "modelo": getattr(producto, 'modelo', None),
+                "color": getattr(producto, 'color', None),
+                "material": getattr(producto, 'material', None),
                 "costo_bruto": float(producto.costo_bruto) if producto.costo_bruto else 0,
                 "costo_neto": float(producto.costo_neto) if producto.costo_neto else 0,
                 "precio_venta": float(producto.precio_venta) if producto.precio_venta else 0,
@@ -1119,6 +1147,32 @@ class ProductoController:
             )
 
     @staticmethod
+    async def obtener_total_productos(db: Session, categoria_id: Optional[int] = None, proveedor_id: Optional[int] = None) -> int:
+        """
+        Obtiene el total de productos aplicando filtros opcionales
+        
+        Args:
+            db: Sesión de base de datos
+            categoria_id: ID de categoría para filtrar (opcional)
+            proveedor_id: ID de proveedor para filtrar (opcional)
+            
+        Returns:
+            int: Total de productos
+        """
+        try:
+            query = db.query(ProductoDB)
+            if categoria_id:
+                query = query.filter(ProductoDB.id_categoria == categoria_id)
+            if proveedor_id:
+                query = query.filter(ProductoDB.id_proveedor == proveedor_id)
+            return query.count()
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al obtener total de productos: {str(e)}"
+            )
+
+    @staticmethod
     async def obtener_total_inventario(db: Session) -> int:
         """
         Obtiene el total de productos en inventario que NO están catalogados
@@ -1227,6 +1281,18 @@ class ProductoController:
                 producto.descripcion = datos_actualizacion['descripcion']
             if 'caracteristicas' in datos_actualizacion:
                 producto.caracteristicas = datos_actualizacion['caracteristicas']
+            # Nuevos campos de detalle
+            if 'garantia_meses' in datos_actualizacion:
+                try:
+                    producto.garantia_meses = int(datos_actualizacion['garantia_meses']) if datos_actualizacion['garantia_meses'] is not None else None
+                except Exception:
+                    producto.garantia_meses = None
+            if 'modelo' in datos_actualizacion:
+                producto.modelo = datos_actualizacion['modelo']
+            if 'color' in datos_actualizacion:
+                producto.color = datos_actualizacion['color']
+            if 'material' in datos_actualizacion:
+                producto.material = datos_actualizacion['material']
             # Campos de oferta
             if 'oferta_activa' in datos_actualizacion:
                 producto.oferta_activa = bool(datos_actualizacion['oferta_activa'])

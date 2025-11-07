@@ -116,6 +116,28 @@ def _ensure_producto_oferta_columns_sqlite():
 
 # Ejecutar verificación para columnas de oferta
 _ensure_producto_oferta_columns_sqlite()
+
+# Nueva verificación: columnas de detalles en productos (SQLite)
+def _ensure_producto_detalle_columns_sqlite():
+    """Agrega columnas de detalle (garantía y otros) a productos en SQLite si no existen."""
+    try:
+        if engine.dialect.name != 'sqlite':
+            return
+        with engine.begin() as conn:
+            cols = [row[1] for row in conn.execute(text("PRAGMA table_info(productos)")).fetchall()]
+            if 'garantia_meses' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN garantia_meses INTEGER"))
+            if 'modelo' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN modelo TEXT"))
+            if 'color' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN color TEXT"))
+            if 'material' not in cols:
+                conn.execute(text("ALTER TABLE productos ADD COLUMN material TEXT"))
+    except Exception as e:
+        print(f"[DB] Aviso: migración columnas de detalle parcialmente fallida: {e}")
+
+# Ejecutar verificación para columnas de detalle
+_ensure_producto_detalle_columns_sqlite()
 # Gestión de dependencias y acceso a datos
 # --------------------------------------
 

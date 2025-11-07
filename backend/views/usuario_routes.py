@@ -8,6 +8,7 @@ from controllers.usuario_controller import UsuarioController
 from models.usuario import Usuario, UsuarioCreate, UsuarioUpdate
 from core.auth import get_current_user, require_admin
 from config.constants import API_PREFIX
+from controllers.auditoria_controller import registrar_evento
 
 router = APIRouter(prefix=f"{API_PREFIX}/usuarios", tags=["Usuarios"])
 
@@ -92,7 +93,20 @@ async def crear_usuario(
     current_user: dict = Depends(require_admin)
 ):
     """ Crear un nuevo usuario (solo administradores) """
-    return await UsuarioController.crear_usuario(usuario, db)
+    nuevo = await UsuarioController.crear_usuario(usuario, db)
+    try:
+        registrar_evento(
+            db,
+            entidad_tipo="usuario",
+            entidad_id=nuevo.id_usuario,
+            accion="crear",
+            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            detalle=f"Usuario creado: {nuevo.username} ({nuevo.role})"
+        )
+    except Exception:
+        # No bloquear flujo por fallo de auditoría
+        pass
+    return nuevo
 
 
 @router.put("/{usuario_id}", response_model=Usuario)
@@ -110,7 +124,19 @@ async def actualizar_usuario(
     #         detail="No tienes permisos para actualizar este usuario"
     #     )
     
-    return await UsuarioController.actualizar_usuario(usuario_id, usuario, db)
+    actualizado = await UsuarioController.actualizar_usuario(usuario_id, usuario, db)
+    try:
+        registrar_evento(
+            db,
+            entidad_tipo="usuario",
+            entidad_id=usuario_id,
+            accion="actualizar",
+            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            detalle="Datos de usuario actualizados"
+        )
+    except Exception:
+        pass
+    return actualizado
 
 
 @router.put("/{usuario_id}/desactivar")
@@ -120,7 +146,19 @@ async def desactivar_usuario(
     current_user: dict = Depends(require_admin)
 ):
     """ Desactivar un usuario (eliminación lógica) """
-    return await UsuarioController.eliminar_usuario(usuario_id, db)
+    resp = await UsuarioController.eliminar_usuario(usuario_id, db)
+    try:
+        registrar_evento(
+            db,
+            entidad_tipo="usuario",
+            entidad_id=usuario_id,
+            accion="desactivar",
+            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            detalle="Usuario desactivado (baja lógica)"
+        )
+    except Exception:
+        pass
+    return resp
 
 
 @router.delete("/{usuario_id}/eliminar-permanente")
@@ -130,4 +168,16 @@ async def eliminar_usuario_permanente(
     current_user: dict = Depends(require_admin)
 ):
     """ Eliminar permanentemente un usuario desactivado (solo administradores) """
-    return await UsuarioController.eliminar_usuario_permanente(usuario_id, db)
+    result = await UsuarioController.eliminar_usuario_permanente(usuario_id, db)
+    try:
+        registrar_evento(
+            db,
+            entidad_tipo="usuario",
+            entidad_id=usuario_id,
+            accion="eliminar",
+            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            detalle="Usuario eliminado permanentemente"
+        )
+    except Exception:
+        pass
+    return result

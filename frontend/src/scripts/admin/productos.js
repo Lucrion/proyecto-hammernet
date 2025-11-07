@@ -1,6 +1,6 @@
 // Importar configuración de API
 import { API_URL } from '../utils/config.js';
-import { getData } from '../utils/api.js';
+import { getData, fetchWithAuth } from '../utils/api.js';
 
 // Variables globales
 let paginaActual = 0;
@@ -27,7 +27,7 @@ const btnFiltrar = document.getElementById('btnFiltrar');
 
 // Obtener token de autenticación
 function getAuthToken() {
-    return localStorage.getItem('token');
+    return sessionStorage.getItem('token') || localStorage.getItem('token');
 }
 
 // Verificar autenticación
@@ -101,6 +101,18 @@ async function cargarProductos() {
         }
         
         const productos = await getData(endpoint);
+        // Obtener total desde backend con los mismos filtros
+        let totalEndpoint = `/api/productos/total`;
+        const filtros = [];
+        if (filtroCategoria) filtros.push(`categoria_id=${filtroCategoria}`);
+        if (filtroProveedor) filtros.push(`proveedor_id=${filtroProveedor}`);
+        if (filtros.length > 0) totalEndpoint += `?${filtros.join('&')}`;
+        try {
+            const totalResp = await getData(totalEndpoint);
+            totalProductos = (totalResp && typeof totalResp.total === 'number') ? totalResp.total : productos.length;
+        } catch (e) {
+            totalProductos = productos.length;
+        }
             
             // Filtrar por nombre en el frontend si se especifica
             let productosFiltrados = productos;
@@ -132,7 +144,7 @@ function mostrarProductos(productos) {
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.categoria || 'N/A'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.proveedor || 'N/A'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${producto.precio_venta || 0}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.cantidad_actual || 0}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.cantidad_disponible || 0}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.stock_minimo || 0}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.codigo_interno || 'N/A'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -169,7 +181,7 @@ function abrirModalNuevo() {
 window.editarProducto = async function(id) {
     console.log('Editando producto con ID:', id);
     try {
-        const producto = await getData(`/api/productos/${id}/`);
+        const producto = await getData(`/api/productos/${id}`);
             console.log('Producto recibido:', producto);
             productoEditando = producto;
             tituloModal.textContent = 'Editar Producto';
@@ -216,11 +228,8 @@ window.eliminarProducto = function(id) {
 // Confirmar eliminación
 async function confirmarEliminacion() {
     try {
-        const response = await fetch(`${API_URL}/api/productos/${productoAEliminar}/`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${getAuthToken()}`
-            }
+        const response = await fetchWithAuth(`/api/productos/${productoAEliminar}`, {
+            method: 'DELETE'
         });
         
         if (response.ok) {
@@ -284,19 +293,15 @@ async function guardarProducto(event) {
     }
     
     try {
-        const url = productoEditando ? `${API_URL}/api/productos/${productoEditando.id_producto}/` : `${API_URL}/api/productos/`;
+        const endpoint = productoEditando ? `/api/productos/${productoEditando.id_producto}` : `/api/productos/`;
         const method = productoEditando ? 'PUT' : 'POST';
         
         console.log('URL:', url);
         console.log('Method:', method);
         console.log('Producto editando:', productoEditando);
         
-        const response = await fetch(url, {
-            method: method,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getAuthToken()}`
-            },
+        const response = await fetchWithAuth(endpoint, {
+            method,
             body: JSON.stringify(producto)
         });
         

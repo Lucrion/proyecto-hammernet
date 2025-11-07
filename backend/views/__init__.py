@@ -14,6 +14,7 @@ from .producto_routes import router as producto_router
 from .mensaje_routes import router as mensaje_router
 from .despacho_routes import router as despacho_router
 from .venta_routes import router as venta_router
+from .auditoria_routes import router as auditoria_router
 
 __all__ = [
     "auth_router",
@@ -24,5 +25,6 @@ __all__ = [
     "producto_router",
     "mensaje_router",
     "despacho_router",
-    "venta_router"
+    "venta_router",
+    "auditoria_router"
 ]

@@ -19,6 +19,7 @@ from models.venta import (
 )
 from models.producto import ProductoDB
 from models.usuario import UsuarioDB
+from controllers.auditoria_controller import registrar_evento
 
 
 class VentaController:
@@ -105,6 +106,19 @@ class VentaController:
                 db.add(movimiento)
             
             db.commit()
+
+            # Auditoría: venta creada
+            try:
+                registrar_evento(
+                    db,
+                    entidad_tipo="venta",
+                    entidad_id=db_venta.id_venta,
+                    accion="venta_creada",
+                    usuario_actor_id=id_usuario,
+                    detalle=f"Total: {float(total_calculado)} | Detalles: {len(productos_verificados)}"
+                )
+            except Exception:
+                pass
             
             # Cargar la venta completa con relaciones
             venta_completa = db.query(VentaDB).options(
@@ -211,6 +225,19 @@ class VentaController:
             venta.fecha_actualizacion = datetime.now()
             
             db.commit()
+
+            # Auditoría: venta cancelada
+            try:
+                registrar_evento(
+                    db,
+                    entidad_tipo="venta",
+                    entidad_id=id_venta,
+                    accion="venta_cancelada",
+                    usuario_actor_id=id_usuario,
+                    detalle="Inventario revertido por cancelación"
+                )
+            except Exception:
+                pass
             
             return VentaController._construir_venta_response(venta)
             

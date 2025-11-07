@@ -10,6 +10,7 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from models.usuario import UsuarioDB, Token
+from controllers.auditoria_controller import registrar_evento
 from core.auth import verificar_contraseña, crear_token
 
 
@@ -57,6 +58,20 @@ class AuthController:
             # Crear token
             token = crear_token(data={"sub": usuario.username})
             
+            # Auditoría: login exitoso
+            try:
+                registrar_evento(
+                    db,
+                    accion="login",
+                    usuario_id=usuario.id_usuario,
+                    entidad_tipo="Usuario",
+                    entidad_id=usuario.id_usuario,
+                    detalle="Login exitoso",
+                )
+            except Exception:
+                # No bloquear login si falla auditoría
+                pass
+
             return Token(
                 access_token=token,
                 token_type="bearer",

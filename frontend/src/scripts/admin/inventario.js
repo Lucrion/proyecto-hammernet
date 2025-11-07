@@ -1,6 +1,6 @@
 // Importar configuración de API
 import { API_URL } from '../utils/config.js';
-import { getData } from '../utils/api.js';
+import { getData, fetchWithAuth } from '../utils/api.js';
 
 // Variables globales
 let inventarios = [];
@@ -415,7 +415,7 @@ async function editarInventario(id) {
         //     return;
         // }
         
-        const response = await fetch(`${API_URL}/api/productos/inventario/${id}`);
+        const response = await fetchWithAuth(`/api/productos/inventario/${id}`);
         // TODO: Reactivar headers de autorización
         // const response = await fetch(`${API_URL}/api/productos/inventario/${id}`, {
         //     headers: {
@@ -611,19 +611,16 @@ async function guardarInventario(event) {
             
             console.log('🔥 Datos de inventario a actualizar:', inventarioActualizado);
             
-            const url = `${API_URL}/api/productos/inventario/${inventarioEditando.id_inventario}?cantidad=${inventarioActualizado.cantidad_disponible}&precio=${inventarioActualizado.precio}`;
-            console.log('🔥 URL del PUT:', url);
+            const endpoint = `/api/productos/inventario/${inventarioEditando.id_inventario}?cantidad=${inventarioActualizado.cantidad_disponible}&precio=${inventarioActualizado.precio}`;
+            console.log('🔥 Endpoint del PUT:', endpoint);
             
             // TODO: Reactivar validación de token después del desarrollo
             // const token = getAuthToken();
             
             console.log('🔥 Enviando PUT request...');
             // Llamar al endpoint PUT para actualizar el inventario
-            const response = await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            const response = await fetchWithAuth(endpoint, {
+                method: 'PUT'
             });
             
             console.log('🔥 Response recibido:', response.status, response.statusText);
@@ -674,11 +671,8 @@ async function guardarInventario(event) {
                 console.log('Datos de producto a actualizar:', productoActualizado);
                 
                 // Llamar al endpoint PUT para actualizar el producto
-                const productoResponse = await fetch(`${API_URL}/api/productos/${producto.id_producto}`, {
+                const productoResponse = await fetchWithAuth(`/api/productos/${producto.id_producto}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify(productoActualizado)
                 });
                 // TODO: Reactivar headers de autorización
@@ -775,11 +769,8 @@ async function guardarInventario(event) {
             
             console.log('Creando nuevo producto:', nuevoProducto);
             
-            const productoResponse = await fetch(`${API_URL}/api/productos/`, {
+            const productoResponse = await fetchWithAuth(`/api/productos/`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(nuevoProducto)
             });
             // TODO: Reactivar headers de autorización

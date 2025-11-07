@@ -232,14 +232,14 @@ export async function enviarMensaje(event) {
 
     const formData = new FormData(form);
     try {
-        const response = await postData('/api/mensajes', {
+        const result = await postData('/api/mensajes', {
             nombre: formData.get('nombre'),
             email: formData.get('email'),
             asunto: formData.get('asunto'),
             mensaje: formData.get('mensaje')
         });
 
-        if (response && response.ok) {
+        if (result) {
             mostrarNotificacion('Mensaje enviado', 'success');
             form.reset();
         } else {
@@ -258,35 +258,42 @@ export async function login(event) {
     const form = event.target;
     const formData = new FormData(form);
     
-    const credentials = {
-        email: formData.get('email'),
-        password: formData.get('password')
-    };
-
     try {
-        const response = await postData('/api/auth/login', credentials);
-        
-        if (response.ok) {
-            const data = await response.json();
-            
-            // Guardar token y datos del usuario
-            localStorage.setItem('token', data.access_token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            
-            state.token = data.access_token;
-            state.user = data.user;
-            
-            mostrarNotificacion('Login exitoso', 'success');
-            actualizarUI();
-            
-            // Redirigir según el rol del usuario
-            if (data.user.rol === 'admin') {
-                window.location.href = '/admin';
-            } else {
-                window.location.href = '/';
-            }
-        } else {
+        const formEncoded = new URLSearchParams();
+        formEncoded.append('username', formData.get('email'));
+        formEncoded.append('password', formData.get('password'));
+
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: formEncoded
+        });
+
+        if (!response.ok) {
             throw new Error('Credenciales inválidas');
+        }
+
+        const data = await response.json();
+        
+        // Guardar token y datos del usuario
+        localStorage.setItem('token', data.access_token);
+        if (data.user) {
+            localStorage.setItem('user', JSON.stringify(data.user));
+            state.user = data.user;
+        }
+        state.token = data.access_token;
+
+        mostrarNotificacion('Login exitoso', 'success');
+        actualizarUI();
+        
+        // Redirigir según el rol del usuario
+        if (data.user && data.user.rol === 'admin') {
+            window.location.href = '/admin';
+        } else {
+            window.location.href = '/';
         }
     } catch (error) {
         console.error('Error en login:', error);
@@ -309,7 +316,8 @@ export function actualizarUI() {
     const logoutBtn = document.getElementById('logout-btn');
     const userInfo = document.getElementById('user-info');
     
-    if (state.token && state.user) {
+    const isAdmin = state.user && (state.user.rol === 'admin' || state.user.role === 'admin' || state.user.rol === 'administrador' || state.user.role === 'administrador');
+    if (state.token && state.user && !isAdmin) {
         if (loginBtn) loginBtn.style.display = 'none';
         if (logoutBtn) logoutBtn.style.display = 'block';
         if (userInfo) {

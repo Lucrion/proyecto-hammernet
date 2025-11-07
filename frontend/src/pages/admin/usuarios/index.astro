@@ -9,11 +9,14 @@ import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
             <button id="btnUsuariosDesactivados" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg">
                 Desactivados
             </button>
+            <button id="btnClientes" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                Clientes
+            </button>
             <button id="btnNuevoUsuario" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                Nuevo Usuario
+                Nuevo Trabajador
             </button>
         </div>
     </div>
@@ -70,6 +73,22 @@ import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
                 <!-- Los usuarios se cargarán aquí dinámicamente -->
             </tbody>
         </table>
+        <!-- Paginación y contador -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between px-6 py-3 bg-gray-50 border-t border-gray-200">
+            <div class="text-sm text-gray-600 mb-2 md:mb-0">
+                Mostrando <span id="mostrandoDesde">0</span>–<span id="mostrandoHasta">0</span> de <span id="totalUsuarios">0</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <label for="selectTamPaginaUsuarios" class="text-sm text-gray-600">Por página</label>
+                <select id="selectTamPaginaUsuarios" class="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+                <button id="btnPrevUsuarios" class="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-100">Anterior</button>
+                <button id="btnNextUsuarios" class="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-100">Siguiente</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal de confirmación para desactivar usuario -->
@@ -129,6 +148,72 @@ import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
             
             <div class="mt-4 text-center">
                 <p class="text-sm text-gray-500">Los usuarios desactivados no pueden acceder al sistema.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista de clientes ahora se mostrará en la tabla principal -->
+
+    <!-- Modal de información de usuario -->
+    <div id="modalInfoUsuario" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-10 mx-auto p-5 border w-5/6 max-w-3xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Información del Usuario</h3>
+                <button id="btnCerrarModalInfo" class="text-gray-400 hover:text-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-gray-500">ID</p>
+                    <p id="infoId" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Nombre</p>
+                    <p id="infoNombre" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Apellido</p>
+                    <p id="infoApellido" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Usuario (RUT)</p>
+                    <p id="infoUsername" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">RUT</p>
+                    <p id="infoRut" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Email</p>
+                    <p id="infoEmail" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Teléfono</p>
+                    <p id="infoTelefono" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Rol</p>
+                    <p id="infoRol" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Estado</p>
+                    <p id="infoActivo" class="text-base font-medium text-gray-900">—</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Fecha de creación</p>
+                    <p id="infoFechaCreacion" class="text-base font-medium text-gray-900">—</p>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <h4 class="text-md font-semibold text-gray-900 mb-2">Direcciones de despacho</h4>
+                <ul id="listaDespachos" class="list-disc pl-5 text-sm text-gray-700">
+                    <li class="text-gray-400">Sin direcciones registradas</li>
+                </ul>
             </div>
         </div>
     </div>

@@ -8,7 +8,7 @@ Modelos relacionados con productos (unificado con inventario)
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, DECIMAL, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional
 from datetime import datetime
 from .base import Base
@@ -29,6 +29,11 @@ class ProductoDB(Base):
     id_proveedor = Column(Integer, ForeignKey("proveedores.id_proveedor"), nullable=True)
     id_subcategoria = Column(Integer, ForeignKey("subcategorias.id_subcategoria"), nullable=True)
     marca = Column(String(100), nullable=True)
+    # Detalles adicionales
+    garantia_meses = Column(Integer, nullable=True)
+    modelo = Column(String(100), nullable=True)
+    color = Column(String(50), nullable=True)
+    material = Column(String(100), nullable=True)
     
     # Información de costos y precios
     costo_bruto = Column(DECIMAL(12,2), default=0, nullable=False)
@@ -77,6 +82,11 @@ class ProductoBase(BaseModel):
     id_proveedor: Optional[int] = None
     id_subcategoria: Optional[int] = None
     marca: Optional[str] = None
+    # Detalles adicionales
+    garantia_meses: Optional[int] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+    material: Optional[str] = None
     
     # Costos y precios
     costo_bruto: Optional[float] = 0
@@ -100,6 +110,33 @@ class ProductoBase(BaseModel):
     fecha_inicio_oferta: Optional[datetime] = None
     fecha_fin_oferta: Optional[datetime] = None
 
+    @validator(
+        "costo_bruto", "costo_neto", "precio_venta", "porcentaje_utilidad", "utilidad_pesos", "valor_oferta",
+        pre=True
+    )
+    def _cast_float_non_negative(cls, v):
+        if v is None:
+            return v
+        try:
+            v_cast = float(v)
+        except (TypeError, ValueError):
+            return v
+        if v_cast < 0:
+            raise ValueError("El valor no puede ser negativo")
+        return v_cast
+
+    @validator("cantidad_disponible", "stock_minimo", pre=True)
+    def _cast_int_non_negative(cls, v):
+        if v is None:
+            return v
+        try:
+            v_cast = int(v)
+        except (TypeError, ValueError):
+            return v
+        if v_cast < 0:
+            raise ValueError("El valor no puede ser negativo")
+        return v_cast
+
 
 class ProductoCreate(ProductoBase):
     """Modelo para crear producto"""
@@ -116,6 +153,11 @@ class ProductoUpdate(BaseModel):
     id_proveedor: Optional[int] = None
     id_subcategoria: Optional[int] = None
     marca: Optional[str] = None
+    # Detalles adicionales
+    garantia_meses: Optional[int] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+    material: Optional[str] = None
     
     # Costos y precios
     costo_bruto: Optional[float] = None
@@ -138,6 +180,33 @@ class ProductoUpdate(BaseModel):
     valor_oferta: Optional[float] = None
     fecha_inicio_oferta: Optional[datetime] = None
     fecha_fin_oferta: Optional[datetime] = None
+
+    @validator(
+        "costo_bruto", "costo_neto", "precio_venta", "porcentaje_utilidad", "utilidad_pesos", "valor_oferta",
+        pre=True
+    )
+    def _cast_float_non_negative_update(cls, v):
+        if v is None:
+            return v
+        try:
+            v_cast = float(v)
+        except (TypeError, ValueError):
+            return v
+        if v_cast < 0:
+            raise ValueError("El valor no puede ser negativo")
+        return v_cast
+
+    @validator("cantidad_disponible", "stock_minimo", pre=True)
+    def _cast_int_non_negative_update(cls, v):
+        if v is None:
+            return v
+        try:
+            v_cast = int(v)
+        except (TypeError, ValueError):
+            return v
+        if v_cast < 0:
+            raise ValueError("El valor no puede ser negativo")
+        return v_cast
 
 
 class Producto(ProductoBase):

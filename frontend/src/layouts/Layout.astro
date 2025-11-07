@@ -195,6 +195,14 @@ import EnvLoader from '../components/EnvLoader.astro';
           // Acción de cerrar sesión
           menuCerrarSesion && menuCerrarSesion.addEventListener('click', () => {
             try {
+              // Limpiar también sessionStorage por si el trabajador inició con sesión no persistente
+              sessionStorage.removeItem('isLoggedIn');
+              sessionStorage.removeItem('token');
+              sessionStorage.removeItem('user');
+              sessionStorage.removeItem('role');
+              sessionStorage.removeItem('nombreUsuario');
+            } catch {}
+            try {
               localStorage.removeItem('isLoggedIn');
               localStorage.removeItem('token');
               localStorage.removeItem('user');

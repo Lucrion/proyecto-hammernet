@@ -12,6 +12,7 @@ const { producto: productoSlug } = Astro.params;
 // Obtener el producto específico desde la API
 let producto = null;
 let error = null;
+let productosSimilares = [];
 
 try {
   console.log('=== Cargando producto individual ===');
@@ -81,9 +82,40 @@ try {
           categoria: productoData.categoria || 'Sin categoría',
           caracteristicas: productoData.caracteristicas || '',
           stock: productoData.cantidad_disponible,
-          marca: productoData.marca || ''
+          marca: productoData.marca || '',
+          garantia_meses: productoData.garantia_meses ?? null,
+          modelo: productoData.modelo || '',
+          color: productoData.color || '',
+          material: productoData.material || '',
+          subcategoria: productoData.subcategoria || '',
+          id_subcategoria: productoData.id_subcategoria ?? null,
+          codigo_interno: productoData.codigo_interno || ''
         };
         console.log('Producto encontrado:', producto.nombre);
+
+        // Obtener productos similares por subcategoría (máximo 6)
+        try {
+          const responseLista = await fetch(`${API_BASE}/productos`);
+          if (responseLista.ok) {
+            const lista = await responseLista.json();
+            const similaresRaw = lista.filter(p => {
+              const mismaSub = (p.id_subcategoria ?? null) === (productoData.id_subcategoria ?? null);
+              const diferente = p.id_producto !== productoData.id_producto;
+              const activo = (p.estado ?? 'activo') === 'activo';
+              const disponible = Number(p.cantidad_disponible ?? 0) > 0;
+              const conPrecio = Number(p.precio_venta ?? 0) > 0;
+              return mismaSub && diferente && activo && disponible && conPrecio;
+            });
+            productosSimilares = similaresRaw.slice(0, 6).map(p => ({
+              id: p.id_producto,
+              nombre: p.nombre,
+              imagen: p.imagen_url,
+              precio: Number(p.precio_venta ?? 0)
+            }));
+          }
+        } catch (e) {
+          console.warn('No se pudo cargar productos similares:', e);
+        }
       } else {
         console.log('Producto no disponible o sin precio');
         error = 'Producto no disponible';
@@ -139,6 +171,7 @@ if (!producto) {
 							<img 
 								src={producto.imagen} 
 								alt={producto.nombre}
+								loading="lazy" decoding="async" fetchpriority="high"
 								class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
 								onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
 							/>
@@ -146,6 +179,7 @@ if (!producto) {
 							<img 
 								src="/images/logos/herramientas.webp" 
 								alt={producto.nombre}
+								loading="lazy" decoding="async"
 								class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
 								onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
 							/>
@@ -163,23 +197,30 @@ if (!producto) {
 					</div>
 				</div>
 
-					<!-- Detalles del producto -->
-					<div class="space-y-6">
-						<!-- Título y precio -->
-						<div>
-							<h1 class="text-4xl font-bold text-gray-900 mb-2">{producto.nombre}</h1>
-							<div class="flex items-center space-x-4 mb-4">
-								{producto.tiene_oferta ? (
-									<>
-										<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(producto.precio)}</span>
-										<span class="text-xl text-gray-500 line-through">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(producto.precio_original)}</span>
-										<span class="text-sm px-2 py-1 bg-red-100 text-red-700 rounded">Oferta</span>
-									</>
-								) : (
-									<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(producto.precio)}</span>
-								)}
-							</div>
+				<!-- Detalles del producto -->
+				<div class="space-y-6">
+					<!-- Título y precio -->
+					<div>
+						<h1 class="text-4xl font-bold text-gray-900 mb-2">{producto.nombre}</h1>
+						<div class="flex items-center space-x-4 mb-4">
+							{producto.tiene_oferta ? (
+								<>
+									<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
+									<span class="text-xl text-gray-500 line-through">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio_original)}</span>
+									<span class="text-sm px-2 py-1 bg-red-100 text-red-700 rounded">Oferta</span>
+									{(() => {
+										const ahorro = (producto.precio_original || 0) - (producto.precio || 0);
+										const pct = producto.precio_original ? Math.round((ahorro / producto.precio_original) * 100) : 0;
+										return (
+											<span class="text-sm text-green-700">Ahorro {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.max(0, ahorro))} ({pct}% OFF)</span>
+										);
+									})()}
+								</>
+							) : (
+								<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
+							)}
 						</div>
+					</div>
 
 					<!-- Descripción -->
 					<div class="border-t border-gray-200 pt-6">
@@ -190,27 +231,63 @@ if (!producto) {
 					<!-- Especificaciones -->
 					<div class="border-t border-gray-200 pt-6">
 						<h3 class="text-lg font-semibold text-gray-900 mb-3">Especificaciones</h3>
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							<div class="flex justify-between py-2 border-b border-gray-100">
-								<span class="text-gray-600">Categoría:</span>
-								<span class="font-medium">{producto.categoria?.replace(/_/g, ' ')}</span>
-							</div>
-							<div class="flex justify-between py-2 border-b border-gray-100">
-								<span class="text-gray-600">Stock disponible:</span>
-								<span class="font-medium text-green-600">{producto.stock} unidades</span>
-							</div>
-							{producto.caracteristicas && (
-								<div class="col-span-full py-2 border-b border-gray-100">
-									<span class="text-gray-600">Características:</span>
-									<p class="font-medium mt-1">{producto.caracteristicas}</p>
-								</div>
-							)}
-							<div class="flex justify-between py-2 border-b border-gray-100">
-								<span class="text-gray-600">Garantía:</span>
-								<span class="font-medium">12 meses</span>
-							</div>
-						</div>
-					</div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">Categoría:</span>
+                                <span class="font-medium">{producto.categoria?.replace(/_/g, ' ')}</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">Stock disponible:</span>
+                                <span class="font-medium text-green-600">{producto.stock} unidades</span>
+                            </div>
+                            {producto.marca && (
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">Marca:</span>
+                                    <span class="font-medium">{producto.marca}</span>
+                                </div>
+                            )}
+                            {producto.caracteristicas && (
+                                <div class="col-span-full py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">Características:</span>
+                                    <p class="font-medium mt-1">{producto.caracteristicas}</p>
+                                </div>
+                            )}
+                            {producto.modelo && (
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">Modelo:</span>
+                                    <span class="font-medium">{producto.modelo}</span>
+                                </div>
+                            )}
+                            {producto.color && (
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">Color:</span>
+                                    <span class="font-medium">{producto.color}</span>
+                                </div>
+                            )}
+                            {producto.material && (
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">Material:</span>
+                                    <span class="font-medium">{producto.material}</span>
+                                </div>
+                            )}
+                            {producto.subcategoria && (
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">Subcategoría:</span>
+                                    <span class="font-medium">{producto.subcategoria?.replace(/_/g, ' ')}</span>
+                                </div>
+                            )}
+                            {producto.codigo_interno && (
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">Código:</span>
+                                    <span class="font-medium">{producto.codigo_interno}</span>
+                                </div>
+                            )}
+                            <div class="flex justify-between py-2 border-b border-gray-100">
+                                <span class="text-gray-600">Garantía:</span>
+                                <span class="font-medium">{producto.garantia_meses ? `${producto.garantia_meses} meses` : 'Sin garantía'}</span>
+                            </div>
+                        </div>
+                    </div>
 
 					<!-- Agregar al carrito -->
 					<div class="border-t border-gray-200 pt-6">
@@ -258,6 +335,13 @@ if (!producto) {
 								</svg>
 								<span>Agregar al carrito</span>
 							</button>
+							<button 
+								id="comprar-ahora"
+								class="w-full mt-3 bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-900 transition-colors font-medium"
+								onclick={`comprarAhora(${producto.id})`}
+							>
+								Comprar ahora
+							</button>
 						</div>
 					</div>
 				</div>
@@ -271,6 +355,27 @@ if (!producto) {
 				</a>
 			</div>
 		)}
+
+    {producto && productosSimilares && productosSimilares.length > 0 && (
+      <div class="mt-16">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Productos similares</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {productosSimilares.map(sim => (
+            <a href={`/productos/${sim.id}`} class="bg-white rounded-lg shadow hover:shadow-md transition-shadow overflow-hidden">
+              <div class="w-full h-40 flex items-center justify-center bg-white">
+                <img src={sim.imagen || '/images/logos/herramientas.webp'} alt={sim.nombre} class="h-36 w-auto object-contain" loading="lazy" />
+              </div>
+              <div class="p-4">
+                <h3 class="text-sm font-medium text-gray-900 line-clamp-2">{sim.nombre}</h3>
+                <p class="mt-2 text-blue-600 font-semibold">
+                  {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(sim.precio)}
+                </p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
 	</div>
 
 
@@ -390,6 +495,11 @@ if (!producto) {
 			// Actualizar contador del carrito si existe
 			actualizarContadorCarrito();
 		}
+
+		function comprarAhora(productoId) {
+			agregarAlCarrito(productoId);
+			try { window.location.href = '/checkout'; } catch { window.location.href = '/carrito'; }
+		}
 		
 		function mostrarNotificacion(mensaje, tipo = 'success') {
 			// Crear elemento de notificación
@@ -417,11 +527,32 @@ if (!producto) {
 		}
 		
 
-		
+
 		// Exponer funciones globalmente
 		window.cambiarCantidad = cambiarCantidad;
 		window.validarCantidad = validarCantidad;
 		window.agregarAlCarrito = agregarAlCarrito;
+		window.comprarAhora = comprarAhora;
+	</script>
+
+	<!-- JSON-LD: Product -->
+	<script is:inline type="application/ld+json">
+		{JSON.stringify({
+			"@context": "https://schema.org",
+			"@type": "Product",
+			"name": producto?.nombre || "",
+			"image": producto?.imagen || "/images/logos/herramientas.webp",
+			"description": producto?.descripcion || "",
+			"brand": producto?.marca ? { "@type": "Brand", "name": producto.marca } : undefined,
+			"category": producto?.categoria || undefined,
+			"offers": {
+				"@type": "Offer",
+				"priceCurrency": "CLP",
+				"price": Math.round(producto?.precio || 0),
+				"availability": (producto?.stock || 0) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+				"url": typeof Astro !== 'undefined' ? Astro.url.toString() : undefined
+			}
+		})}
 	</script>
 
 	<style>

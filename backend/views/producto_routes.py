@@ -2,7 +2,7 @@
 Rutas de productos
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from config.database import get_db
@@ -11,16 +11,32 @@ from models.producto import Producto, ProductoCreate, ProductoUpdate, ProductoIn
 from models.catalogo import ProductoCatalogo, AgregarACatalogo
 from core.auth import get_current_user, require_admin
 from config.constants import API_PREFIX
+from controllers.auditoria_controller import registrar_evento
+from models.auditoria import AuditoriaCreate
 
 router = APIRouter(prefix=f"{API_PREFIX}/productos", tags=["Productos"])
 
 
 @router.get("/", response_model=List[Producto])
 async def obtener_productos(
+    categoria_id: Optional[int] = None,
+    proveedor_id: Optional[int] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
-    """ Obtener todos los productos del inventario """
-    return await ProductoController.obtener_productos(db)
+    """ Obtener todos los productos del inventario (permite filtrar por categoría y proveedor, y paginar) """
+    return await ProductoController.obtener_productos(db, categoria_id, proveedor_id, skip, limit)
+
+@router.get("/total")
+async def obtener_total_productos(
+    categoria_id: Optional[int] = None,
+    proveedor_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """ Obtener total de productos aplicando filtros opcionales """
+    total = await ProductoController.obtener_total_productos(db, categoria_id, proveedor_id)
+    return {"total": total}
 
 
 @router.get("/catalogo", response_model=List[ProductoCatalogo])
@@ -86,23 +102,55 @@ async def actualizar_inventario(
     cantidad: int,
     precio: float = None,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Actualizar inventario de un producto (solo administradores) """
     inventario_data = {"cantidad": cantidad}
     if precio is not None:
         inventario_data["precio"] = precio
-    return await ProductoController.actualizar_inventario_por_id(inventario_id, inventario_data, db)
+    resultado = await ProductoController.actualizar_inventario_por_id(inventario_id, inventario_data, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,  # Se puede cambiar a current_user["id_usuario"] si se habilita auth
+            accion="inventario_actualizar",
+            entidad_tipo="Inventario",
+            entidad_id=inventario_id,
+            detalle=f"cantidad={cantidad}, precio={precio}",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return resultado
 
 
 @router.delete("/inventario/{inventario_id}")
 async def eliminar_inventario(
     inventario_id: int,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Eliminar registro de inventario (solo administradores) """
-    return await ProductoController.eliminar_inventario_por_id(inventario_id, db)
+    resultado = await ProductoController.eliminar_inventario_por_id(inventario_id, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="inventario_eliminar",
+            entidad_tipo="Inventario",
+            entidad_id=inventario_id,
+            detalle="Inventario eliminado",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return resultado
 
 
 @router.get("/inventario/resumen")
@@ -127,20 +175,52 @@ async def obtener_producto(
 async def crear_producto(
     producto: ProductoCreate,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Crear un nuevo producto (solo administradores) """
-    return await ProductoController.crear_producto(producto, db)
+    creado = await ProductoController.crear_producto(producto, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="crear",
+            entidad_tipo="Producto",
+            entidad_id=creado.id_producto,
+            detalle=f"Producto creado: {creado.nombre}",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return creado
 
 
 @router.post("/nuevo", response_model=Producto)
 async def crear_producto_completo(
     producto: ProductoCreate,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Crear un producto completo con validaciones adicionales (solo administradores) """
-    return await ProductoController.crear_producto_completo(producto, db)
+    creado = await ProductoController.crear_producto_completo(producto, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="crear",
+            entidad_tipo="Producto",
+            entidad_id=creado.id_producto,
+            detalle=f"Producto creado (completo): {creado.nombre}",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return creado
 
 
 @router.put("/{producto_id}", response_model=Producto)
@@ -148,10 +228,27 @@ async def actualizar_producto(
     producto_id: int,
     producto: ProductoUpdate,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Actualizar un producto (solo administradores) """
-    return await ProductoController.actualizar_producto(producto_id, producto, db)
+    actualizado = await ProductoController.actualizar_producto(producto_id, producto, db)
+    try:
+        cambios = producto.dict(exclude_unset=True)
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="actualizar",
+            entidad_tipo="Producto",
+            entidad_id=producto_id,
+            detalle=f"Cambios: {cambios}",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return actualizado
 
 
 @router.post("/{producto_id}/imagen")
@@ -159,20 +256,52 @@ async def subir_imagen_producto(
     producto_id: int,
     imagen: UploadFile = File(...),
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Subir imagen para un producto (solo administradores) """
-    return await ProductoController.subir_imagen_producto(producto_id, imagen, db)
+    resultado = await ProductoController.subir_imagen_producto(producto_id, imagen, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="imagen_subir",
+            entidad_tipo="Producto",
+            entidad_id=producto_id,
+            detalle="Imagen subida",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return resultado
 
 
 @router.delete("/{producto_id}")
 async def eliminar_producto(
     producto_id: int,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Eliminar un producto (solo administradores) """
-    return await ProductoController.eliminar_producto(producto_id, db)
+    resultado = await ProductoController.eliminar_producto(producto_id, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="eliminar",
+            entidad_tipo="Producto",
+            entidad_id=producto_id,
+            detalle="Producto eliminado",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return resultado
 
 
 @router.put("/{producto_id}/inventario")
@@ -181,12 +310,28 @@ async def actualizar_inventario_producto(
     cantidad_actual: int,
     stock_minimo: Optional[int] = None,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Actualizar inventario de un producto específico (solo administradores) """
-    return await ProductoController.actualizar_inventario_producto(
+    resultado = await ProductoController.actualizar_inventario_producto(
         producto_id, cantidad_actual, stock_minimo, db
     )
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="inventario_actualizar",
+            entidad_tipo="Producto",
+            entidad_id=producto_id,
+            detalle=f"cantidad_actual={cantidad_actual}, stock_minimo={stock_minimo}",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return resultado
 
 
 @router.post("/{producto_id}/agregar-catalogo", response_model=ProductoCatalogo)
@@ -194,10 +339,26 @@ async def agregar_producto_a_catalogo(
     producto_id: int,
     datos_catalogo: AgregarACatalogo,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Agregar un producto del inventario al catálogo público (solo administradores) """
-    return await ProductoController.agregar_producto_a_catalogo(producto_id, datos_catalogo, db)
+    agregado = await ProductoController.agregar_producto_a_catalogo(producto_id, datos_catalogo, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="catalogo_agregar",
+            entidad_tipo="Producto",
+            entidad_id=producto_id,
+            detalle=f"Datos catálogo: {datos_catalogo.dict()}",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return agregado
 
 
 @router.put("/catalogo/{producto_id}")
@@ -205,17 +366,49 @@ async def actualizar_producto_catalogado(
     producto_id: int,
     datos_actualizacion: dict,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Actualizar un producto que ya está en el catálogo (solo administradores) """
-    return await ProductoController.actualizar_producto_catalogado(producto_id, datos_actualizacion, db)
+    actualizado = await ProductoController.actualizar_producto_catalogado(producto_id, datos_actualizacion, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="catalogo_actualizar",
+            entidad_tipo="Producto",
+            entidad_id=producto_id,
+            detalle=f"Actualización catálogo: {datos_actualizacion}",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return actualizado
 
 
 @router.put("/{producto_id}/quitar-catalogo")
 async def quitar_producto_de_catalogo(
     producto_id: int,
     db: Session = Depends(get_db),
+    request: Request = None,
     # current_user: dict = Depends(require_admin)  # Comentado temporalmente
 ):
     """ Quitar un producto del catálogo público (cambia en_catalogo a False) """
-    return await ProductoController.quitar_producto_de_catalogo(producto_id, db)
+    resultado = await ProductoController.quitar_producto_de_catalogo(producto_id, db)
+    try:
+        ip = request.client.host if request and request.client else None
+        ua = request.headers.get("user-agent") if request else None
+        await registrar_evento(db, AuditoriaCreate(
+            usuario_id=None,
+            accion="catalogo_quitar",
+            entidad_tipo="Producto",
+            entidad_id=producto_id,
+            detalle="Producto quitado del catálogo",
+            ip_address=ip,
+            user_agent=ua,
+        ))
+    except Exception:
+        pass
+    return resultado

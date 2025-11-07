@@ -225,11 +225,12 @@ async function handleLogin(e) {
                             rol: data.role || data.rol || 'cliente'
                         };
 
-                        localStorage.setItem('isLoggedIn', 'true');
-                        localStorage.setItem('token', data.access_token);
-                        localStorage.setItem('user', JSON.stringify(user));
-                        localStorage.setItem('role', user.rol);
-                        localStorage.setItem('nombreUsuario', user.nombre || usernameAlt);
+                        const storage = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
+                        storage.setItem('isLoggedIn', 'true');
+                        storage.setItem('token', data.access_token);
+                        storage.setItem('user', JSON.stringify(user));
+                        storage.setItem('role', user.rol);
+                        storage.setItem('nombreUsuario', user.nombre || usernameAlt);
                         showStatus('Autenticación exitosa. Redirigiendo...', 'success');
                         const tipoFinal = tipoSeleccionado || (user.rol === 'admin' ? 'trabajador' : 'cliente');
                         const destino = tipoFinal === 'cliente' ? '/' : '/admin';
@@ -295,12 +296,13 @@ async function handleLogin(e) {
         };
         
         // Guardar estado de autenticación y token usando el nombre real
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('role', user.rol);
+        const storage = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
+        storage.setItem('isLoggedIn', 'true');
+        storage.setItem('token', data.access_token);
+        storage.setItem('user', JSON.stringify(user));
+        storage.setItem('role', user.rol);
         // Preferir el nombre real para mostrar en el header; si no viene, usar lo ingresado
-        localStorage.setItem('nombreUsuario', user.nombre || username);
+        storage.setItem('nombreUsuario', user.nombre || username);
         console.log('Token guardado:', data.access_token ? 'Token presente' : 'Token ausente');
         console.log('Autenticación exitosa');
         
