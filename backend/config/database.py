@@ -71,6 +71,15 @@ def _ensure_usuario_extra_columns_sqlite():
                 conn.execute(text("ALTER TABLE usuarios ADD COLUMN email TEXT"))
             if 'telefono' not in cols:
                 conn.execute(text("ALTER TABLE usuarios ADD COLUMN telefono TEXT"))
+            # Asegurar columna 'activo' para filtros en consultas
+            if 'activo' not in cols:
+                # En SQLite, Boolean se representa como INTEGER (0/1)
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1"))
+                # Normalizar valores existentes a activo=1
+                try:
+                    conn.execute(text("UPDATE usuarios SET activo = 1 WHERE activo IS NULL"))
+                except Exception:
+                    pass
     except Exception as e:
         # No bloquear el arranque si falla; mostrar aviso
         print(f"[DB] Aviso: migración usuarios parcialmente fallida: {e}")
@@ -138,6 +147,22 @@ def _ensure_producto_detalle_columns_sqlite():
 
 # Ejecutar verificación para columnas de detalle
 _ensure_producto_detalle_columns_sqlite()
+
+# Nueva verificación: índices adicionales en productos (SQLite)
+def _ensure_producto_extra_indexes_sqlite():
+    """Crea índices en campos consultados frecuentemente de productos."""
+    try:
+        if engine.dialect.name != 'sqlite':
+            return
+        with engine.begin() as conn:
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_productos_id_categoria ON productos (id_categoria)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_productos_id_proveedor ON productos (id_proveedor)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_productos_en_catalogo ON productos (en_catalogo)"))
+    except Exception as e:
+        print(f"[DB] Aviso: creación de índices de productos parcialmente fallida: {e}")
+
+# Ejecutar verificación de índices
+_ensure_producto_extra_indexes_sqlite()
 # Gestión de dependencias y acceso a datos
 # --------------------------------------
 

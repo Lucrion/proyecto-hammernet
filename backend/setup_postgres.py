@@ -9,6 +9,7 @@ Script de configuración para PostgreSQL en producción
 """
 
 import os
+import re
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ from dotenv import load_dotenv
 # Importar modelos y configuración
 from config.database import Base, engine, get_db
 from models.usuario import UsuarioDB
+from core.auth import hash_contraseña
 from core.auth import hash_contraseña
 
 # Cargar variables de entorno
@@ -50,17 +52,25 @@ def crear_usuario_admin():
     try:
         db = next(get_db())
 
-        # Verificar si el usuario admin ya existe
-        admin_existente = db.query(UsuarioDB).filter(UsuarioDB.username == 'admin').first()
+        # Verificar si el usuario admin ya existe (por RUT)
+        admin_rut_str = os.getenv('ADMIN_RUT', '11111111')
+        # Convertir a entero (remover cualquier no dígito por si viene con puntos/guion)
+        admin_rut_digits = re.sub(r"\D", "", admin_rut_str)
+        admin_rut = int(admin_rut_digits) if admin_rut_digits else None
+        admin_existente = db.query(UsuarioDB).filter(UsuarioDB.rut == admin_rut).first()
         if admin_existente:
             print("ℹ️  El usuario administrador ya existe")
             return True
 
         # Crear usuario administrador
         admin_password = os.getenv('ADMIN_PASSWORD', 'admin123')
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@localhost')
         admin_user = UsuarioDB(
             nombre='Administrador',
-            username='admin',
+            apellido=None,
+            rut=admin_rut,
+            email=admin_email,
+            telefono=None,
             password=hash_contraseña(admin_password),
             role='administrador',
             activo=True
@@ -69,9 +79,10 @@ def crear_usuario_admin():
         db.add(admin_user)
         db.commit()
         print("✅ Usuario administrador creado exitosamente")
-        print(f"   Usuario: admin")
+        print(f"   RUT: {admin_rut}")
         print(f"   Contraseña: {admin_password}")
         print(f"   Rol: administrador")
+        print(f"   Email: {admin_email}")
         return True
     except Exception as e:
         print(f"❌ Error al crear usuario administrador: {str(e)}")

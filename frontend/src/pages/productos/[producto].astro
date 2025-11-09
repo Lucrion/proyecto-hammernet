@@ -5,6 +5,16 @@ import Layout from '../../layouts/Layout.astro';
 
 // Configuración de API - usar URL completa para evitar problemas con el proxy en SSR
 const API_BASE = 'http://localhost:8000/api';
+const API_HOST = API_BASE.replace(/\/api$/, '');
+
+// Normaliza URLs de imagen: si vienen relativas desde BD, se prefijan con el host del backend
+const normalizeImageUrl = (u) => {
+  if (!u) return null;
+  const s = String(u);
+  if (/^https?:\/\//i.test(s)) return s; // URL absoluta (Cloudinary u otros)
+  if (s.startsWith('/')) return API_HOST + s; // relativa desde raíz del backend
+  return API_HOST + '/' + s; // relativa sin slash inicial
+};
 
 // Obtener el parámetro de la URL
 const { producto: productoSlug } = Astro.params;
@@ -78,7 +88,7 @@ try {
           precio: precioFinal,
           precio_original: ofertaVigente ? productoData.precio_venta : null,
           tiene_oferta: ofertaVigente,
-          imagen: productoData.imagen_url,
+          imagen: normalizeImageUrl(productoData.imagen_url),
           categoria: productoData.categoria || 'Sin categoría',
           caracteristicas: productoData.caracteristicas || '',
           stock: productoData.cantidad_disponible,
@@ -93,25 +103,17 @@ try {
         };
         console.log('Producto encontrado:', producto.nombre);
 
-        // Obtener productos similares por subcategoría (máximo 6)
+        // Obtener productos similares desde la base de datos vía endpoint dedicado (máximo 6)
         try {
-          const responseLista = await fetch(`${API_BASE}/productos`);
-          if (responseLista.ok) {
-            const lista = await responseLista.json();
-            const similaresRaw = lista.filter(p => {
-              const mismaSub = (p.id_subcategoria ?? null) === (productoData.id_subcategoria ?? null);
-              const diferente = p.id_producto !== productoData.id_producto;
-              const activo = (p.estado ?? 'activo') === 'activo';
-              const disponible = Number(p.cantidad_disponible ?? 0) > 0;
-              const conPrecio = Number(p.precio_venta ?? 0) > 0;
-              return mismaSub && diferente && activo && disponible && conPrecio;
-            });
-            productosSimilares = similaresRaw.slice(0, 6).map(p => ({
-              id: p.id_producto,
-              nombre: p.nombre,
-              imagen: p.imagen_url,
-              precio: Number(p.precio_venta ?? 0)
-            }));
+          const respSim = await fetch(`${API_BASE}/productos/similares/${productoData.id_producto}?limit=6`);
+          if (respSim.ok) {
+            const similares = await respSim.json();
+            productosSimilares = Array.isArray(similares) ? similares.map(s => ({
+              id: s.id,
+              nombre: s.nombre,
+              imagen: normalizeImageUrl(s.imagen),
+              precio: Number(s.precio || 0)
+            })) : [];
           }
         } catch (e) {
           console.warn('No se pudo cargar productos similares:', e);
@@ -166,7 +168,10 @@ if (!producto) {
 				<!-- Imagen del producto -->
 				<div class="space-y-4">
 					<div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
-						<div class="aspect-square rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
+						<div class="relative aspect-square rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
+							{producto.tiene_oferta && (
+								<span class="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded">Oferta</span>
+							)}
 						{producto.imagen ? (
 							<img 
 								src={producto.imagen} 
@@ -193,16 +198,16 @@ if (!producto) {
 								<p class="text-blue-600 font-medium">{producto.nombre}</p>
 							</div>
 						</div>
-					</div>
+						</div>
 					</div>
 				</div>
 
 				<!-- Detalles del producto -->
-				<div class="space-y-6">
+				<div class="space-y-6 lg:sticky lg:top-24">
 					<!-- Título y precio -->
 					<div>
 						<h1 class="text-4xl font-bold text-gray-900 mb-2">{producto.nombre}</h1>
-						<div class="flex items-center space-x-4 mb-4">
+						<div class="flex items-center space-x-4 mb-2">
 							{producto.tiene_oferta ? (
 								<>
 									<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
@@ -219,6 +224,17 @@ if (!producto) {
 							) : (
 								<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
 							)}
+						</div>
+						<p class="text-sm text-gray-500">Precio con IVA incluido</p>
+
+						<div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+							{producto.codigo_interno && (
+								<span class="px-2 py-1 rounded bg-gray-100 text-gray-700">Código: {producto.codigo_interno}</span>
+							)}
+							{producto.marca && (
+								<span class="px-2 py-1 rounded bg-blue-50 text-blue-700">Marca: {producto.marca}</span>
+							)}
+							<span class={`px-2 py-1 rounded ${producto.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{producto.stock > 0 ? 'En stock' : 'Sin stock'}</span>
 						</div>
 					</div>
 
@@ -327,8 +343,9 @@ if (!producto) {
 							</div>
 							<button 
 								id="agregar-carrito"
-								class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+								class={`w-full px-6 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2 ${producto.stock > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
 								onclick={`agregarAlCarrito(${producto.id})`}
+								disabled={producto.stock <= 0}
 							>
 								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13l2.5 2.5m6-2.5h.01M17 21a2 2 0 100-4 2 2 0 000 4zM9 21a2 2 0 100-4 2 2 0 000 4z" />
@@ -337,11 +354,41 @@ if (!producto) {
 							</button>
 							<button 
 								id="comprar-ahora"
-								class="w-full mt-3 bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-900 transition-colors font-medium"
+								class={`w-full mt-3 px-6 py-3 rounded-lg transition-colors font-medium ${producto.stock > 0 ? 'bg-black text-white hover:bg-gray-900' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
 								onclick={`comprarAhora(${producto.id})`}
+								disabled={producto.stock <= 0}
 							>
 								Comprar ahora
 							</button>
+
+							<!-- Información de envío y retiro -->
+							<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div class="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-3">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h13M3 6h13M3 14h9m7-2v6a2 2 0 01-2 2h-3a2 2 0 01-2-2V7a2 2 0 012-2h3a2 2 0 012 2v5z" />
+									</svg>
+									<div>
+										<p class="font-medium text-gray-800">Despacho a domicilio</p>
+										<p class="text-sm text-gray-600">Entrega estimada 2–4 días hábiles</p>
+									</div>
+								</div>
+								<div class="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-3">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7l6 6-6 6M21 7l-6 6 6 6" />
+									</svg>
+									<div>
+										<p class="font-medium text-gray-800">Retiro en tienda</p>
+										<p class="text-sm text-gray-600">Disponible para retiro en sucursal</p>
+									</div>
+								</div>
+							</div>
+
+							<div class="mt-4 flex items-center gap-3 text-xs text-gray-600">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
+									<path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 5a1 1 0 10-2 0v5a1 1 0 00.293.707l4 4a1 1 0 001.414-1.414L13 11.586V7z" />
+								</svg>
+								<span>Compra segura — medios de pago garantizados</span>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -567,4 +614,55 @@ if (!producto) {
 			-moz-appearance: textfield;
 		}
 	</style>
+
+	<!-- Footer -->
+	<footer class="mt-8 pt-6 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50">
+		<div class="container mx-auto px-4">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+				<div class="text-center md:text-left">
+					<img src="/images/logos/logo_bn.webp" alt="Ferretería Patricio" class="w-40 h-32 object-contain mx-auto md:mx-0 mb-3">
+				</div>
+				<div class="text-center md:text-left">
+					<h3 class="text-lg font-semibold mb-3 text-gray-800">Contacto</h3>
+					<div class="space-y-2 text-sm">
+						<div class="flex items-center gap-2 justify-center md:justify-start">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+								<path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+							</svg>
+							<span>+56 9 0000000</span>
+						</div>
+						<div class="flex items-center gap-2 justify-center md:justify-start">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+								<path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+								<path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+							</svg>
+							<span>contacto@ferreteriapatricio.com</span>
+						</div>
+						<div class="flex items-center gap-2 justify-center md:justify-start">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+							</svg>
+							<span>Lun-Vie 8:30-18:00 hrs</span>
+						</div>
+						<div class="flex items-center gap-3 justify-center md:justify-start mt-3">
+							<a href="https://facebook.com" class="hover:text-blue-600">
+								<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+									<path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" />
+								</svg>
+							</a>
+							<a href="https://instagram.com" class="hover:text-pink-600">
+								<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+									<path d="M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.254 1.216.598 1.772 1.153a4.908 4.908 0 011.153 1.772c.247.637.415 1.363.465 2.428.047 1.066.06 1.405.06 4.122 0 2.717-.01 3.056-.06 4.122-.05 1.065-.218 1.79-.465 2.428a4.883 4.883 0 01-1.153 1.772 4.915 4.915 0 01-1.772 1.153c-.637.247-1.363.415-2.428.465-1.066.047-1.405.06-4.122.06-2.717 0-3.056-.01-4.122-.06-1.065-.05-1.79-.218-2.428-.465a4.89 4.89 0 01-1.772-1.153 4.904 4.904 0 01-1.153-1.772c-.248-.637-.415-1.363-.465-2.428C2.013 15.056 2 14.717 2 12c0-2.717.01-3.056.06-4.122.05-1.066.217-1.79.465-2.428a4.88 4.88 0 011.153-1.772A4.897 4.897 0 015.45 2.525c.638-.248 1.362-.415 2.428-.465C8.944 2.013 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/>
+								</svg>
+							</a>
+							<a href="https://wa.me/56998116663" class="hover:text-green-600">
+								<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+									<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+							</svg>
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</footer>
 </Layout>

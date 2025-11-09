@@ -15,6 +15,7 @@ import uuid
 import base64
 import io
 from models.producto import ProductoDB, ProductoCreate, ProductoUpdate, Producto, ProductoInventario
+from .serializers import serialize_producto_inventario
 from models.catalogo import ProductoCatalogo, AgregarACatalogo
 from models.categoria import CategoriaDB
 from models.subcategoria import SubCategoriaDB
@@ -379,35 +380,8 @@ class ProductoController:
                     detail="Inventario no encontrado"
                 )
             
-            # Crear el objeto ProductoInventario
-            inventario_item = ProductoInventario(
-                id_inventario=producto.id_producto,
-                id_producto=producto.id_producto,
-                precio=float(producto.precio_venta) if producto.precio_venta else 0,
-                cantidad=producto.cantidad_disponible if producto.cantidad_disponible else 0,
-                cantidad_disponible=producto.cantidad_disponible if producto.cantidad_disponible else 0,
-                fecha_registro=producto.fecha_creacion.isoformat() if producto.fecha_creacion else None,
-                producto={
-                    "id_producto": producto.id_producto,
-                    "nombre": producto.nombre,
-                    "descripcion": producto.descripcion,
-                    "id_categoria": producto.id_categoria,
-                    "id_proveedor": producto.id_proveedor,
-                    "marca": producto.marca,
-                    "costo_bruto": float(producto.costo_bruto) if producto.costo_bruto else 0,
-                    "costo_neto": float(producto.costo_neto) if producto.costo_neto else 0,
-                    "precio_venta": float(producto.precio_venta) if producto.precio_venta else 0,
-                    "porcentaje_utilidad": float(producto.porcentaje_utilidad) if producto.porcentaje_utilidad else 0,
-                    "utilidad_pesos": float(producto.utilidad_pesos) if producto.utilidad_pesos else 0,
-                    "cantidad_disponible": producto.cantidad_disponible if producto.cantidad_disponible else 0,
-                    "stock_minimo": producto.stock_minimo if producto.stock_minimo else 0,
-                    "estado": producto.estado,
-                    "categoria": producto.categoria.nombre if producto.categoria else None,
-                    "proveedor": producto.proveedor.nombre if producto.proveedor else None
-                }
-            )
-            
-            return inventario_item
+            # Crear el objeto ProductoInventario con serializador
+            return serialize_producto_inventario(producto)
             
         except HTTPException:
             raise
@@ -783,6 +757,149 @@ class ProductoController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error al obtener producto: {str(e)}"
             )
+
+    @staticmethod
+    async def obtener_similares(producto_id: int, db: Session, limit: int = 6) -> List[dict]:
+        """
+        Obtiene productos similares basados principalmente en la subcategoría.
+        Filtros: estado activo, stock > 0, precio_venta > 0 y distinto del producto solicitado.
+
+        Args:
+            producto_id: ID del producto base
+            db: Sesión de base de datos
+            limit: Máximo de productos a devolver
+
+        Returns:
+            Lista de dicts con campos mínimos para UI: id, nombre, imagen, precio
+        """
+        try:
+            base = db.query(ProductoDB).filter(ProductoDB.id_producto == producto_id).first()
+            if not base:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
+
+            query = db.query(ProductoDB).filter(
+                ProductoDB.id_producto != producto_id,
+                (ProductoDB.estado == 'activo') | (ProductoDB.estado.is_(None)),
+                (ProductoDB.cantidad_disponible.isnot(None)) & (ProductoDB.cantidad_disponible > 0),
+                (ProductoDB.precio_venta.isnot(None)) & (ProductoDB.precio_venta > 0)
+            )
+
+            # Preferir subcategoría; si no existe, caer a categoría
+            if getattr(base, 'id_subcategoria', None):
+                query = query.filter(ProductoDB.id_subcategoria == base.id_subcategoria)
+            elif getattr(base, 'id_categoria', None):
+                query = query.filter(ProductoDB.id_categoria == base.id_categoria)
+
+            similares = query.order_by(ProductoDB.fecha_actualizacion.desc()).limit(limit).all()
+
+            return [
+                {
+                    "id": p.id_producto,
+                    "nombre": p.nombre,
+                    "imagen": p.imagen_url,
+                    "precio": float(p.precio_venta or 0),
+                }
+                for p in similares
+            ]
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al obtener productos similares: {str(e)}"
+            )
+
+    @staticmethod
+    async def seed_ejemplos(db: Session) -> dict:
+        """
+        Inserta datos de ejemplo: categorías, subcategorías y productos.
+        Evita duplicados por nombre/código.
+        """
+        try:
+            categorias_def = [
+                {"nombre": "Herramientas", "descripcion": "Herramientas manuales y eléctricas"},
+                {"nombre": "Electricidad", "descripcion": "Materiales y accesorios eléctricos"},
+            ]
+            categorias_map = {}
+            for c in categorias_def:
+                existente = db.query(CategoriaDB).filter(CategoriaDB.nombre == c["nombre"]).first()
+                if not existente:
+                    existente = CategoriaDB(nombre=c["nombre"], descripcion=c.get("descripcion"))
+                    db.add(existente)
+                    db.flush()
+                categorias_map[c["nombre"]] = existente.id_categoria
+
+            subcats_def = [
+                {"nombre": "Taladros", "descripcion": "Taladros y atornilladores", "categoria": "Herramientas"},
+                {"nombre": "Destornilladores", "descripcion": "Destornilladores y puntas", "categoria": "Herramientas"},
+                {"nombre": "Llaves", "descripcion": "Llaves ajustables y combinadas", "categoria": "Herramientas"},
+                {"nombre": "Cables", "descripcion": "Cables eléctricos y extensiones", "categoria": "Electricidad"},
+                {"nombre": "Iluminación", "descripcion": "Focos, ampolletas y lámparas", "categoria": "Electricidad"},
+            ]
+            subcats_map = {}
+            for s in subcats_def:
+                cat_id = categorias_map.get(s["categoria"]) or None
+                existente = db.query(SubCategoriaDB).filter(
+                    SubCategoriaDB.nombre == s["nombre"],
+                    SubCategoriaDB.id_categoria == cat_id
+                ).first()
+                if not existente:
+                    existente = SubCategoriaDB(
+                        nombre=s["nombre"],
+                        descripcion=s.get("descripcion"),
+                        id_categoria=cat_id,
+                    )
+                    db.add(existente)
+                    db.flush()
+                subcats_map[s["nombre"]] = existente.id_subcategoria
+
+            productos_def = [
+                {"nombre": "Taladro Percutor 800W", "descripcion": "Taladro percutor de 800W con velocidad variable", "codigo_interno": "TL-800W", "marca": "Bosch", "categoria": "Herramientas", "subcategoria": "Taladros", "precio_venta": 59990, "cantidad_disponible": 12},
+                {"nombre": "Atornillador Inalámbrico 12V", "descripcion": "Atornillador compacto de 12V con dos baterías", "codigo_interno": "AT-12V", "marca": "Makita", "categoria": "Herramientas", "subcategoria": "Taladros", "precio_venta": 49990, "cantidad_disponible": 8},
+                {"nombre": "Juego de Destornilladores 10 piezas", "descripcion": "Juego mixto de destornilladores planos y cruz", "codigo_interno": "JD-10", "marca": "Truper", "categoria": "Herramientas", "subcategoria": "Destornilladores", "precio_venta": 12990, "cantidad_disponible": 25},
+                {"nombre": "Llave Ajustable 10\"", "descripcion": "Llave ajustable de 10 pulgadas de acero", "codigo_interno": "LA-10", "marca": "Stanley", "categoria": "Herramientas", "subcategoria": "Llaves", "precio_venta": 9990, "cantidad_disponible": 30},
+                {"nombre": "Cable Eléctrico 2x1.5mm 20m", "descripcion": "Cable dúplex de 1.5mm para uso domiciliario", "codigo_interno": "CB-2X1.5-20", "marca": "Fensa", "categoria": "Electricidad", "subcategoria": "Cables", "precio_venta": 14990, "cantidad_disponible": 18},
+                {"nombre": "Extension Eléctrica 5m", "descripcion": "Extensión con protección térmica de 5 metros", "codigo_interno": "EX-5M", "marca": "Voltex", "categoria": "Electricidad", "subcategoria": "Cables", "precio_venta": 6990, "cantidad_disponible": 40},
+                {"nombre": "Ampolleta LED 12W Luz Fría", "descripcion": "Ampolleta LED E27 12W, 6500K", "codigo_interno": "LED-12W", "marca": "Philips", "categoria": "Electricidad", "subcategoria": "Iluminación", "precio_venta": 3990, "cantidad_disponible": 50},
+                {"nombre": "Foco Exterior 20W", "descripcion": "Proyector LED 20W, IP65 para exterior", "codigo_interno": "FO-20W", "marca": "Osram", "categoria": "Electricidad", "subcategoria": "Iluminación", "precio_venta": 19990, "cantidad_disponible": 22},
+            ]
+
+            insertados = 0
+            for p in productos_def:
+                ya = None
+                if p.get("codigo_interno"):
+                    ya = db.query(ProductoDB).filter(ProductoDB.codigo_interno == p["codigo_interno"]).first()
+                if ya:
+                    continue
+
+                cat_id = categorias_map.get(p["categoria"]) or None
+                sub_id = subcats_map.get(p["subcategoria"]) or None
+                seed = p["codigo_interno"] or p["nombre"]
+                imagen = f"https://picsum.photos/seed/{seed}/600/600"
+
+                nuevo = ProductoDB(
+                    nombre=p["nombre"],
+                    descripcion=p.get("descripcion"),
+                    codigo_interno=p.get("codigo_interno"),
+                    imagen_url=imagen,
+                    id_categoria=cat_id or list(categorias_map.values())[0],
+                    id_subcategoria=sub_id,
+                    marca=p.get("marca"),
+                    precio_venta=p.get("precio_venta", 0),
+                    cantidad_disponible=p.get("cantidad_disponible", 0),
+                    stock_minimo=1,
+                    estado="activo",
+                    en_catalogo=True,
+                    oferta_activa=False,
+                )
+                db.add(nuevo)
+                insertados += 1
+
+            db.commit()
+            return {"insertados": insertados, "categorias": categorias_map, "subcategorias": subcats_map}
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al insertar datos de ejemplo: {str(e)}")
     
     @staticmethod
     async def actualizar_producto(producto_id: int, producto_update: ProductoUpdate, db: Session) -> Producto:
@@ -1086,7 +1203,7 @@ class ProductoController:
             )
 
     @staticmethod
-    async def obtener_inventario(db: Session, skip: int = 0, limit: int = 10) -> List[ProductoInventario]:
+    async def obtener_inventario(db: Session, skip: int = 0, limit: int = 10, soloNoCatalogo: bool = False) -> List[ProductoInventario]:
         """
         Obtiene productos en formato de inventario que NO están catalogados con paginación
         
@@ -1099,45 +1216,19 @@ class ProductoController:
             List[ProductoInventario]: Lista de productos en formato inventario (solo no catalogados)
         """
         try:
-            # Filtrar solo productos que NO están en catálogo (en_catalogo = False o NULL)
-            productos = db.query(ProductoDB).options(
+            # Obtener productos para inventario (incluir catalogados y no catalogados)
+            query = db.query(ProductoDB).options(
                 joinedload(ProductoDB.categoria),
                 joinedload(ProductoDB.proveedor)
-            ).filter(
-                or_(ProductoDB.en_catalogo == False, ProductoDB.en_catalogo.is_(None))
-            ).offset(skip).limit(limit).all()
+            )
+
+            if soloNoCatalogo:
+                # Filtrar productos no catalogados
+                query = query.filter(ProductoDB.en_catalogo == False)
+
+            productos = query.offset(skip).limit(limit).all()
             
-            inventario_list = []
-            for p in productos:
-                inventario_item = ProductoInventario(
-                    id_inventario=p.id_producto,  # Usar id_producto como id_inventario
-                    id_producto=p.id_producto,
-                    precio=float(p.precio_venta) if p.precio_venta else 0.0,
-                    cantidad=p.cantidad_disponible if p.cantidad_disponible else 0,
-                    fecha_registro=p.fecha_creacion.isoformat() if p.fecha_creacion else None,
-                    producto={
-                        "id_producto": p.id_producto,
-                        "nombre": p.nombre,
-                        "descripcion": p.descripcion,
-                        "codigo_interno": p.codigo_interno,
-                        "imagen_url": p.imagen_url,
-                        "id_categoria": p.id_categoria,
-                        "id_proveedor": p.id_proveedor,
-                        "marca": p.marca,
-                        "costo_bruto": float(p.costo_bruto) if p.costo_bruto else 0,
-                        "costo_neto": float(p.costo_neto) if p.costo_neto else 0,
-                        "precio_venta": float(p.precio_venta) if p.precio_venta else 0,
-                        "porcentaje_utilidad": float(p.porcentaje_utilidad) if p.porcentaje_utilidad else 0,
-                        "utilidad_pesos": float(p.utilidad_pesos) if p.utilidad_pesos else 0,
-                        "cantidad_disponible": p.cantidad_disponible if p.cantidad_disponible else 0,
-                        "stock_minimo": p.stock_minimo if p.stock_minimo else 0,
-                        "estado": p.estado,
-                        "categoria": p.categoria.nombre if p.categoria else None,
-                        "proveedor": p.proveedor.nombre if p.proveedor else None
-                    }
-                )
-                inventario_list.append(inventario_item)
-            
+            inventario_list = [serialize_producto_inventario(p) for p in productos]
             return inventario_list
             
         except Exception as e:
@@ -1173,7 +1264,7 @@ class ProductoController:
             )
 
     @staticmethod
-    async def obtener_total_inventario(db: Session) -> int:
+    async def obtener_total_inventario(db: Session, soloNoCatalogo: bool = False) -> int:
         """
         Obtiene el total de productos en inventario que NO están catalogados
         
@@ -1184,9 +1275,11 @@ class ProductoController:
             int: Total de productos en inventario
         """
         try:
-            total = db.query(ProductoDB).filter(
-                or_(ProductoDB.en_catalogo == False, ProductoDB.en_catalogo.is_(None))
-            ).count()
+            # Contar productos para el total de inventario (parametrizable)
+            query = db.query(ProductoDB)
+            if soloNoCatalogo:
+                query = query.filter(ProductoDB.en_catalogo == False)
+            total = query.count()
             
             return total
             

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from config.database import get_db
-from controllers.usuario_controller import UsuarioController
+from controllers.usuario_controller import UsuarioController, _rut_a_int
 from models.usuario import Usuario, UsuarioCreate, UsuarioUpdate
 from core.auth import get_current_user, require_admin
 from config.constants import API_PREFIX
@@ -25,8 +25,7 @@ async def obtener_usuarios(
             "id_usuario": usuario.id_usuario,
             "nombre": usuario.nombre,
             "apellido": usuario.apellido,
-            "username": usuario.username,
-            "rut": usuario.rut,
+            "rut": _rut_a_int(usuario.rut),
             "email": usuario.email,
             "telefono": usuario.telefono,
             "role": usuario.role,
@@ -48,7 +47,7 @@ async def obtener_usuarios_desactivados(
         {
             "id_usuario": usuario.id_usuario,
             "nombre": usuario.nombre,
-            "username": usuario.username,
+            "rut": _rut_a_int(usuario.rut),
             "role": usuario.role,
             "activo": usuario.activo,
             "fecha_creacion": usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
@@ -76,7 +75,6 @@ async def obtener_usuario(
         "id_usuario": usuario.id_usuario,
         "nombre": usuario.nombre,
         "apellido": usuario.apellido,
-        "username": usuario.username,
         "rut": usuario.rut,
         "email": usuario.email,
         "telefono": usuario.telefono,
@@ -101,7 +99,7 @@ async def crear_usuario(
             entidad_id=nuevo.id_usuario,
             accion="crear",
             usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
-            detalle=f"Usuario creado: {nuevo.username} ({nuevo.role})"
+            detalle=f"Usuario creado: RUT {nuevo.rut} ({nuevo.role})"
         )
     except Exception:
         # No bloquear flujo por fallo de auditoría

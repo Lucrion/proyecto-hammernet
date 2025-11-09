@@ -5,7 +5,7 @@
 Modelos relacionados con productos (unificado con inventario)
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, DECIMAL, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, DECIMAL, Boolean, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, validator
@@ -17,6 +17,9 @@ from .base import Base
 class ProductoDB(Base):
     """Modelo de base de datos para productos unificado con inventario"""
     __tablename__ = "productos"
+    __table_args__ = (
+        Index('ix_productos_nombre', 'nombre'),
+    )
     
     id_producto = Column(Integer, primary_key=True, index=True)
     

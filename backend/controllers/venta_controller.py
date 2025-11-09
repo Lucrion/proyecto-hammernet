@@ -15,11 +15,12 @@ from core.auth import hash_contraseña
 
 from models.venta import (
     VentaDB, DetalleVentaDB, MovimientoInventarioDB,
-    Venta, DetalleVenta, MovimientoInventario, VentaCreate, DetalleVentaCreate
+    Venta, DetalleVenta, MovimientoInventario, VentaCreate, DetalleVentaCreate, VentaGuestCreate
 )
 from models.producto import ProductoDB
 from models.usuario import UsuarioDB
 from controllers.auditoria_controller import registrar_evento
+import json
 
 
 class VentaController:
@@ -65,7 +66,11 @@ class VentaController:
                 id_usuario=id_usuario,
                 total_venta=total_calculado,
                 estado=venta_data.estado,
-                observaciones=venta_data.observaciones
+                observaciones=venta_data.observaciones,
+                tipo_documento=getattr(venta_data, 'tipo_documento', None),
+                folio_documento=getattr(venta_data, 'folio_documento', None),
+                fecha_emision_sii=getattr(venta_data, 'fecha_emision_sii', None),
+                cliente_id=getattr(venta_data, 'cliente_id', None)
             )
             db.add(db_venta)
             db.flush()  # Para obtener el ID de la venta
@@ -127,13 +132,157 @@ class VentaController:
             ).filter(VentaDB.id_venta == db_venta.id_venta).first()
             
             return VentaController._construir_venta_response(venta_completa)
-            
+        
         except HTTPException:
             db.rollback()
             raise
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Error al crear venta: {str(e)}")
+
+    @staticmethod
+    def _get_or_create_guest_user(db: Session) -> UsuarioDB:
+        """Obtiene o crea un usuario de sistema para ventas de invitado"""
+        usuario = db.query(UsuarioDB).filter(UsuarioDB.role == "invitado", UsuarioDB.nombre == "Invitado").first()
+        if usuario:
+            return usuario
+        # Crear usuario de sistema 'Invitado' sin RUT ni teléfono
+        try:
+            usuario = UsuarioDB(
+                nombre="Invitado",
+                rut=None,
+                email=None,
+                password=hash_contraseña("guest_checkout"),
+                role="invitado",
+                activo=True
+            )
+            db.add(usuario)
+            db.commit()
+            db.refresh(usuario)
+            return usuario
+        except Exception:
+            db.rollback()
+            # Fallback: intentar obtener nuevamente por si existe tras rollback
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.role == "invitado", UsuarioDB.nombre == "Invitado").first()
+            if usuario:
+                return usuario
+            raise HTTPException(status_code=500, detail="No se pudo crear usuario de invitado para ventas")
+
+    @staticmethod
+    def crear_venta_invitado(db: Session, venta_guest: VentaGuestCreate) -> Venta:
+        """
+        Crear una venta como invitado (sin autenticación), guardando datos esenciales del cliente en observaciones.
+        """
+        try:
+            # Usar usuario de sistema para atribuir la venta y movimientos
+            usuario_guest = VentaController._get_or_create_guest_user(db)
+            id_usuario = usuario_guest.id_usuario
+
+            # Verificar disponibilidad de productos y calcular total
+            total_calculado = Decimal('0.00')
+            productos_verificados = []
+
+            for detalle in venta_guest.detalles:
+                producto = db.query(ProductoDB).filter(ProductoDB.id_producto == detalle.id_producto).first()
+                if not producto:
+                    raise HTTPException(status_code=404, detail=f"Producto con ID {detalle.id_producto} no encontrado")
+                if producto.cantidad_disponible < detalle.cantidad:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Stock insuficiente para {producto.nombre}. Disponible: {producto.cantidad_disponible}, Solicitado: {detalle.cantidad}"
+                    )
+                subtotal = detalle.precio_unitario * detalle.cantidad
+                total_calculado += subtotal
+                productos_verificados.append({'producto': producto, 'detalle': detalle, 'subtotal': subtotal})
+
+            # Validar total enviado vs calculado (tolerancia mínima)
+            try:
+                enviado = Decimal(str(venta_guest.total_venta))
+            except Exception:
+                enviado = total_calculado
+            if enviado != total_calculado:
+                # Ajustar al calculado para coherencia
+                enviado = total_calculado
+
+            # Preparar observaciones con guest_info
+            obs = venta_guest.observaciones or ""
+            try:
+                info = venta_guest.guest_info or {}
+                etiqueta = f"VENTA_INVITADO:{json.dumps(info, ensure_ascii=False)}"
+                obs = f"{obs}\n{etiqueta}".strip()
+            except Exception:
+                pass
+
+            # Crear la venta
+            db_venta = VentaDB(
+                id_usuario=id_usuario,
+                total_venta=enviado,
+                estado=venta_guest.estado,
+                observaciones=obs
+            )
+            db.add(db_venta)
+            db.flush()
+
+            # Crear detalles y movimientos
+            for item in productos_verificados:
+                producto = item['producto']
+                detalle = item['detalle']
+                subtotal = item['subtotal']
+
+                db_detalle = DetalleVentaDB(
+                    id_venta=db_venta.id_venta,
+                    id_producto=detalle.id_producto,
+                    cantidad=detalle.cantidad,
+                    precio_unitario=detalle.precio_unitario,
+                    subtotal=subtotal
+                )
+                db.add(db_detalle)
+
+                cantidad_anterior = producto.cantidad_disponible
+                cantidad_nueva = cantidad_anterior - detalle.cantidad
+                producto.cantidad_disponible = cantidad_nueva
+                producto.fecha_ultima_venta = datetime.now()
+
+                movimiento = MovimientoInventarioDB(
+                    id_producto=detalle.id_producto,
+                    id_usuario=id_usuario,
+                    id_venta=db_venta.id_venta,
+                    tipo_movimiento="venta",
+                    cantidad=-detalle.cantidad,
+                    cantidad_anterior=cantidad_anterior,
+                    cantidad_nueva=cantidad_nueva,
+                    motivo=f"Venta invitado #{db_venta.id_venta}"
+                )
+                db.add(movimiento)
+
+            db.commit()
+
+            # Auditoría
+            try:
+                registrar_evento(
+                    db,
+                    entidad_tipo="venta",
+                    entidad_id=db_venta.id_venta,
+                    accion="venta_invitado_creada",
+                    usuario_actor_id=id_usuario,
+                    detalle=f"Total: {float(enviado)} | Detalles: {len(productos_verificados)}"
+                )
+            except Exception:
+                pass
+
+            venta_completa = db.query(VentaDB).options(
+                joinedload(VentaDB.usuario),
+                joinedload(VentaDB.detalles_venta).joinedload(DetalleVentaDB.producto)
+            ).filter(VentaDB.id_venta == db_venta.id_venta).first()
+
+            return VentaController._construir_venta_response(venta_completa)
+
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al crear venta como invitado: {str(e)}")
     
     @staticmethod
     def obtener_ventas(db: Session, skip: int = 0, limit: int = 100, fecha_inicio: Optional[date] = None, fecha_fin: Optional[date] = None, id_usuario: Optional[int] = None) -> List[Venta]:
@@ -313,6 +462,97 @@ class VentaController:
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
+
+    @staticmethod
+    def obtener_ventas_por_dia(
+        db: Session,
+        fecha_inicio: Optional[date] = None,
+        fecha_fin: Optional[date] = None,
+    ) -> list:
+        """Agrupa ventas por día con ingresos y cantidad.
+
+        Retorna lista de dicts: {fecha: date, ingresos: float, cantidad: int}
+        """
+        try:
+            # Usar func.date para agrupar por día (compatible con SQLite/Postgres)
+            query = db.query(
+                func.date(VentaDB.fecha_venta).label("fecha"),
+                func.sum(VentaDB.total_venta).label("ingresos"),
+                func.count(VentaDB.id_venta).label("cantidad"),
+            ).filter(VentaDB.estado == "completada")
+
+            if fecha_inicio:
+                query = query.filter(func.date(VentaDB.fecha_venta) >= fecha_inicio)
+            if fecha_fin:
+                query = query.filter(func.date(VentaDB.fecha_venta) <= fecha_fin)
+
+            query = query.group_by(func.date(VentaDB.fecha_venta)).order_by(func.date(VentaDB.fecha_venta))
+
+            resultados = query.all()
+            return [
+                {
+                    "fecha": r[0],
+                    "ingresos": float(r[1] or 0),
+                    "cantidad": int(r[2] or 0),
+                }
+                for r in resultados
+            ]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error al agrupar ventas por día: {str(e)}")
+
+    @staticmethod
+    def obtener_top_productos(
+        db: Session,
+        fecha_inicio: Optional[date] = None,
+        fecha_fin: Optional[date] = None,
+        limit: int = 5,
+    ) -> list:
+        """Obtiene top productos por unidades vendidas y ventas totales.
+
+        Retorna lista de dicts: {id_producto, nombre, unidades, ventas}
+        """
+        try:
+            query = (
+                db.query(
+                    DetalleVentaDB.id_producto.label("id_producto"),
+                    func.coalesce(func.sum(DetalleVentaDB.cantidad), 0).label("unidades"),
+                    func.coalesce(func.sum(DetalleVentaDB.subtotal), 0).label("ventas"),
+                )
+                .join(VentaDB, DetalleVentaDB.id_venta == VentaDB.id_venta)
+                .filter(VentaDB.estado == "completada")
+            )
+
+            if fecha_inicio:
+                query = query.filter(func.date(VentaDB.fecha_venta) >= fecha_inicio)
+            if fecha_fin:
+                query = query.filter(func.date(VentaDB.fecha_venta) <= fecha_fin)
+
+            query = (
+                query.group_by(DetalleVentaDB.id_producto)
+                .order_by(desc("unidades"))
+                .limit(limit)
+            )
+
+            resultados = query.all()
+
+            # Enriquecer con nombre de producto
+            ids = [r[0] for r in resultados]
+            nombres = {}
+            if ids:
+                for p in db.query(ProductoDB.id_producto, ProductoDB.nombre).filter(ProductoDB.id_producto.in_(ids)).all():
+                    nombres[p[0]] = p[1]
+
+            return [
+                {
+                    "id_producto": int(r[0]),
+                    "nombre": nombres.get(int(r[0]), None),
+                    "unidades": int(r[1] or 0),
+                    "ventas": float(r[2] or 0),
+                }
+                for r in resultados
+            ]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error al obtener top productos: {str(e)}")
     
     @staticmethod
     def _construir_venta_response(venta: VentaDB) -> Venta:

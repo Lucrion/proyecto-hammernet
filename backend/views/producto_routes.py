@@ -68,22 +68,24 @@ async def buscar_productos(
 
 @router.get("/inventario/total")
 async def obtener_total_inventario(
+    soloNoCatalogo: bool = Query(False, description="Si true, contar solo productos no catalogados"),
     db: Session = Depends(get_db)
     # current_user: dict = Depends(get_current_user)  # Comentado para testing
 ):
-    """ Obtener total de productos en inventario """
-    return {"total": await ProductoController.obtener_total_inventario(db)}
+    """ Obtener total de productos en inventario (parametrizable por catálogo) """
+    return {"total": await ProductoController.obtener_total_inventario(db, soloNoCatalogo)}
 
 
 @router.get("/inventario", response_model=List[ProductoInventario])
 async def obtener_inventario(
     skip: int = 0,
     limit: int = 10,
+    soloNoCatalogo: bool = Query(False, description="Si true, listar solo productos no catalogados"),
     db: Session = Depends(get_db)
     # current_user: dict = Depends(get_current_user)  # Comentado para testing
 ):
-    """ Obtener inventario de productos con paginación """
-    return await ProductoController.obtener_inventario(db, skip, limit)
+    """ Obtener inventario de productos con paginación (parametrizable por catálogo) """
+    return await ProductoController.obtener_inventario(db, skip, limit, soloNoCatalogo)
 
 
 @router.get("/inventario/{inventario_id}", response_model=ProductoInventario)
@@ -412,3 +414,19 @@ async def quitar_producto_de_catalogo(
     except Exception:
         pass
     return resultado
+@router.get("/similares/{producto_id}")
+async def obtener_productos_similares(
+    producto_id: int,
+    limit: int = Query(6, ge=1, le=24),
+    db: Session = Depends(get_db)
+):
+    """Obtener productos similares desde la base de datos (misma subcategoría o categoría)."""
+    return await ProductoController.obtener_similares(producto_id, db, limit)
+
+
+@router.post("/seed")
+async def seed_productos_de_ejemplo(
+    db: Session = Depends(get_db)
+):
+    """Inserta datos de ejemplo (categorías, subcategorías y productos)."""
+    return await ProductoController.seed_ejemplos(db)

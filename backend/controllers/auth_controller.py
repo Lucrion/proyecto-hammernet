@@ -14,6 +14,19 @@ from controllers.auditoria_controller import registrar_evento
 from core.auth import verificar_contraseña, crear_token
 
 
+def _rut_a_int(rut) -> int:
+    """Convierte un RUT con formato (con puntos/guion) a entero (solo dígitos).
+    Acepta int y str; si es str, se extraen solo dígitos, descartando DV.
+    """
+    if rut is None:
+        return None
+    if isinstance(rut, int):
+        return rut
+    s = str(rut).strip()
+    digits = ''.join(ch for ch in s if ch.isdigit())
+    return int(digits) if digits else None
+
+
 class AuthController:
     """Controlador para manejo de autenticación"""
     
@@ -33,8 +46,9 @@ class AuthController:
             HTTPException: Si las credenciales son incorrectas
         """
         try:
-            # Buscar usuario
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.username == form_data.username).first()
+            # Buscar usuario por RUT entero (OAuth2 'username' trae el RUT formateado)
+            rut_int = _rut_a_int(form_data.username)
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut_int).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -55,8 +69,8 @@ class AuthController:
                     detail="Credenciales incorrectas"
                 )
             
-            # Crear token
-            token = crear_token(data={"sub": usuario.username})
+            # Crear token con el RUT como 'sub' (como string)
+            token = crear_token(data={"sub": str(usuario.rut)})
             
             # Auditoría: login exitoso
             try:
@@ -77,7 +91,7 @@ class AuthController:
                 token_type="bearer",
                 id_usuario=usuario.id_usuario,
                 nombre=usuario.nombre,
-                username=usuario.username,
+                rut=usuario.rut,
                 role=usuario.role
             )
             

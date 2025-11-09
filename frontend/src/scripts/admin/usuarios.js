@@ -62,19 +62,7 @@ let usuariosLista = [];
 let paginaActual = 1;
 let tamPagina = 10;
 
-function mostrarMensaje(mensaje, tipo = 'info') {
-    // Fallback simple: usar alert si no hay sistema de notificaciones
-    try {
-        // Si existe algún sistema global de notificaciones, usarlo
-        if (window.toast) {
-            window.toast[mensaje && tipo === 'error' ? 'error' : 'success'](mensaje);
-        } else {
-            alert(mensaje);
-        }
-    } catch (_) {
-        alert(mensaje);
-    }
-}
+// mostrarMensaje: definido más abajo con UI de notificación fija
 
 function validarFormularioUsuario(data) {
     const errores = [];
@@ -212,7 +200,7 @@ function cargarUsuarios(usuarios) {
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.id_usuario}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.username}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatearRut(usuario.rut)}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.role}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -250,7 +238,7 @@ function cargarUsuariosDesactivados(usuarios) {
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.id_usuario}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.username}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatearRut(usuario.rut)}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.role}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -399,7 +387,7 @@ window.verInfoUsuario = async function(id) {
             document.getElementById('infoId').textContent = usuario.id_usuario ?? '—';
             document.getElementById('infoNombre').textContent = usuario.nombre ?? '—';
             document.getElementById('infoApellido').textContent = usuario.apellido ?? '—';
-            document.getElementById('infoUsername').textContent = usuario.username ?? '—';
+            document.getElementById('infoUsername').textContent = formatearRut(usuario.rut) ?? '—';
             document.getElementById('infoRut').textContent = usuario.rut ?? '—';
             document.getElementById('infoEmail').textContent = usuario.email ?? '—';
             document.getElementById('infoTelefono').textContent = usuario.telefono ?? '—';
@@ -493,7 +481,10 @@ window.editarUsuario = async function(id) {
         if (response) {
             document.getElementById('userId').value = response.id_usuario;
             document.getElementById('nombre').value = response.nombre;
-            document.getElementById('username').value = response.username;
+            const rutInput = document.getElementById('rut');
+            if (rutInput) {
+                rutInput.value = formatearRut(response.rut);
+            }
             document.getElementById('role').value = response.role;
             document.getElementById('formTitle').textContent = 'Editar Usuario';
             mostrarFormulario();
@@ -610,6 +601,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const formData = new FormData(usuarioForm);
             const data = Object.fromEntries(formData.entries());
 
+            // Normalizar y sanitizar RUT (solo dígitos)
+            if (data.rut) {
+                const soloDigitos = String(data.rut).replace(/\D/g, '');
+                data.rut = soloDigitos ? parseInt(soloDigitos, 10) : null;
+            }
+
+            // Si la contraseña está vacía al editar, no enviar campo
+            if (data.password !== undefined && String(data.password).trim() === '') {
+                delete data.password;
+            }
+
             // Validaciones estrictas
             const errores = validarFormularioUsuario(data);
             if (errores.length > 0) {
@@ -662,3 +664,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cargar trabajadores al iniciar
 mostrarTrabajadores();
 });
+
+// Utilidad: formatear RUT entero a formato con DV (sin puntos)
+function formatearRut(rut) {
+    if (rut === null || rut === undefined) return '—';
+    const cuerpo = String(rut).replace(/\D/g, '');
+    if (!cuerpo) return '—';
+    let suma = 0;
+    let multiplicador = 2;
+    for (let i = cuerpo.length - 1; i >= 0; i--) {
+        suma += parseInt(cuerpo[i], 10) * multiplicador;
+        multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+    }
+    const resto = suma % 11;
+    const dvCalc = 11 - resto;
+    let dvFinal = '';
+    if (dvCalc === 11) dvFinal = '0';
+    else if (dvCalc === 10) dvFinal = 'K';
+    else dvFinal = String(dvCalc);
+    return `${cuerpo}-${dvFinal}`;
+}

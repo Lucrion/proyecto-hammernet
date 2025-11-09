@@ -5,12 +5,12 @@
 Modelos relacionados con ventas y movimientos de inventario
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Numeric, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Numeric, Text, Index, Date
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from .base import Base
 
@@ -18,6 +18,9 @@ from .base import Base
 class VentaDB(Base):
     """Modelo de base de datos para ventas"""
     __tablename__ = "ventas"
+    __table_args__ = (
+        Index('ix_ventas_fecha_venta', 'fecha_venta'),
+    )
     
     id_venta = Column(Integer, primary_key=True, index=True)
     id_usuario = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
@@ -25,13 +28,20 @@ class VentaDB(Base):
     total_venta = Column(Numeric(10, 2), nullable=False)
     estado = Column(String(20), default="completada", nullable=False)  # completada, cancelada, pendiente
     observaciones = Column(Text, nullable=True)
+    # Campos tributarios y cliente frecuente
+    tipo_documento = Column(String(30), nullable=True)
+    folio_documento = Column(String(50), nullable=True)
+    fecha_emision_sii = Column(Date, nullable=True)
+    cliente_id = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=True)
     fecha_creacion = Column(DateTime, default=func.now())
     fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
     
     # Relaciones
-    usuario = relationship("UsuarioDB", back_populates="ventas")
+    usuario = relationship("UsuarioDB", foreign_keys=[id_usuario], back_populates="ventas")
+    cliente = relationship("UsuarioDB", foreign_keys=[cliente_id])
     detalles_venta = relationship("DetalleVentaDB", back_populates="venta", cascade="all, delete-orphan")
     movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="venta")
+    pagos = relationship("PagoDB", back_populates="venta")
 
 
 class DetalleVentaDB(Base):
@@ -54,6 +64,9 @@ class DetalleVentaDB(Base):
 class MovimientoInventarioDB(Base):
     """Modelo de base de datos para movimientos de inventario"""
     __tablename__ = "movimientos_inventario"
+    __table_args__ = (
+        Index('ix_movimientos_producto_fecha', 'id_producto', 'fecha_movimiento'),
+    )
     
     id_movimiento = Column(Integer, primary_key=True, index=True)
     id_producto = Column(Integer, ForeignKey("productos.id_producto"), nullable=False)
@@ -81,11 +94,25 @@ class VentaBase(BaseModel):
     total_venta: Decimal
     estado: Optional[str] = "completada"
     observaciones: Optional[str] = None
+    # Nuevos campos opcionales
+    tipo_documento: Optional[str] = None
+    folio_documento: Optional[str] = None
+    fecha_emision_sii: Optional[date] = None
+    cliente_id: Optional[int] = None
 
 
 class VentaCreate(VentaBase):
     """Modelo para crear venta"""
     detalles: List['DetalleVentaCreate']
+
+
+class VentaGuestCreate(BaseModel):
+    """Modelo para crear venta como invitado (sin id_usuario)"""
+    total_venta: Decimal
+    estado: Optional[str] = "completada"
+    observaciones: Optional[str] = None
+    detalles: List['DetalleVentaCreate']
+    guest_info: Optional[dict] = None  # Datos del cliente invitado y entrega
 
 
 class VentaUpdate(BaseModel):
@@ -102,6 +129,11 @@ class Venta(VentaBase):
     fecha_actualizacion: datetime
     usuario: Optional[str] = None  # Nombre del usuario
     detalles_venta: Optional[List['DetalleVenta']] = []
+    # Nuevos campos opcionales
+    tipo_documento: Optional[str] = None
+    folio_documento: Optional[str] = None
+    fecha_emision_sii: Optional[date] = None
+    cliente_id: Optional[int] = None
     
     class Config:
         from_attributes = True

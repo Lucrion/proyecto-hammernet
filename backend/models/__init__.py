@@ -14,6 +14,7 @@ from .producto import ProductoDB, Producto, ProductoCreate, ProductoUpdate
 from .catalogo import ProductoCatalogo, AgregarACatalogo
 from .mensaje import MensajeContactoDB, MensajeContacto, MensajeContactoCreate
 from .venta import VentaDB, DetalleVentaDB, MovimientoInventarioDB, Venta, DetalleVenta, MovimientoInventario, VentaCreate, DetalleVentaCreate, MovimientoInventarioCreate
+from .pago import PagoDB, Pago, PagoCreate
 from .despacho import DespachoDB, Despacho, DespachoCreate, DespachoUpdate
 from .auditoria import AuditoriaDB, Auditoria
 
@@ -28,6 +29,7 @@ __all__ = [
     "VentaDB", "DetalleVentaDB", "MovimientoInventarioDB",
     "Venta", "DetalleVenta", "MovimientoInventario",
     "VentaCreate", "DetalleVentaCreate", "MovimientoInventarioCreate",
+    "PagoDB", "Pago", "PagoCreate",
     "DespachoDB", "Despacho", "DespachoCreate", "DespachoUpdate",
     "AuditoriaDB", "Auditoria"
 ]

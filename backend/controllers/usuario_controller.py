@@ -14,13 +14,18 @@ from models.usuario import UsuarioDB, UsuarioCreate, UsuarioUpdate, Usuario
 from core.auth import hash_contraseña
 
 
-def _normalizar_rut(rut: str) -> str:
-    """Normaliza un RUT: elimina puntos, espacios y deja el guion si existe"""
-    if not rut:
+def _rut_a_int(rut) -> int:
+    """Convierte un RUT con formato (con puntos/guion) a entero (solo dígitos).
+    Acepta int y str; si es str, se extraen solo dígitos, descartando DV.
+    """
+    if rut is None:
+        return None
+    if isinstance(rut, int):
         return rut
-    rut = rut.strip().upper()
-    rut = rut.replace('.', '').replace(' ', '')
-    return rut
+    s = str(rut).strip()
+    # Extraer únicamente dígitos
+    digits = ''.join(ch for ch in s if ch.isdigit())
+    return int(digits) if digits else None
 
 
 class UsuarioController:
@@ -49,9 +54,9 @@ class UsuarioController:
                     detail="La confirmación de contraseña no coincide"
                 )
 
-            # Normalizar RUT y usarlo como username (login por RUT)
-            rut_norm = _normalizar_rut(usuario.rut or usuario.username)
-            if not rut_norm:
+            # Normalizar RUT a entero (login por RUT)
+            rut_int = _rut_a_int(usuario.rut)
+            if not rut_int:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Debe proporcionar el RUT"
@@ -64,8 +69,7 @@ class UsuarioController:
             db_usuario = UsuarioDB(
                 nombre=usuario.nombre,
                 apellido=usuario.apellido,
-                username=rut_norm,  # compatibilidad con OAuth2PasswordRequestForm
-                rut=rut_norm,
+                rut=rut_int,
                 email=usuario.email,
                 telefono=usuario.telefono,
                 password=hashed_password,
@@ -80,8 +84,7 @@ class UsuarioController:
                 id_usuario=db_usuario.id_usuario,
                 nombre=db_usuario.nombre,
                 apellido=db_usuario.apellido,
-                username=db_usuario.username,
-                rut=db_usuario.rut,
+                rut=_rut_a_int(db_usuario.rut),
                 email=db_usuario.email,
                 telefono=db_usuario.telefono,
                 role=db_usuario.role,
@@ -93,8 +96,6 @@ class UsuarioController:
             db.rollback()
             # Mensaje más específico según restricción
             msg = "El usuario ya existe"
-            if 'username' in str(ie.orig).lower():
-                msg = "El RUT/usuario ya está registrado"
             if 'rut' in str(ie.orig).lower():
                 msg = "El RUT ya está registrado"
             if 'email' in str(ie.orig).lower():
@@ -113,13 +114,13 @@ class UsuarioController:
             )
     
     @staticmethod
-    async def crear_usuario_google(nombre: str, username: str, email: str, password: str, role: str, db: Session) -> Usuario:
+    async def crear_usuario_google(nombre: str, rut: str, email: str, password: str, role: str, db: Session) -> Usuario:
         """
         Crea un nuevo usuario desde Google OAuth
         
         Args:
             nombre: Nombre del usuario
-            username: Username único
+            rut: RUT del usuario (normalizado)
             email: Email del usuario
             password: Contraseña temporal
             role: Rol del usuario
@@ -138,7 +139,7 @@ class UsuarioController:
             # Crear usuario en BD
             db_usuario = UsuarioDB(
                 nombre=nombre,
-                username=username,
+                rut=_rut_a_int(rut) if rut else None,
                 email=email,
                 password=hashed_password,
                 role=role,
@@ -153,8 +154,7 @@ class UsuarioController:
                 id_usuario=db_usuario.id_usuario,
                 nombre=db_usuario.nombre,
                 apellido=db_usuario.apellido,
-                username=db_usuario.username,
-                rut=db_usuario.rut,
+                rut=_rut_a_int(db_usuario.rut),
                 email=db_usuario.email,
                 telefono=db_usuario.telefono,
                 role=db_usuario.role,
@@ -276,14 +276,9 @@ class UsuarioController:
                 usuario.nombre = usuario_update.nombre
             if usuario_update.apellido is not None:
                 usuario.apellido = usuario_update.apellido
-            # Si se actualiza el RUT, normalizarlo y mantener username = rut
+            # Si se actualiza el RUT, normalizarlo a entero
             if usuario_update.rut is not None:
-                rut_norm = _normalizar_rut(usuario_update.rut)
-                usuario.rut = rut_norm
-                usuario.username = rut_norm
-            # Si se actualiza explícitamente el username y NO se envía rut, respetar el username
-            if usuario_update.username is not None and usuario_update.rut is None:
-                usuario.username = _normalizar_rut(usuario_update.username)
+                usuario.rut = _rut_a_int(usuario_update.rut)
             if usuario_update.email is not None:
                 usuario.email = usuario_update.email
             if usuario_update.telefono is not None:
@@ -300,8 +295,7 @@ class UsuarioController:
                 id_usuario=usuario.id_usuario,
                 nombre=usuario.nombre,
                 apellido=usuario.apellido,
-                username=usuario.username,
-                rut=usuario.rut,
+                rut=_rut_a_int(usuario.rut),
                 email=usuario.email,
                 telefono=usuario.telefono,
                 role=usuario.role,
@@ -315,7 +309,7 @@ class UsuarioController:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El nombre de usuario ya existe"
+                detail="El RUT ya existe"
             )
         except Exception as e:
             db.rollback()

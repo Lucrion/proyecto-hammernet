@@ -15,6 +15,40 @@ const corsConfig = {
 
 const API_TIMEOUT = parseInt(window.__ENV__?.PUBLIC_API_TIMEOUT || '10000');
 
+// ===== Utilidades RUT (UI y envío) =====
+function digitsOnly(value) {
+    return String(value || '').replace(/\D/g, '');
+}
+
+function computeRutDV(digits) {
+    const body = digitsOnly(digits);
+    if (!body) return '';
+    let sum = 0;
+    let factor = 2;
+    for (let i = body.length - 1; i >= 0; i--) {
+        sum += Number(body[i]) * factor;
+        factor = factor === 7 ? 2 : factor + 1;
+    }
+    const rest = 11 - (sum % 11);
+    if (rest === 11) return '0';
+    if (rest === 10) return 'K';
+    return String(rest);
+}
+
+function formatRutFromDigits(digits) {
+    const body = digitsOnly(digits);
+    if (!body) return '';
+    const dv = computeRutDV(body);
+    let result = '';
+    let tmp = body;
+    while (tmp.length > 3) {
+        result = '.' + tmp.slice(-3) + result;
+        tmp = tmp.slice(0, -3);
+    }
+    result = tmp + result + '-' + dv;
+    return result;
+}
+
 // Función para verificar disponibilidad del servidor
 async function checkServerAvailability() {
     try {
@@ -147,14 +181,11 @@ async function handleLogin(e) {
 
     // Obtener los valores del formulario
     const usernameInput = document.getElementById('username').value.trim();
-    const username = (tipoSeleccionado === 'trabajador') 
-        ? usernameInput // En modo trabajador no normalizamos ni restringimos el input
-        : normalizeRut(usernameInput);
+    const username = digitsOnly(usernameInput);
     const password = document.getElementById('password').value;
     
     if (!username || !password) {
-        const campo = (tipoSeleccionado === 'trabajador') ? 'usuario' : 'RUT';
-        showStatus(`Por favor, ingrese ${campo} y contraseña`, 'error');
+        showStatus('Por favor, ingrese RUT y contraseña', 'error');
         return;
     }
     
@@ -230,7 +261,7 @@ async function handleLogin(e) {
                         const user = {
                             id_usuario: data.id_usuario,
                             nombre: data.nombre,
-                            username: data.username,
+                            rut: digitsOnly(usernameAlt),
                             rol: data.role || data.rol || 'cliente'
                         };
 
@@ -238,7 +269,7 @@ async function handleLogin(e) {
                         localStorage.setItem('token', data.access_token);
                         localStorage.setItem('user', JSON.stringify(user));
                         localStorage.setItem('role', user.rol);
-                        localStorage.setItem('nombreUsuario', user.nombre || usernameAlt);
+                        localStorage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
                         showStatus('Autenticación exitosa. Redirigiendo...', 'success');
                         const tipoFinal = tipoSeleccionado || (user.rol === 'admin' ? 'trabajador' : 'cliente');
                         const destino = tipoFinal === 'cliente' ? '/' : '/admin';
@@ -299,7 +330,7 @@ async function handleLogin(e) {
         const user = {
             id_usuario: data.id_usuario,
             nombre: data.nombre,
-            username: data.username,
+            rut: data.rut ?? digitsOnly(usernameInput),
             rol: data.role || data.rol || 'cliente'
         };
         
@@ -309,7 +340,7 @@ async function handleLogin(e) {
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('role', user.rol);
         // Preferir el nombre real para mostrar en el header; si no viene, usar lo ingresado
-        localStorage.setItem('nombreUsuario', user.nombre || username);
+        localStorage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
         console.log('Token guardado:', data.access_token ? 'Token presente' : 'Token ausente');
         console.log('Autenticación exitosa');
         
@@ -422,13 +453,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         createAccountContainer.classList.add('hidden');
     }
 
-    // Ajustar etiqueta y placeholder del campo de usuario según modo
-    if (tipoSeleccionado === 'trabajador') {
-        if (usernameLabel) usernameLabel.textContent = 'Usuario';
-        if (usernameEl) usernameEl.placeholder = 'Tu usuario';
-    } else {
-        if (usernameLabel) usernameLabel.textContent = 'RUT';
-        if (usernameEl) usernameEl.placeholder = '20.347.793-7';
+    // Ajustar etiqueta y placeholder: ambos modos usan RUT
+    if (usernameLabel) usernameLabel.textContent = 'RUT';
+    if (usernameEl) usernameEl.placeholder = '20.347.793-7';
+
+    // Auto-rellenar desde storage si existe usuario
+    try {
+        const storagePrimary = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
+        const storageSecondary = (tipoSeleccionado === 'trabajador') ? window.localStorage : window.sessionStorage;
+        const userStr = storagePrimary.getItem('user') || storageSecondary.getItem('user');
+        if (userStr && usernameEl) {
+            const u = JSON.parse(userStr);
+            const rutDigits = (u && (u.rut || digitsOnly(u.username || ''))) || '';
+            if (rutDigits) {
+                usernameEl.value = formatRutFromDigits(rutDigits);
+            }
+        }
+    } catch (e) {
+        console.warn('No se pudo auto-rellenar el RUT:', e);
     }
 
     // Verificar disponibilidad del servidor al cargar la página
@@ -443,8 +485,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         loginForm.addEventListener('submit', handleLogin);
     }
     
-    // Formatear RUT al escribir solo en modo cliente
-    if (usernameEl && tipoSeleccionado !== 'trabajador') {
+    // Formatear RUT al escribir en ambos modos
+    if (usernameEl) {
         usernameEl.addEventListener('input', (e) => {
             const formatted = formatRut(e.target.value);
             e.target.value = formatted;

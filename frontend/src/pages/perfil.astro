@@ -33,7 +33,10 @@ import perfilScriptUrl from '../scripts/pages/perfil.js?url';
             </div>
             <div>
               <label for="perfilTelefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
-              <input id="perfilTelefono" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="+56 9 1234 5678" />
+              <div class="flex mt-1">
+                <span class="px-4 py-2 bg-gray-100 border border-r-0 rounded-l text-gray-700 select-none">+569</span>
+                <input id="perfilTelefono" type="text" class="w-full rounded-r border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2" placeholder="Ej: 91234567" />
+              </div>
             </div>
           </div>
           <div>

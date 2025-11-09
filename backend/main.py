@@ -25,6 +25,8 @@ from views.mensaje_routes import router as mensaje_router
 from views.venta_routes import router as venta_router
 from views.despacho_routes import router as despacho_router
 from views.auditoria_routes import router as auditoria_router
+from views.dashboard_routes import router as dashboard_router
+from views.pago_routes import router as pago_router
 
 # Verificar que las variables de entorno de Cloudinary estén configuradas
 cloudinary_vars = {
@@ -98,8 +100,10 @@ app.include_router(proveedor_router)
 app.include_router(producto_router)
 app.include_router(mensaje_router)
 app.include_router(venta_router)
+app.include_router(pago_router)
 app.include_router(despacho_router)
 app.include_router(auditoria_router)
+app.include_router(dashboard_router)
 
 if __name__ == "__main__":
     # Obtener configuración del servidor desde variables de entorno

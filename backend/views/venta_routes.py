@@ -9,9 +9,9 @@ from datetime import datetime, date
 from config.database import get_db
 from controllers.venta_controller import VentaController
 from models.venta import (
-    Venta, VentaCreate, VentaUpdate, 
+    Venta, VentaCreate, VentaUpdate,
     DetalleVenta, DetalleVentaCreate,
-    MovimientoInventario
+    MovimientoInventario, VentaGuestCreate
 )
 from core.auth import get_current_user, require_admin
 from config.constants import API_PREFIX
@@ -27,6 +27,15 @@ async def crear_venta(
 ):
     """ Crear una nueva venta """
     return VentaController.crear_venta(db, venta, venta.id_usuario)
+
+
+@router.post("/guest", response_model=Venta)
+async def crear_venta_invitado(
+    venta: VentaGuestCreate,
+    db: Session = Depends(get_db),
+):
+    """Crear una nueva venta como invitado (sin autenticación)"""
+    return VentaController.crear_venta_invitado(db, venta)
 
 
 @router.get("/", response_model=List[Venta])

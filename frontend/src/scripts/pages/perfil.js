@@ -1,4 +1,6 @@
 import { getData, postData, updateData } from '../utils/api.js';
+import { normalizePhoneCL, stripCLPrefix, formatPhoneUI } from '../utils/phone.js';
+import { digitsOnly, formatRutUI, formatRutFromDigits } from '../utils/rut.js';
 
 const estado = {
   user: null,
@@ -36,9 +38,9 @@ function loadPerfil() {
   const fill = (u) => {
     document.getElementById('perfilNombre').value = u?.nombre || '';
     document.getElementById('perfilApellido').value = u?.apellido || '';
-    document.getElementById('perfilRut').value = u?.rut || '';
+    document.getElementById('perfilRut').value = formatRutFromDigits(u?.rut || '');
     document.getElementById('perfilEmail').value = u?.email || '';
-    document.getElementById('perfilTelefono').value = u?.telefono || '';
+    document.getElementById('perfilTelefono').value = stripCLPrefix(u?.telefono || '');
   };
   fill(user || {});
   setInputsDisabled(document.getElementById('perfilForm'), true);
@@ -142,12 +144,13 @@ async function guardarPerfil(e) {
     return;
   }
 
+  const digitsRut = digitsOnly(document.getElementById('perfilRut').value.trim());
   const payload = {
     nombre: document.getElementById('perfilNombre').value.trim(),
     apellido: document.getElementById('perfilApellido').value.trim(),
-    rut: document.getElementById('perfilRut').value.trim(),
+    rut: digitsRut ? Number(digitsRut) : undefined,
     email: document.getElementById('perfilEmail').value.trim(),
-    telefono: document.getElementById('perfilTelefono').value.trim(),
+    telefono: normalizePhoneCL(document.getElementById('perfilTelefono').value.trim()),
   };
   const nuevaPassword = document.getElementById('perfilPassword').value.trim();
   if (nuevaPassword) payload.password = nuevaPassword;
@@ -249,6 +252,21 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDespacho();
   loadGoogleMaps();
   initEventos();
+  // Formatear RUT al escribir (puntos y guion con DV)
+  const rutEl = document.getElementById('perfilRut');
+  const telEl = document.getElementById('perfilTelefono');
+  if (rutEl) {
+    rutEl.addEventListener('input', (e) => {
+      const formatted = formatRutUI(e.target.value);
+      e.target.value = formatted;
+    });
+  }
+  if (telEl) {
+    telEl.addEventListener('input', (e) => {
+      const formatted = formatPhoneUI(e.target.value);
+      e.target.value = formatted;
+    });
+  }
 });
 
 // Integración Google Places Autocomplete (igual a carrito)
@@ -303,6 +321,8 @@ const loadGoogleMaps = () => {
   s.onload = initPlacesAutocomplete;
   document.head.appendChild(s);
 };
+
+// Utilidades RUT ahora provienen de ../utils/rut.js
 
 // Exponer funciones necesarias para handlers inline
 window.buscarEnMapa = buscarEnMapa;

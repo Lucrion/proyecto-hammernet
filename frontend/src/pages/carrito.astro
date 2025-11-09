@@ -539,14 +539,9 @@ import EnvLoader from '../components/EnvLoader.astro';
         return;
       }
 
-      // Necesitamos el usuario para registrar la venta
+      // Identificar si es usuario logueado o invitado
       const { user, token } = getAuth();
       const idUsuario = user && (user.id_usuario || user.id || user.idUsuario);
-      if (!idUsuario) {
-        alert('Debes iniciar sesión para finalizar la compra.');
-        window.location.href = '/login';
-        return;
-      }
 
       // Construir detalles de la venta desde el carrito
       const detalles = carrito.map(it => ({
@@ -562,14 +557,6 @@ import EnvLoader from '../components/EnvLoader.astro';
       const total = subtotal + envio;
 
       const API = computeApiUrl();
-      const body = {
-        id_usuario: Number(idUsuario),
-        total_venta: Number(total),
-        estado: 'pendiente',
-        observaciones: envio > 0 ? `Incluye costo de envío ${ENVIO_COSTO}` : undefined,
-        detalles
-      };
-
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -578,7 +565,47 @@ import EnvLoader from '../components/EnvLoader.astro';
       if (btn) { btn.disabled = true; btn.classList.add('opacity-75'); }
 
       try {
-        const resp = await fetch(`${API}/ventas/`, { method: 'POST', headers, body: JSON.stringify(body) });
+        let resp;
+        if (idUsuario) {
+          const bodyAuth = {
+            id_usuario: Number(idUsuario),
+            total_venta: Number(total),
+            estado: 'pendiente',
+            observaciones: envio > 0 ? `Incluye costo de envío ${ENVIO_COSTO}` : undefined,
+            detalles
+          };
+          resp = await fetch(`${API}/ventas/`, { method: 'POST', headers, body: JSON.stringify(bodyAuth) });
+        } else {
+          // Flujo invitado: recolectar datos esenciales del cliente y entrega
+          const getVal = (id) => {
+            const el = document.getElementById(id);
+            return el && typeof el.value === 'string' ? el.value.trim() : '';
+          };
+          const entregaTipo = (localStorage.getItem('checkoutEntrega') || 'retiro');
+          const guestInfo = {
+            nombre: getVal('dp-nombre') || 'Invitado',
+            email: getVal('dp-email') || getVal('dp-email2') || '',
+            telefono: getVal('dp-telefono') || '',
+            entrega: entregaTipo,
+            direccion: entregaTipo === 'despacho' ? {
+              buscar: getVal('dir-buscar'),
+              calle: getVal('dir-calle'),
+              numero: getVal('dir-numero'),
+              depto: getVal('dir-depto'),
+              adicional: getVal('dir-adicional')
+            } : null
+          };
+          const bodyGuest = {
+            total_venta: Number(total),
+            estado: 'pendiente',
+            observaciones: envio > 0 ? `Incluye costo de envío ${ENVIO_COSTO}` : undefined,
+            detalles,
+            guest_info: guestInfo
+          };
+          // Para invitado no enviamos Authorization
+          const headersGuest = { 'Content-Type': 'application/json' };
+          resp = await fetch(`${API}/ventas/guest`, { method: 'POST', headers: headersGuest, body: JSON.stringify(bodyGuest) });
+        }
         let venta;
         if (resp.ok) {
           venta = await resp.json();
@@ -688,7 +715,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         const nombreCompleto = [u?.nombre || '', u?.apellido || ''].filter(Boolean).join(' ');
         if (nombreEl && nombreCompleto) nombreEl.value = nombreCompleto;
         const rut = u?.rut || u?.username || '';
-        if (rutEl && rut) rutEl.value = rut;
+        if (rutEl && rut) rutEl.value = formatRutFromDigits(rut);
         let tel = (u?.telefono || '').replace(/^\+?56\s?9\s?/, '').replace(/\s+/g, '');
         if (telEl && tel) telEl.value = tel;
         if (emailEl && u?.email) emailEl.value = u.email;
@@ -781,5 +808,26 @@ import EnvLoader from '../components/EnvLoader.astro';
       } catch (e) { console.warn('No se pudo cargar dirección de despacho:', e); }
     };
 
+  </script>
+  <script>
+    // Utilidades RUT para UI en carrito: puntos y guion con DV
+    function digitsOnly(value) { return String(value ?? '').replace(/\D/g, ''); }
+    function computeRutDV(digits) {
+      const body = digitsOnly(digits);
+      if (!body) return '';
+      let sum = 0, factor = 2;
+      for (let i = body.length - 1; i >= 0; i--) { sum += Number(body[i]) * factor; factor = factor === 7 ? 2 : factor + 1; }
+      const rest = 11 - (sum % 11);
+      if (rest === 11) return '0'; if (rest === 10) return 'K'; return String(rest);
+    }
+    function formatRutFromDigits(value) {
+      const body = digitsOnly(value);
+      if (!body) return '';
+      const dv = computeRutDV(body);
+      let result = '';
+      let tmp = body;
+      while (tmp.length > 3) { result = '.' + tmp.slice(-3) + result; tmp = tmp.slice(0, -3); }
+      return tmp + result + '-' + dv;
+    }
   </script>
 </Layout>

@@ -43,15 +43,16 @@ class GoogleAuthController:
             # Buscar o crear usuario
             usuario = await self._find_or_create_user(user_info, db)
             
-            # Crear token JWT
-            token = crear_token(data={"sub": usuario.username})
+            # Crear token JWT usando RUT si existe, si no usar email
+            sub_value = usuario.rut if getattr(usuario, "rut", None) else usuario.email
+            token = crear_token(data={"sub": sub_value})
             
             return {
                 "access_token": token,
                 "token_type": "bearer",
                 "user": {
-                    "id": usuario.id,
-                    "username": usuario.username,
+                    "id": getattr(usuario, "id", getattr(usuario, "id_usuario", None)),
+                    "rut": getattr(usuario, "rut", None),
                     "nombre": usuario.nombre,
                     "email": usuario.email,
                     "role": usuario.role
@@ -105,13 +106,14 @@ class GoogleAuthController:
             return usuario_existente
         
         # Crear nuevo usuario
-        username = self._generate_unique_username(email, db)
+        # En este flujo no exigimos RUT; se puede completar luego
+        rut = None
         password_temporal = self._generate_random_password()
         
         usuario_controller = UsuarioController()
         nuevo_usuario = await usuario_controller.crear_usuario_google(
             nombre=nombre,
-            username=username,
+            rut=rut,
             email=email,
             password=password_temporal,
             role="cliente",
@@ -120,17 +122,7 @@ class GoogleAuthController:
         
         return nuevo_usuario
     
-    def _generate_unique_username(self, email: str, db: Session) -> str:
-        """Genera un username único basado en el email"""
-        base_username = email.split("@")[0]
-        username = base_username
-        counter = 1
-        
-        while db.query(Usuario).filter(Usuario.username == username).first():
-            username = f"{base_username}{counter}"
-            counter += 1
-        
-        return username
+    # Eliminado: generación de username ya no es necesaria al usar RUT/email
     
     def _generate_random_password(self) -> str:
         """Genera una contraseña aleatoria para usuarios de Google"""

@@ -1,5 +1,6 @@
 // Configuración centralizada
 import { API_URL, corsConfig, API_TIMEOUT } from '../utils/config.js';
+import { digitsOnly, formatRutUI, formatRutFromDigits } from '../utils/rut.js';
 // Asegurar headers adecuados para este flujo
 corsConfig.headers = {
   'Content-Type': 'application/x-www-form-urlencoded',
@@ -101,32 +102,7 @@ function showLoading(isLoading) {
     }
 }
 
-function normalizeRut(value) {
-    if (!value) return '';
-    const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
-    // Reconstruir poniendo guion antes del dígito verificador
-    if (cleaned.length >= 2) {
-        const dv = cleaned.slice(-1);
-        const body = cleaned.slice(0, -1);
-        return `${body}-${dv}`;
-    }
-    return cleaned;
-}
-
-function formatRut(value) {
-    if (!value) return '';
-    const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
-    if (cleaned.length <= 1) return cleaned;
-    const dv = cleaned.slice(-1);
-    let body = cleaned.slice(0, -1);
-    let result = '';
-    while (body.length > 3) {
-        result = '.' + body.slice(-3) + result;
-        body = body.slice(0, -3);
-    }
-    result = body + result + '-' + dv;
-    return result;
-}
+// El backend espera sólo dígitos; la UI muestra puntos y guion con DV
 
 // Función principal de autenticación
 async function handleLogin(e) {
@@ -138,14 +114,11 @@ async function handleLogin(e) {
 
     // Obtener los valores del formulario
     const usernameInput = document.getElementById('username').value.trim();
-    const username = (tipoSeleccionado === 'trabajador') 
-        ? usernameInput // En modo trabajador no normalizamos ni restringimos el input
-        : normalizeRut(usernameInput);
+    const username = digitsOnly(usernameInput);
     const password = document.getElementById('password').value;
     
     if (!username || !password) {
-        const campo = (tipoSeleccionado === 'trabajador') ? 'usuario' : 'RUT';
-        showStatus(`Por favor, ingrese ${campo} y contraseña`, 'error');
+        showStatus('Por favor, ingrese RUT y contraseña', 'error');
         return;
     }
     
@@ -202,45 +175,7 @@ async function handleLogin(e) {
             console.error('- URL:', response.url);
             console.error('- Headers:', [...response.headers.entries()]);
             
-            // Intento de respaldo: si es 401 y el usuario es RUT con guion, reintentar sin guion
-            if (response.status === 401 && tipoSeleccionado !== 'trabajador' && /-/.test(username)) {
-                try {
-                    const usernameAlt = username.replace(/-/g, '');
-                    const formDataAlt = new URLSearchParams();
-                    formDataAlt.append('username', usernameAlt);
-                    formDataAlt.append('password', password);
-                    formDataAlt.append('grant_type', 'password');
-                    const fetchOptionsAlt = { method: 'POST', body: formDataAlt, signal: controller.signal, ...corsConfig };
-                    console.warn('401 con RUT con guion. Reintentando sin guion:', formDataAlt.toString());
-                    response = await fetch(`${API_URL}/auth/login`, fetchOptionsAlt);
-                    if (response.ok) {
-                        clearTimeout(timeoutId);
-                        const data = await response.json();
-                        console.log('Respuesta de autenticación (fallback):', JSON.stringify(data));
-
-                        const user = {
-                            id_usuario: data.id_usuario,
-                            nombre: data.nombre,
-                            username: data.username,
-                            rol: data.role || data.rol || 'cliente'
-                        };
-
-                        const storage = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
-                        storage.setItem('isLoggedIn', 'true');
-                        storage.setItem('token', data.access_token);
-                        storage.setItem('user', JSON.stringify(user));
-                        storage.setItem('role', user.rol);
-                        storage.setItem('nombreUsuario', user.nombre || usernameAlt);
-                        showStatus('Autenticación exitosa. Redirigiendo...', 'success');
-                        const tipoFinal = tipoSeleccionado || (user.rol === 'admin' ? 'trabajador' : 'cliente');
-                        const destino = tipoFinal === 'cliente' ? '/' : '/admin';
-                        setTimeout(() => { window.location.href = destino; }, 800);
-                        return; // terminar handler después del fallback exitoso
-                    }
-                } catch (e) {
-                    console.warn('Fallback de login sin guion falló:', e);
-                }
-            }
+            // Sin fallback: siempre enviamos sólo dígitos al backend
 
             // Información específica para error 422
             if (response.status === 422) {
@@ -291,7 +226,7 @@ async function handleLogin(e) {
         const user = {
             id_usuario: data.id_usuario,
             nombre: data.nombre,
-            username: data.username,
+            rut: data.rut ?? digitsOnly(usernameInput),
             rol: data.role || data.rol || 'cliente'
         };
         
@@ -302,7 +237,7 @@ async function handleLogin(e) {
         storage.setItem('user', JSON.stringify(user));
         storage.setItem('role', user.rol);
         // Preferir el nombre real para mostrar en el header; si no viene, usar lo ingresado
-        storage.setItem('nombreUsuario', user.nombre || username);
+        storage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
         console.log('Token guardado:', data.access_token ? 'Token presente' : 'Token ausente');
         console.log('Autenticación exitosa');
         
@@ -415,13 +350,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         createAccountContainer.classList.add('hidden');
     }
 
-    // Ajustar etiqueta y placeholder del campo de usuario según modo
-    if (tipoSeleccionado === 'trabajador') {
-        if (usernameLabel) usernameLabel.textContent = 'Usuario';
-        if (usernameEl) usernameEl.placeholder = 'Tu usuario';
-    } else {
-        if (usernameLabel) usernameLabel.textContent = 'RUT';
-        if (usernameEl) usernameEl.placeholder = '20.347.793-7';
+    // Ajustar etiqueta y placeholder: ambos modos usan RUT
+    if (usernameLabel) usernameLabel.textContent = 'RUT';
+    if (usernameEl) usernameEl.placeholder = '20.347.793-7';
+
+    // Auto-rellenar el RUT si hay usuario guardado (cliente o trabajador)
+    try {
+        const storagePrimary = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
+        const storageSecondary = (tipoSeleccionado === 'trabajador') ? window.localStorage : window.sessionStorage;
+        const userStr = storagePrimary.getItem('user') || storageSecondary.getItem('user');
+        if (userStr && usernameEl) {
+            const u = JSON.parse(userStr);
+            const rutDigits = (u && (u.rut || digitsOnly(u.username || ''))) || '';
+            if (rutDigits) {
+                usernameEl.value = formatRutFromDigits(rutDigits);
+            }
+        }
+    } catch (e) {
+        console.warn('No se pudo auto-rellenar el RUT:', e);
     }
 
     // Verificar disponibilidad del servidor al cargar la página
@@ -436,10 +382,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         loginForm.addEventListener('submit', handleLogin);
     }
     
-    // Formatear RUT al escribir solo en modo cliente
-    if (usernameEl && tipoSeleccionado !== 'trabajador') {
+    // Formatear RUT al escribir en ambos modos (cliente y trabajador)
+    if (usernameEl) {
         usernameEl.addEventListener('input', (e) => {
-            const formatted = formatRut(e.target.value);
+            const formatted = formatRutUI(e.target.value);
             e.target.value = formatted;
             e.target.selectionStart = e.target.selectionEnd = formatted.length;
         });

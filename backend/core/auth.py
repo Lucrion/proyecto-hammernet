@@ -78,7 +78,7 @@ def crear_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Crea un token JWT (JSON Web Token) para autenticación.
     
     Args:
-        data: Diccionario con los datos a incluir en el token (debe contener 'sub' con el username)
+        data: Diccionario con los datos a incluir en el token (debe contener 'sub' con el RUT)
         expires_delta: Tiempo de expiración personalizado (opcional)
         
     Returns:
@@ -105,18 +105,18 @@ def verificar_token(token: str):
         token: Token JWT a verificar
         
     Returns:
-        dict: Diccionario con el username extraído del token, o None si el token es inválido
+        dict: Diccionario con el rut extraído del token, o None si el token es inválido
     """
     try:
         # Decodificar el token usando la clave secreta y el algoritmo configurado
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         
-        # Extraer el username del campo 'sub' (subject)
-        username: str = payload.get("sub")
-        if username is None:
+        # Extraer el valor del campo 'sub' (puede ser RUT o email según flujo)
+        subject: str = payload.get("sub")
+        if subject is None:
             return None
             
-        return {"username": username}
+        return {"rut": subject}
     except JWTError:
         # Si hay cualquier error en la decodificación, el token es inválido
         return None
@@ -148,13 +148,27 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     user_data = verificar_token(token)
     if user_data is None:
         raise credentials_exception
-    
-    # Extraer el username del token verificado
-    username = user_data["username"]
+
+    # Extraer el subject del token (puede ser RUT numérico o email)
+    subject = user_data["rut"]
+
+    # Intentar interpretar el subject como RUT entero
+    rut_int = None
+    try:
+        rut_int = int(str(subject))
+    except Exception:
+        rut_int = None
 
     # Buscar el usuario en la base de datos
     from models import UsuarioDB
-    user = db.query(UsuarioDB).filter(UsuarioDB.username == username).first()
+    user = None
+    if rut_int is not None:
+        user = db.query(UsuarioDB).filter(UsuarioDB.rut == rut_int).first()
+    
+    # Compatibilidad: si no se encontró por RUT, intentar por email
+    if user is None:
+        user = db.query(UsuarioDB).filter(UsuarioDB.email == str(subject)).first()
+
     if user is None:
         raise credentials_exception
     return user

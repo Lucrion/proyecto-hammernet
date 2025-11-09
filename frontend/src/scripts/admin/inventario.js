@@ -267,7 +267,7 @@ function mostrarInventario(inventario) {
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${codigoInterno}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreProducto}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto ? (producto.cantidad_disponible || 0).toLocaleString() : '0'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${producto ? (producto.precio_venta || 0).toLocaleString() : '0'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${(() => { const v = Math.round(((item?.precio || 0)) / 100); return v.toLocaleString(); })()}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreProveedor}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreCategoria}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">

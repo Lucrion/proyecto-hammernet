@@ -21,10 +21,8 @@ class UsuarioDB(Base):
     id_usuario = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(50), nullable=False)
     apellido = Column(String(50), nullable=True)
-    # Para compatibilidad con OAuth2 de FastAPI, seguimos usando 'username'
-    # pero guardaremos el RUT normalizado aquí
-    username = Column(String(50), unique=True, index=True, nullable=False)
-    rut = Column(String(20), unique=True, index=True, nullable=True)
+    # RUT numérico (solo dígitos), identificador único
+    rut = Column(Integer, unique=True, index=True, nullable=True)
     email = Column(String(120), unique=False, nullable=True)
     telefono = Column(String(20), nullable=True)
     password = Column(String(255), nullable=False)
@@ -33,7 +31,17 @@ class UsuarioDB(Base):
     fecha_creacion = Column(DateTime, default=func.now())
     
     # Relaciones
-    ventas = relationship("VentaDB", back_populates="usuario")
+    # Ventas realizadas por este usuario (id_usuario)
+    ventas = relationship(
+        "VentaDB",
+        back_populates="usuario",
+        primaryjoin="UsuarioDB.id_usuario==VentaDB.id_usuario"
+    )
+    # Ventas donde este usuario es el cliente frecuente (cliente_id)
+    ventas_como_cliente = relationship(
+        "VentaDB",
+        primaryjoin="UsuarioDB.id_usuario==VentaDB.cliente_id"
+    )
     movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="usuario")
     direcciones_despacho = relationship("DespachoDB", back_populates="usuario", cascade="all, delete-orphan")
 
@@ -44,8 +52,7 @@ class UsuarioBase(BaseModel):
     """Modelo base para usuario"""
     nombre: str
     apellido: Optional[str] = None
-    username: str
-    rut: Optional[str] = None
+    rut: Optional[int] = None
     email: Optional[str] = None
     telefono: Optional[str] = None
     role: str
@@ -61,8 +68,7 @@ class UsuarioUpdate(BaseModel):
     """Modelo para actualizar usuario"""
     nombre: Optional[str] = None
     apellido: Optional[str] = None
-    username: Optional[str] = None
-    rut: Optional[str] = None
+    rut: Optional[int] = None
     email: Optional[str] = None
     telefono: Optional[str] = None
     password: Optional[str] = None
@@ -81,7 +87,7 @@ class Usuario(UsuarioBase):
 
 class UsuarioLogin(BaseModel):
     """Modelo para login de usuario"""
-    username: str
+    rut: str
     password: str
 
 
@@ -91,5 +97,5 @@ class Token(BaseModel):
     token_type: str
     id_usuario: int
     nombre: str
-    username: str
+    rut: Optional[int] = None
     role: str

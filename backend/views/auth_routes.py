@@ -45,15 +45,15 @@ async def register_and_login(
     """Registro de usuario y retorno de Token para autologin"""
     usuario.role = "cliente"
     nuevo_usuario = await UsuarioController.crear_usuario(usuario, db)
-    # Crear token para autologin
+    # Crear token para autologin usando RUT
     from core.auth import crear_token
-    token = crear_token(data={"sub": nuevo_usuario.username})
+    token = crear_token(data={"sub": nuevo_usuario.rut})
     return Token(
         access_token=token,
         token_type="bearer",
         id_usuario=nuevo_usuario.id_usuario,
         nombre=nuevo_usuario.nombre,
-        username=nuevo_usuario.username,
+        rut=nuevo_usuario.rut,
         role=nuevo_usuario.role
     )
 

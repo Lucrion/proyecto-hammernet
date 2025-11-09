@@ -1,5 +1,7 @@
 // Configuración centralizada
 import { API_URL, API_TIMEOUT } from '../utils/config.js';
+import { normalizePhoneCL, formatPhoneUI } from '../utils/phone.js';
+import { digitsOnly, formatRutUI, formatRutFromDigits } from '../utils/rut.js';
 
 function showStatus(message, type = 'info') {
   const el = document.getElementById('statusMessage');
@@ -37,33 +39,7 @@ function showGoogleLoading(isLoading) {
   }
 }
 
-function normalizeRut(value) {
-  if (!value) return '';
-  const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
-  // Reconstruir poniendo guion antes del dígito verificador (sin puntos)
-  if (cleaned.length >= 2) {
-    const dv = cleaned.slice(-1);
-    const body = cleaned.slice(0, -1);
-    return `${body}-${dv}`;
-  }
-  return cleaned;
-}
-
-function formatRut(value) {
-  if (!value) return '';
-  const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (cleaned.length <= 1) return cleaned;
-  const dv = cleaned.slice(-1);
-  let body = cleaned.slice(0, -1);
-  // Insertar puntos cada 3 desde el final
-  let result = '';
-  while (body.length > 3) {
-    result = '.' + body.slice(-3) + result;
-    body = body.slice(0, -3);
-  }
-  result = body + result + '-' + dv;
-  return result;
-}
+// El backend recibe solo dígitos; la UI muestra puntos y guion con DV
 
 async function handleRegister(e) {
   e.preventDefault();
@@ -75,9 +51,9 @@ async function handleRegister(e) {
   const password = document.getElementById('password').value;
   const confirm_password = document.getElementById('confirm_password').value;
 
-  const rutNorm = normalizeRut(rutInput);
+  const rutNormDigits = digitsOnly(rutInput);
 
-  if (!nombre || !apellido || !rutNorm || !email || !telefono || !password || !confirm_password) {
+  if (!nombre || !apellido || !rutNormDigits || !email || !telefono || !password || !confirm_password) {
     showStatus('Completa todos los campos requeridos', 'error');
     return;
   }
@@ -96,10 +72,10 @@ async function handleRegister(e) {
     const payload = {
       nombre,
       apellido,
-      username: rutNorm, // compatibilidad OAuth2 (login por RUT)
-      rut: rutNorm,
+      username: rutNormDigits, // compatibilidad OAuth2 (login por RUT)
+      rut: Number(rutNormDigits),
       email,
-      telefono,
+      telefono: normalizePhoneCL(telefono),
       password,
       confirm_password,
       role: 'cliente'
@@ -135,12 +111,12 @@ async function handleRegister(e) {
     const user = {
       id_usuario: data.id_usuario,
       nombre: data.nombre,
-      username: data.username,
+      rut: data.rut ?? rutNormDigits,
       rol: data.role
     };
     localStorage.setItem('user', JSON.stringify(user));
 
-    showStatus(`Cuenta creada: ${formatRut(rutNorm)}. Iniciando sesión...`, 'success');
+    showStatus(`Cuenta creada: ${formatRutFromDigits(rutNormDigits)}. Iniciando sesión...`, 'success');
     setTimeout(() => { 
       if (user.rol === 'admin') {
         window.location.href = '/admin';
@@ -161,17 +137,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('registerForm');
   const googleButton = document.getElementById('googleButton');
   const rutEl = document.getElementById('rut');
+  const telEl = document.getElementById('telefono');
 
   form?.addEventListener('submit', handleRegister);
   googleButton?.addEventListener('click', handleGoogleAuth);
 
-  // Formatear RUT al escribir
+  // Formatear RUT al escribir (puntos y guion con DV)
   if (rutEl) {
     rutEl.addEventListener('input', (e) => {
       const pos = e.target.selectionStart;
-      const formatted = formatRut(e.target.value);
+      const formatted = formatRutUI(e.target.value);
       e.target.value = formatted;
       // Ajuste simple del cursor: mover al final
+      e.target.selectionStart = e.target.selectionEnd = formatted.length;
+    });
+  }
+
+  // Teléfono: permitir solo dígitos y limitar a 8 (prefijo fijo +569)
+  if (telEl) {
+    telEl.addEventListener('input', (e) => {
+      const formatted = formatPhoneUI(e.target.value);
+      e.target.value = formatted;
       e.target.selectionStart = e.target.selectionEnd = formatted.length;
     });
   }
