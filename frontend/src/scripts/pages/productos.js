@@ -1,6 +1,20 @@
-// Funciones para la página de productos
-import { API_URL, checkServerAvailability, handleApiError } from '../utils/config.js';
-import { getData } from '../utils/api.js';
+// Funciones para la página de productos (sin imports para evitar problemas de análisis)
+
+// Utilidades locales mínimas
+async function getJson(endpoint) {
+    const res = await fetch(endpoint);
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+    return res.json();
+}
+
+async function checkServerAvailability() {
+    try {
+        await fetch('/api/health');
+    } catch (e) {
+        // No bloquear si falla
+        console.warn('Servidor no disponible (healthcheck falló)');
+    }
+}
 
 // Función para formatear precios con puntos como separador de miles (formato chileno)
 function formatearPrecio(precio) {
@@ -23,10 +37,13 @@ const state = {
     },
     paginacion: {
         paginaActual: 1,
-        productosPorPagina: 10,
+        productosPorPagina: 12,
         totalPaginas: 1
     }
 };
+
+// Límite alto para traer suficientes productos del catálogo en una sola petición
+const CATALOGO_FETCH_LIMIT = 1000;
 
 // Elementos del DOM
 let contenedorProductos;
@@ -39,6 +56,7 @@ let toggleCategoriasBtn;
 let iconCategorias;
 let toggleSubcategoriasBtn;
 let iconSubcategorias;
+// Eliminado: botón y contenedor de "Cargar más"
 
 // Inicializar la aplicación cuando el DOM esté cargado
 document.addEventListener('DOMContentLoaded', () => {
@@ -63,6 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Cargar productos iniciales
     cargarProductos();
+
+    // Sin botón "Cargar más"
 });
 
 // Configurar event listeners
@@ -138,7 +158,7 @@ function configurarEventos() {
 async function cargarCategorias() {
     if (!contenedorCategorias) return;
     try {
-        const categorias = await getData('/api/categorias');
+        const categorias = await getJson('/api/categorias');
         const listaCat = Array.isArray(categorias) ? categorias : [];
         contenedorCategorias.innerHTML = listaCat.map(c => `
             <label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
@@ -191,7 +211,7 @@ function configurarEventosCategorias() {
 async function cargarSubcategoriasParaCategoria(idCategoria) {
     if (!contenedorSubcategorias || !idCategoria) return;
     try {
-        const subs = await getData(`/api/subcategorias?categoria_id=${idCategoria}`);
+        const subs = await getJson(`/api/subcategorias?categoria_id=${idCategoria}`);
         const listaSub = Array.isArray(subs) ? subs : [];
         contenedorSubcategorias.innerHTML = listaSub.map(s => `
             <label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
@@ -224,7 +244,7 @@ function configurarEventosSubcategorias() {
 }
 
 // Cargar productos desde la API
-export async function cargarProductos() {
+async function cargarProductos() {
     try {
         mostrarCargando();
         
@@ -235,8 +255,8 @@ export async function cargarProductos() {
             console.warn('Advertencia: No se pudo verificar la disponibilidad del servidor:', error);
         }
 
-        // Obtener todos los productos del catálogo
-        const productos = await getData('/api/productos/catalogo');
+        // Obtener productos del catálogo (pidiendo más que el límite por defecto 10)
+        const productos = await getJson(`/api/productos/catalogo?skip=0&limit=${CATALOGO_FETCH_LIMIT}`);
         state.todosProductos = Array.isArray(productos) ? productos : [];
         
         if (!Array.isArray(productos)) {
@@ -256,7 +276,7 @@ export async function cargarProductos() {
 }
 
 // Aplicar filtros a los productos
-export function aplicarFiltros() {
+function aplicarFiltros() {
     let productosFiltrados = Array.isArray(state.todosProductos) ? [...state.todosProductos] : [];
     
     // Filtro de búsqueda
@@ -304,6 +324,8 @@ export function aplicarFiltros() {
     mostrarProductos(productosPagina);
     actualizarInfoPaginacion();
     actualizarPaginacion();
+
+    // Sin botón "Cargar más"
 }
 
 // Mostrar productos en el grid
@@ -328,7 +350,7 @@ function mostrarProductos(productos) {
     contenedorProductos.innerHTML = productos.map(producto => `
         <div class="bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col" onclick="verProducto(${producto.id_producto})">
             <div class="relative w-full h-40 flex items-center justify-center bg-white">
-                ${producto.oferta_activa ? `<span class='absolute top-2 left-2 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded'>Oferta</span>` : ''}
+                ${producto.oferta_activa ? '<span class=\'absolute top-2 left-2 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
                 <img src="${producto.imagen_url || '/images/placeholder-product.jpg'}" 
                      alt="${producto.nombre}" 
                      class="h-32 w-auto object-contain">
@@ -337,13 +359,15 @@ function mostrarProductos(productos) {
                 <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${producto.nombre}</h3>
                 <p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${producto.descripcion || 'Sin descripción'}</p>
                 <div class="mt-auto flex items-center justify-center gap-2">
-                    ${producto.oferta_activa ? `<span class="text-xs line-through text-gray-500">$${formatearPrecio(producto.precio_venta ?? producto.precio ?? 0)}</span>` : ''}
+                    ${producto.oferta_activa ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(producto.precio_venta ?? producto.precio ?? 0) + '</span>' : ''}
                     <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(producto.precio_final ?? producto.precio_venta ?? producto.precio ?? 0)}</span>
                 </div>
             </div>
         </div>
     `).join('');
 }
+
+// Eliminado: append de productos para "Cargar más"
 
 // Actualizar información de paginación
 function actualizarInfoPaginacion() {
@@ -426,7 +450,7 @@ function actualizarPaginacion() {
 }
 
 // Cambiar página
-export function cambiarPagina(pagina) {
+function cambiarPagina(pagina) {
     if (pagina >= 1 && pagina <= state.paginacion.totalPaginas) {
         state.paginacion.paginaActual = pagina;
         aplicarFiltros();
@@ -434,7 +458,7 @@ export function cambiarPagina(pagina) {
         // Scroll hacia arriba
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-}
+// Eliminado: función "Cargar más"
 
 // Mostrar estado de carga
 function mostrarCargando() {

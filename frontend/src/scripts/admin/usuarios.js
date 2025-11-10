@@ -1,5 +1,6 @@
 // Importar funciones de API con autenticación
 import { getData, postData, updateData, deleteData } from '../utils/api.js';
+import { formatRutUI } from '../utils/rut.js';
 import { API_URL } from '../utils/config.js';
 
 // Variables globales
@@ -595,6 +596,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Formulario de usuario
     if (usuarioForm) {
+        // Formatear/máscara de RUT en tiempo real con límite 9 (cuerpo+DV)
+        const rutInput = document.getElementById('rut');
+        if (rutInput) {
+            rutInput.addEventListener('input', (e) => {
+                const formatted = formatRutUI(e.target.value);
+                e.target.value = formatted;
+                e.target.selectionStart = e.target.selectionEnd = formatted.length;
+            });
+        }
+
         usuarioForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             

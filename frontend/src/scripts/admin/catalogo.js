@@ -164,6 +164,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Botones de ejemplo para características (catalogar)
+    const btnEjemploCatalogarJSON = document.getElementById('btnEjemploCatalogarJSON');
+    const btnEjemploCatalogarTexto = document.getElementById('btnEjemploCatalogarTexto');
+    const catalogarCaracteristicas = document.getElementById('catalogarCaracteristicas');
+
+    // Botones de ejemplo para características (editar)
+    const btnEjemploEditarJSON = document.getElementById('btnEjemploEditarJSON');
+    const btnEjemploEditarTexto = document.getElementById('btnEjemploEditarTexto');
+    const editarCaracteristicas = document.getElementById('editarCaracteristicas');
+
+    const ejemploJSON = () => JSON.stringify({
+        Material: 'Acero forjado',
+        Peso: '450 g',
+        Golpe: '16 oz',
+        Mango: 'Fibra de vidrio con grip',
+        Garantia_meses: 12
+    }, null, 2);
+
+    const ejemploTexto = () => (
+        'Material: Acero forjado; Peso: 450 g; Golpe: 16 oz; Mango: Fibra de vidrio con grip; Garantía: 12 meses'
+    );
+
+    if (btnEjemploCatalogarJSON && catalogarCaracteristicas) {
+        btnEjemploCatalogarJSON.addEventListener('click', () => {
+            catalogarCaracteristicas.value = ejemploJSON();
+            catalogarCaracteristicas.focus();
+        });
+    }
+
+    if (btnEjemploCatalogarTexto && catalogarCaracteristicas) {
+        btnEjemploCatalogarTexto.addEventListener('click', () => {
+            catalogarCaracteristicas.value = ejemploTexto();
+            catalogarCaracteristicas.focus();
+        });
+    }
+
+    if (btnEjemploEditarJSON && editarCaracteristicas) {
+        btnEjemploEditarJSON.addEventListener('click', () => {
+            editarCaracteristicas.value = ejemploJSON();
+            editarCaracteristicas.focus();
+        });
+    }
+
+    if (btnEjemploEditarTexto && editarCaracteristicas) {
+        btnEjemploEditarTexto.addEventListener('click', () => {
+            editarCaracteristicas.value = ejemploTexto();
+            editarCaracteristicas.focus();
+        });
+    }
 });
 
 // Función para obtener productos desde la API
@@ -895,8 +945,8 @@ async function guardarEdicionCatalogado() {
     });
 
     try {
-        console.log('Enviando petición PUT a:', `/api/productos/catalogo/${idProducto}/`);
-        const response = await updateData(`/api/productos/catalogo/${idProducto}/`, data);
+        console.log('Enviando petición PUT a:', `/api/productos/catalogo/${idProducto}`);
+        const response = await updateData(`/api/productos/catalogo/${idProducto}`, data);
         console.log('Respuesta recibida:', response);
         
         if (response) {

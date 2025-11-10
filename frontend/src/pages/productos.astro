@@ -1,11 +1,235 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import EnvLoader from '../components/EnvLoader.astro';
-import productosScriptUrl from '../scripts/pages/productos.js?url';
+// Evitar cargar script externo por ahora; inyectar lógica mínima inline
 ---
 
 <EnvLoader />
-<script type="module" src={productosScriptUrl}></script>
+<script type="module">
+  // Lógica mínima para catálogo sin botón "Ver más"
+  const state = {
+    todosProductos: [],
+    totalProductos: 0,
+    paginacion: { paginaActual: 1, productosPorPagina: 12, totalPaginas: 1 },
+    filtros: { busqueda: '', precioMin: 0, precioMax: 100000, usarPrecio: false }
+  };
+
+  const contenedorProductos = document.getElementById('productos-grid');
+  const infoPaginacionContainer = document.getElementById('info-paginacion');
+  const paginacionContainer = document.getElementById('paginacion');
+  const inputBusqueda = document.getElementById('busqueda');
+  const rangoPrecio = document.getElementById('precio-rango');
+  const precioValor = document.getElementById('precio-valor');
+  const btnTogglePrecio = document.getElementById('toggle-precio');
+  const precioContainer = document.getElementById('precio-container');
+  const iconPrecio = document.getElementById('icon-precio');
+
+  function formatearPrecio(precio) {
+    return String(precio ?? 0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function mostrarCargando() {
+    if (!contenedorProductos) return;
+    contenedorProductos.innerHTML = `
+      <div class="col-span-full flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <span class="ml-3 text-gray-600">Cargando productos...</span>
+      </div>
+    `;
+  }
+
+  function mostrarProductos(productos) {
+    if (!contenedorProductos) return;
+    if (!Array.isArray(productos) || productos.length === 0) {
+      contenedorProductos.innerHTML = `<div class="col-span-full text-center py-12"><h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3></div>`;
+      return;
+    }
+    contenedorProductos.innerHTML = productos.map(p => `
+      <div class="bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden" onclick="verProducto(${p.id_producto})">
+        <div class="relative w-full aspect-square bg-white">
+          ${p.oferta_activa ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
+          <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
+            <img src="${p.imagen_url || '/images/placeholder-product.jpg'}" alt="${p.nombre}" class="w-full h-full object-cover" />
+          </div>
+        </div>
+        <div class="p-4 flex-1 flex flex-col">
+          <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${p.nombre}</h3>
+          <p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${p.descripcion || 'Sin descripción'}</p>
+          <div class="mt-auto flex items-center justify-center gap-2">
+            ${p.oferta_activa ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(p.precio_venta ?? p.precio ?? 0) + '</span>' : ''}
+            <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(p.precio_final ?? p.precio_venta ?? p.precio ?? 0)}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function actualizarInfoPaginacion() {
+    if (!infoPaginacionContainer) return;
+    if (state.totalProductos === 0) {
+      infoPaginacionContainer.innerHTML = '<p class="text-gray-500">No se encontraron productos</p>';
+      return;
+    }
+    const inicio = (state.paginacion.paginaActual - 1) * state.paginacion.productosPorPagina + 1;
+    const fin = Math.min(state.paginacion.paginaActual * state.paginacion.productosPorPagina, state.totalProductos);
+    infoPaginacionContainer.innerHTML = `<p class="text-sm text-gray-500">Mostrando ${inicio} a ${fin} de ${state.totalProductos} resultados</p>`;
+  }
+
+  function actualizarPaginacion() {
+    if (!paginacionContainer) return;
+    if (state.paginacion.totalPaginas <= 1) { paginacionContainer.innerHTML = ''; return; }
+    let html = '';
+    if (state.paginacion.paginaActual > 1) {
+      html += `
+        <button
+          onclick="cambiarPagina(${state.paginacion.paginaActual - 1})"
+          aria-label="Página anterior"
+          class="h-8 w-8 flex items-center justify-center rounded-full bg-black text-white hover:bg-gray-900 transition-colors duration-200 shadow"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+        </button>`;
+    }
+    html += '<div class="flex gap-2">';
+    for (let i = 1; i <= state.paginacion.totalPaginas; i++) {
+      if (i === state.paginacion.paginaActual) {
+        html += `<button class="px-3 py-1 bg-black text-white rounded-full text-sm">${i}</button>`;
+      } else {
+        html += `<button onclick="cambiarPagina(${i})" class="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-full text-sm">${i}</button>`;
+      }
+    }
+    html += '</div>';
+    if (state.paginacion.paginaActual < state.paginacion.totalPaginas) {
+      html += `
+        <button
+          onclick="cambiarPagina(${state.paginacion.paginaActual + 1})"
+          aria-label="Página siguiente"
+          class="h-8 w-8 flex items-center justify-center rounded-full bg-black text-white hover:bg-gray-900 transition-colors duration-200 shadow"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+          </svg>
+        </button>`;
+    }
+    paginacionContainer.innerHTML = html;
+  }
+
+  function aplicarFiltros() {
+    let arr = Array.isArray(state.todosProductos) ? [...state.todosProductos] : [];
+    arr = arr.filter(p => {
+      const term = state.filtros.busqueda?.toLowerCase() || '';
+      if (term) {
+        const n = (p.nombre || '').toLowerCase();
+        const d = (p.descripcion || '').toLowerCase();
+        if (!n.includes(term) && !d.includes(term)) return false;
+      }
+      if (state.filtros.usarPrecio) {
+        const precio = Number(p.precio_final ?? p.precio_venta ?? p.precio ?? 0);
+        if (!(precio >= state.filtros.precioMin && precio <= state.filtros.precioMax)) return false;
+      }
+      return true;
+    });
+    state.totalProductos = arr.length;
+    state.paginacion.totalPaginas = Math.ceil(state.totalProductos / state.paginacion.productosPorPagina);
+    const inicio = (state.paginacion.paginaActual - 1) * state.paginacion.productosPorPagina;
+    const fin = inicio + state.paginacion.productosPorPagina;
+    const pagina = arr.slice(inicio, fin);
+    mostrarProductos(pagina);
+    actualizarInfoPaginacion();
+    actualizarPaginacion();
+  }
+
+  window.cambiarPagina = function(p) {
+    if (p >= 1 && p <= state.paginacion.totalPaginas) {
+      state.paginacion.paginaActual = p;
+      aplicarFiltros();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  window.verProducto = function(id) {
+    window.location.href = `/productos/${id}`;
+  };
+
+  async function cargarProductos() {
+    mostrarCargando();
+    try {
+      await fetch('/api/health').catch(() => {});
+      const res = await fetch('/api/productos/catalogo?skip=0&limit=1000');
+      const productos = res.ok ? await res.json() : [];
+      // Aplicar ofertas de demostración a una parte del catálogo
+      function aplicarOfertasDemo(arr) {
+        const productos = Array.isArray(arr) ? [...arr] : [];
+        const indices = [0, 2, 4, 6, 8, 10]; // algunos productos para demo
+        const descuentos = [10, 15, 20, 25, 30, 35];
+        indices.forEach((idx, i) => {
+          const p = productos[idx];
+          if (!p) return;
+          const base = Number(p.precio_venta ?? p.precio_final ?? p.precio ?? 0);
+          if (!base || base <= 0) return;
+          const porc = descuentos[i % descuentos.length];
+          const final = Math.max(0, Math.round(base * (1 - porc / 100)));
+          p.oferta_activa = true;
+          p.tipo_oferta = 'porcentaje';
+          p.valor_oferta = porc;
+          p.precio_venta = base; // asegurar precio original
+          p.precio_final = final; // precio con descuento para visualización
+        });
+        return productos;
+      }
+      state.todosProductos = aplicarOfertasDemo(productos);
+      state.paginacion.paginaActual = 1;
+      aplicarFiltros();
+    } catch (e) {
+      if (contenedorProductos) {
+        contenedorProductos.innerHTML = '<div class="col-span-full text-center py-12 text-red-600">Error al cargar el catálogo</div>';
+      }
+      console.error(e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', cargarProductos);
+
+  // Eventos UI: búsqueda y precio
+  if (inputBusqueda) {
+    inputBusqueda.addEventListener('input', (e) => {
+      state.filtros.busqueda = (e.target.value || '').toLowerCase();
+      state.paginacion.paginaActual = 1;
+      aplicarFiltros();
+    });
+  }
+
+  if (rangoPrecio) {
+    const initial = Number(rangoPrecio.value || 100000);
+    state.filtros.precioMax = initial;
+    if (precioValor) precioValor.textContent = `$${initial.toLocaleString('es-CL')}+`;
+    rangoPrecio.addEventListener('input', (e) => {
+      const val = Number(e.target.value || 0);
+      state.filtros.precioMax = val;
+      state.paginacion.paginaActual = 1;
+      if (precioValor) precioValor.textContent = `$${val.toLocaleString('es-CL')}+`;
+      aplicarFiltros();
+    });
+  }
+
+  // Toggle de filtro por precio (como categorías)
+  if (btnTogglePrecio && precioContainer) {
+    btnTogglePrecio.addEventListener('click', () => {
+      const activo = !precioContainer.classList.contains('hidden');
+      if (activo) {
+        precioContainer.classList.add('hidden');
+        state.filtros.usarPrecio = false;
+      } else {
+        precioContainer.classList.remove('hidden');
+        state.filtros.usarPrecio = true;
+      }
+      if (iconPrecio) iconPrecio.classList.toggle('rotate-180');
+      state.paginacion.paginaActual = 1;
+      aplicarFiltros();
+    });
+  }
+</script>
 
 <Layout title="Productos - Ferretería Patricio">
 	<div class="container mx-auto px-4 py-8">
@@ -30,10 +254,15 @@ import productosScriptUrl from '../scripts/pages/productos.js?url';
                 <!-- Título de filtros eliminado -->
                 
                 <div class="space-y-8">
-                    <!-- Rango de precio -->
+                    <!-- Rango de precio (activo solo cuando se presiona el botón) -->
                     <div class="border-b pb-6">
-                        <h3 class="font-semibold mb-4 text-gray-700">Buscar por precio</h3>
-                        <div class="space-y-3">
+                        <button id="toggle-precio" class="flex items-center justify-between w-full font-semibold mb-4 text-gray-700 hover:text-blue-600">
+                            <span>Buscar por precio</span>
+                            <svg id="icon-precio" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transform transition-transform duration-200">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div id="precio-container" class="space-y-3 hidden">
                             <input id="precio-rango" type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" min="0" max="100000" step="1000">
                             <div class="flex justify-between text-sm text-gray-600">
                                 <span>$0</span>

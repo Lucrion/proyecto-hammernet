@@ -1,6 +1,10 @@
 // Utilidades para trabajar con RUT (formato UI y envío)
 export function cleanRutInput(value) {
-  return String(value ?? '').replace(/[^0-9kK]/g, '').toUpperCase();
+  // Limpiar y limitar a 9 caracteres (cuerpo + DV), excluyendo guion
+  return String(value ?? '')
+    .replace(/[^0-9kK]/g, '')
+    .toUpperCase()
+    .slice(0, 9);
 }
 
 export function digitsOnly(value) {
@@ -30,6 +34,8 @@ export function formatRutUI(value) {
   if (cleaned.length === 1) return cleaned;
   const dv = cleaned.slice(-1);
   let body = cleaned.slice(0, -1);
+  // Limitar cuerpo a 8 dígitos para cumplir máximo total 9 (incluye DV)
+  body = body.slice(0, 8);
   let formatted = '';
   while (body.length > 3) {
     formatted = '.' + body.slice(-3) + formatted;
@@ -41,7 +47,8 @@ export function formatRutUI(value) {
 
 // Formatear desde solo dígitos (sin DV) calculando DV automáticamente
 export function formatRutFromDigits(digits) {
-  const body = digitsOnly(digits);
+  // El cuerpo del RUT (sin DV) se limita a 8 dígitos
+  const body = digitsOnly(digits).slice(0, 8);
   if (!body) return '';
   const dv = computeRutDV(body);
   let formatted = '';

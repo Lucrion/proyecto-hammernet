@@ -34,28 +34,55 @@ try {
   if (/^\d+$/.test(productoSlug)) {
     productoId = parseInt(productoSlug);
   } else {
-    // Si no es numérico, buscar en el catálogo por slug
-    const responseCatalogo = await fetch(`${API_BASE}/productos/catalogo`);
-    if (responseCatalogo.ok) {
-      const productos = await responseCatalogo.json();
-      const productoEncontrado = productos.find(p => {
-        const slug = p.nombre.toLowerCase()
-          .replace(/[áàäâ]/g, 'a')
-          .replace(/[éèëê]/g, 'e')
-          .replace(/[íìïî]/g, 'i')
-          .replace(/[óòöô]/g, 'o')
-          .replace(/[úùüû]/g, 'u')
-          .replace(/[ñ]/g, 'n')
-          .replace(/[^a-z0-9]/g, '-')
-          .replace(/-+/g, '-')
-          .replace(/^-|-$/g, '');
-        console.log(`Comparando: "${slug}" === "${productoSlug}"`);
-        return slug === productoSlug;
-      });
-      
-      if (productoEncontrado) {
-        productoId = productoEncontrado.id_producto;
+    // Si no es numérico, buscar por slug: primero endpoint dedicado, luego fallback paginado
+    const PAGE_SIZE = 100;
+    // Intento 1: endpoint dedicado por slug
+    try {
+      const slugResp = await fetch(`${API_BASE}/productos/catalogo/slug/${productoSlug}`);
+      if (slugResp.ok) {
+        const prod = await slugResp.json();
+        productoId = prod?.id_producto;
       }
+    } catch (e) {
+      console.warn('No se pudo resolver por slug directamente:', e);
+    }
+    // Intento 2: fallback paginado si no se resolvió
+    try {
+      let total = 0;
+      const respTotal = await fetch(`${API_BASE}/productos/catalogo/total`);
+      if (respTotal.ok) {
+        const jsonTotal = await respTotal.json();
+        total = Number(jsonTotal.total || 0);
+      }
+      // Si el total es desconocido, al menos intentar una página grande
+      const maxItems = total > 0 ? total : PAGE_SIZE;
+      let skip = 0;
+      while (skip < maxItems && !productoId) {
+        const respPage = await fetch(`${API_BASE}/productos/catalogo?skip=${skip}&limit=${PAGE_SIZE}`);
+        if (!respPage.ok) break;
+        const productos = await respPage.json();
+        if (!Array.isArray(productos) || productos.length === 0) break;
+        const productoEncontrado = productos.find(p => {
+          const slug = String(p.nombre || '').toLowerCase()
+            .replace(/[áàäâ]/g, 'a')
+            .replace(/[éèëê]/g, 'e')
+            .replace(/[íìïî]/g, 'i')
+            .replace(/[óòöô]/g, 'o')
+            .replace(/[úùüû]/g, 'u')
+            .replace(/[ñ]/g, 'n')
+            .replace(/[^a-z0-9]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+          return slug === productoSlug;
+        });
+        if (productoEncontrado) {
+          productoId = productoEncontrado.id_producto;
+          break;
+        }
+        skip += PAGE_SIZE;
+      }
+    } catch (e) {
+      console.warn('No se pudo buscar en catálogo paginado:', e);
     }
   }
   
@@ -105,12 +132,13 @@ try {
 
         // Obtener productos similares desde la base de datos vía endpoint dedicado (máximo 6)
         try {
-          const respSim = await fetch(`${API_BASE}/productos/similares/${productoData.id_producto}?limit=6`);
+ const respSim = await fetch(`${API_BASE}/productos/similares/${productoData.id_producto}?limit=10`);
           if (respSim.ok) {
             const similares = await respSim.json();
             productosSimilares = Array.isArray(similares) ? similares.map(s => ({
               id: s.id,
               nombre: s.nombre,
+              descripcion: s.descripcion || '',
               imagen: normalizeImageUrl(s.imagen),
               precio: Number(s.precio || 0)
             })) : [];
@@ -134,6 +162,49 @@ try {
 } catch (err) {
   console.error('Error al cargar producto:', err);
   error = 'Error al cargar el producto';
+}
+
+// Preparar especificaciones estructuradas a partir de "caracteristicas"
+let specItems = [];
+try {
+  if (producto && producto.caracteristicas) {
+    const raw = producto.caracteristicas;
+    let parsed = null;
+    // Intentar parsear JSON
+    try { parsed = JSON.parse(raw); } catch {}
+    if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed)) {
+        // Array de strings o objetos {key,value}
+        specItems = parsed.map(item => {
+          if (typeof item === 'string') {
+            const [k, ...rest] = item.split(':');
+            return { key: k?.trim() || null, value: rest.join(':').trim() || item.trim() };
+          }
+          if (item && typeof item === 'object') {
+            const k = item.key ?? item.nombre ?? item.propiedad ?? null;
+            const v = item.value ?? item.valor ?? item.descripcion ?? '';
+            return { key: k, value: String(v).trim() };
+          }
+          return { key: null, value: String(item).trim() };
+        }).filter(it => it.value);
+      } else {
+        // Objeto plano {clave: valor}
+        specItems = Object.entries(parsed)
+          .map(([k, v]) => ({ key: String(k).trim(), value: String(v).trim() }))
+          .filter(it => it.value);
+      }
+    } else if (typeof raw === 'string') {
+      // Texto: dividir por saltos de línea o ';'
+      const parts = raw.split(/\n|;|\r/).map(s => s.trim()).filter(s => s);
+      specItems = parts.map(p => {
+        const [k, ...rest] = p.split(':');
+        const val = rest.join(':').trim();
+        return { key: val ? k.trim() : null, value: val || p };
+      });
+    }
+  }
+} catch (e) {
+  // Fallback silencioso: si falla el parseo, se mantiene la visualización simple
 }
 
 // Si no se encuentra el producto, devolver 404
@@ -199,43 +270,117 @@ if (!producto) {
 							</div>
 						</div>
 						</div>
+						</div>
+						<!-- Especificaciones debajo de la imagen -->
+						<div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+							<h3 class="text-lg font-semibold text-gray-900 mb-3">Especificaciones</h3>
+							<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+								<dl class="divide-y divide-gray-100">
+									<div class="grid grid-cols-1 sm:grid-cols-2">
+										<div class="px-4 py-3 bg-gray-50">
+											<dt class="text-gray-600">Categoría</dt>
+											<dd class="font-medium">{producto.categoria?.replace(/_/g, ' ')}</dd>
+										</div>
+										<div class="px-4 py-3">
+											<dt class="text-gray-600">Stock disponible</dt>
+											<dd class="font-medium text-green-600">{producto.stock} unidades</dd>
+										</div>
+									</div>
+									{producto.marca && (
+										<div class="px-4 py-3">
+											<dt class="text-gray-600">Marca</dt>
+											<dd class="font-medium">{producto.marca}</dd>
+										</div>
+									)}
+									{(specItems && specItems.length > 0) ? (
+										<div>
+											<div class="px-4 py-3 bg-gray-50">
+												<dt class="text-gray-600">Características</dt>
+											</div>
+											<div class="px-4">
+												<ul class="divide-y divide-gray-100">
+													{specItems.map((item) => (
+														<li class="flex justify-between py-3">
+															<span class="text-gray-600">{item.key ?? 'Especificación'}</span>
+															<span class="font-medium">{item.value}</span>
+														</li>
+													))}
+												</ul>
+											</div>
+										</div>
+									) : (
+										producto.caracteristicas && (
+											<div class="px-4 py-3">
+												<dt class="text-gray-600">Características</dt>
+												<dd class="font-medium mt-1">{producto.caracteristicas}</dd>
+											</div>
+										)
+									)}
+									{producto.modelo && (
+										<div class="px-4 py-3">
+											<dt class="text-gray-600">Modelo</dt>
+											<dd class="font-medium">{producto.modelo}</dd>
+										</div>
+									)}
+									{producto.color && (
+										<div class="px-4 py-3">
+											<dt class="text-gray-600">Color</dt>
+											<dd class="font-medium flex items-center gap-2">
+												<span>{producto.color}</span>
+												<span class="inline-block w-4 h-4 rounded-full border" style={`background-color: ${String(producto.color).toLowerCase()}`}></span>
+											</dd>
+										</div>
+									)}
+									{producto.material && (
+										<div class="px-4 py-3">
+											<dt class="text-gray-600">Material</dt>
+											<dd class="font-medium">{producto.material}</dd>
+										</div>
+									)}
+
+									<div class="px-4 py-3 bg-gray-50">
+										<dt class="text-gray-600">Garantía</dt>
+										<dd class="font-medium">{producto.garantia_meses ? `${producto.garantia_meses} meses` : 'Sin garantía'}</dd>
+									</div>
+								</dl>
+							</div>
+						</div>
 					</div>
-				</div>
 
 				<!-- Detalles del producto -->
 				<div class="space-y-6 lg:sticky lg:top-24">
 					<!-- Título y precio -->
 					<div>
 						<h1 class="text-4xl font-bold text-gray-900 mb-2">{producto.nombre}</h1>
-						<div class="flex items-center space-x-4 mb-2">
-							{producto.tiene_oferta ? (
-								<>
-									<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
-									<span class="text-xl text-gray-500 line-through">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio_original)}</span>
-									<span class="text-sm px-2 py-1 bg-red-100 text-red-700 rounded">Oferta</span>
-									{(() => {
-										const ahorro = (producto.precio_original || 0) - (producto.precio || 0);
-										const pct = producto.precio_original ? Math.round((ahorro / producto.precio_original) * 100) : 0;
-										return (
-											<span class="text-sm text-green-700">Ahorro {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.max(0, ahorro))} ({pct}% OFF)</span>
-										);
-									})()}
-								</>
-							) : (
-								<span class="text-3xl font-bold text-blue-600">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
-							)}
-						</div>
-						<p class="text-sm text-gray-500">Precio con IVA incluido</p>
+                        <div class="flex items-center flex-wrap gap-3 mb-2">
+                            {producto.tiene_oferta ? (
+                                <>
+                                    <span class="px-4 py-2 bg-black text-white rounded text-3xl font-bold">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
+                                    <span class="text-xl text-gray-500 line-through">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio_original)}</span>
+                                    <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">
+                                        <svg class="w-3 h-3 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.39 4.84 5.34.78-3.86 3.76.91 5.32L10 14.77 4.22 16.7l.91-5.32L1.27 7.62l5.34-.78L10 2z"/></svg>
+                                        Oferta
+                                    </span>
+                                    {(() => {
+                                        const ahorro = (producto.precio_original || 0) - (producto.precio || 0);
+                                        const pct = producto.precio_original ? Math.round((ahorro / producto.precio_original) * 100) : 0;
+                                        return (
+                                            <span class="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 rounded text-xs">Ahorra {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.max(0, ahorro))} ({pct}% OFF)</span>
+                                        );
+                                    })()}
+                                </>
+                            ) : (
+                                <span class="px-4 py-2 bg-black text-white rounded text-3xl font-bold">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
+                            )}
+                        </div>
+                        <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs">IVA incluido</span>
 
-						<div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
-							{producto.codigo_interno && (
-								<span class="px-2 py-1 rounded bg-gray-100 text-gray-700">Código: {producto.codigo_interno}</span>
-							)}
-							{producto.marca && (
-								<span class="px-2 py-1 rounded bg-blue-50 text-blue-700">Marca: {producto.marca}</span>
-							)}
-							<span class={`px-2 py-1 rounded ${producto.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{producto.stock > 0 ? 'En stock' : 'Sin stock'}</span>
-						</div>
+					<div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+						{producto.marca && (
+							<span class="px-2 py-1 rounded bg-blue-50 text-blue-700">Marca: {producto.marca}</span>
+						)}
+						<span class={`px-2 py-1 rounded ${producto.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{producto.stock > 0 ? 'En stock' : 'Sin stock'}</span>
+					</div>
 					</div>
 
 					<!-- Descripción -->
@@ -243,67 +388,6 @@ if (!producto) {
 						<h3 class="text-lg font-semibold text-gray-900 mb-3">Descripción</h3>
 						<p class="text-gray-600 leading-relaxed">{producto.descripcion}</p>
 					</div>
-
-					<!-- Especificaciones -->
-					<div class="border-t border-gray-200 pt-6">
-						<h3 class="text-lg font-semibold text-gray-900 mb-3">Especificaciones</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Categoría:</span>
-                                <span class="font-medium">{producto.categoria?.replace(/_/g, ' ')}</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Stock disponible:</span>
-                                <span class="font-medium text-green-600">{producto.stock} unidades</span>
-                            </div>
-                            {producto.marca && (
-                                <div class="flex justify-between py-2 border-b border-gray-100">
-                                    <span class="text-gray-600">Marca:</span>
-                                    <span class="font-medium">{producto.marca}</span>
-                                </div>
-                            )}
-                            {producto.caracteristicas && (
-                                <div class="col-span-full py-2 border-b border-gray-100">
-                                    <span class="text-gray-600">Características:</span>
-                                    <p class="font-medium mt-1">{producto.caracteristicas}</p>
-                                </div>
-                            )}
-                            {producto.modelo && (
-                                <div class="flex justify-between py-2 border-b border-gray-100">
-                                    <span class="text-gray-600">Modelo:</span>
-                                    <span class="font-medium">{producto.modelo}</span>
-                                </div>
-                            )}
-                            {producto.color && (
-                                <div class="flex justify-between py-2 border-b border-gray-100">
-                                    <span class="text-gray-600">Color:</span>
-                                    <span class="font-medium">{producto.color}</span>
-                                </div>
-                            )}
-                            {producto.material && (
-                                <div class="flex justify-between py-2 border-b border-gray-100">
-                                    <span class="text-gray-600">Material:</span>
-                                    <span class="font-medium">{producto.material}</span>
-                                </div>
-                            )}
-                            {producto.subcategoria && (
-                                <div class="flex justify-between py-2 border-b border-gray-100">
-                                    <span class="text-gray-600">Subcategoría:</span>
-                                    <span class="font-medium">{producto.subcategoria?.replace(/_/g, ' ')}</span>
-                                </div>
-                            )}
-                            {producto.codigo_interno && (
-                                <div class="flex justify-between py-2 border-b border-gray-100">
-                                    <span class="text-gray-600">Código:</span>
-                                    <span class="font-medium">{producto.codigo_interno}</span>
-                                </div>
-                            )}
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Garantía:</span>
-                                <span class="font-medium">{producto.garantia_meses ? `${producto.garantia_meses} meses` : 'Sin garantía'}</span>
-                            </div>
-                        </div>
-                    </div>
 
 					<!-- Agregar al carrito -->
 					<div class="border-t border-gray-200 pt-6">
@@ -361,34 +445,26 @@ if (!producto) {
 								Comprar ahora
 							</button>
 
-							<!-- Información de envío y retiro -->
-							<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-								<div class="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-3">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h13M3 6h13M3 14h9m7-2v6a2 2 0 01-2 2h-3a2 2 0 01-2-2V7a2 2 0 012-2h3a2 2 0 012 2v5z" />
-									</svg>
-									<div>
-										<p class="font-medium text-gray-800">Despacho a domicilio</p>
-										<p class="text-sm text-gray-600">Entrega estimada 2–4 días hábiles</p>
-									</div>
-								</div>
-								<div class="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-3">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7l6 6-6 6M21 7l-6 6 6 6" />
-									</svg>
-									<div>
-										<p class="font-medium text-gray-800">Retiro en tienda</p>
-										<p class="text-sm text-gray-600">Disponible para retiro en sucursal</p>
-									</div>
-								</div>
-							</div>
+                            <!-- Información de envío y retiro -->
+                            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
+                                <div class="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-3 text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h13M3 6h13M3 14h9m7-2v6a2 2 0 01-2 2h-3a2 2 0 01-2-2V7a2 2 0 012-2h3a2 2 0 012 2v5z" />
+                                    </svg>
+                                    <div>
+                                        <p class="font-medium text-gray-800">Despacho a domicilio</p>
+                                    </div>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-3 text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7l6 6-6 6M21 7l-6 6 6 6" />
+                                    </svg>
+                                    <div>
+                                        <p class="font-medium text-gray-800">Retiro en tienda</p>
+                                    </div>
+                                </div>
+                            </div>
 
-							<div class="mt-4 flex items-center gap-3 text-xs text-gray-600">
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
-									<path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 5a1 1 0 10-2 0v5a1 1 0 00.293.707l4 4a1 1 0 001.414-1.414L13 11.586V7z" />
-								</svg>
-								<span>Compra segura — medios de pago garantizados</span>
-							</div>
 						</div>
 					</div>
 				</div>
@@ -404,22 +480,34 @@ if (!producto) {
 		)}
 
     {producto && productosSimilares && productosSimilares.length > 0 && (
-      <div class="mt-16">
+      <div class="mt-16 relative">
         <h2 class="text-2xl font-bold text-gray-900 mb-6">Productos similares</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {productosSimilares.map(sim => (
-            <a href={`/productos/${sim.id}`} class="bg-white rounded-lg shadow hover:shadow-md transition-shadow overflow-hidden">
-              <div class="w-full h-40 flex items-center justify-center bg-white">
-                <img src={sim.imagen || '/images/logos/herramientas.webp'} alt={sim.nombre} class="h-36 w-auto object-contain" loading="lazy" />
+        <div class="relative overflow-hidden">
+          <button id="similares-prev" aria-label="Anterior" class="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black text-white shadow rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/90">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+          <button id="similares-next" aria-label="Siguiente" class="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black text-white shadow rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/90">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+          </button>
+
+          <div id="similares-carousel" class="flex gap-6 overflow-x-auto pb-2 snap-x snap-mandatory cursor-grab select-none" style="scrollbar-width:none; --cols:4; --gap:1.5rem; padding-left:calc(2.5rem + 1rem); padding-right:calc(2.5rem + 1rem); scroll-padding-left:calc(2.5rem + 1rem); scroll-padding-right:calc(2.5rem + 1rem);">
+            {productosSimilares.map(sim => (
+              <div class="flex-none bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden snap-start sim-card" style="flex:0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));" onclick={`if(!window.__simDragGuard){ window.location.href='/productos/${sim.id}'; }`}>
+                <div class="relative w-full h-40 flex items-center justify-center bg-white">
+                  <img src={sim.imagen || '/images/logos/herramientas.webp'} alt={sim.nombre} class="h-32 w-auto object-contain pointer-events-none select-none" loading="lazy" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
+                </div>
+                <div class="p-4 flex-1 flex flex-col">
+                  <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center line-clamp-2">{sim.nombre}</h3>
+                  <p class="text-xs text-gray-600 mb-3 text-center line-clamp-2">{sim.descripcion || 'Sin descripción'}</p>
+                  <div class="mt-auto flex items-center justify-center">
+                    <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">
+                      {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(sim.precio)}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div class="p-4">
-                <h3 class="text-sm font-medium text-gray-900 line-clamp-2">{sim.nombre}</h3>
-                <p class="mt-2 text-blue-600 font-semibold">
-                  {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(sim.precio)}
-                </p>
-              </div>
-            </a>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     )}
@@ -572,6 +660,98 @@ if (!producto) {
 				contador.textContent = totalItems;
 			}
 		}
+
+		// Carrusel de productos similares (animación lenta controlada)
+			document.addEventListener('DOMContentLoaded', () => {
+				const cont = document.getElementById('similares-carousel');
+				const prev = document.getElementById('similares-prev');
+				const next = document.getElementById('similares-next');
+				if (!cont) return;
+			const getGapPx = () => {
+				const g = window.getComputedStyle(cont).gap || '24px';
+				const first = (g.split(' ')[0] || g).replace('px','');
+				const val = parseFloat(first);
+				return isNaN(val) ? 24 : val;
+			};
+			const getInsetPx = () => {
+				const s = window.getComputedStyle(cont);
+				const pl = parseFloat((s.paddingLeft || '0').replace('px','')) || 0;
+				const pr = parseFloat((s.paddingRight || '0').replace('px','')) || 0;
+				return { left: pl, right: pr };
+			};
+			const getCardFullWidth = () => {
+				const card = cont.querySelector('.sim-card');
+				if (!card) return 280;
+				const rect = card.getBoundingClientRect();
+				return Math.round(rect.width + getGapPx());
+			};
+			const getStep = () => getCardFullWidth();
+
+			// Movimiento instantáneo (sin retraso)
+			const moveInstant = (distance) => {
+				cont.scrollLeft = cont.scrollLeft + distance;
+			};
+
+			prev?.addEventListener('click', () => { moveInstant(-getStep() * 4); snapToNearest(true); });
+			next?.addEventListener('click', () => { moveInstant(getStep() * 4); snapToNearest(true); });
+
+			// Drag to scroll (mouse)
+			let isDown = false; let startX = 0; let startScroll = 0; let moved = false;
+			window.__simDragGuard = false;
+			const setGuard = () => { window.__simDragGuard = true; setTimeout(() => { window.__simDragGuard = false; }, 150); };
+			cont.addEventListener('mousedown', (e) => {
+				isDown = true; moved = false; cont.classList.add('cursor-grabbing');
+				startX = e.pageX - cont.offsetLeft; startScroll = cont.scrollLeft;
+			});
+			cont.addEventListener('mousemove', (e) => {
+				if (!isDown) return; e.preventDefault();
+				const x = e.pageX - cont.offsetLeft; const walk = x - startX;
+				cont.scrollLeft = startScroll - walk; if (Math.abs(walk) > 5) { moved = true; }
+			});
+			const snapToNearest = (instant = false) => {
+				const step = getCardFullWidth();
+				const { left: insetLeft, right: insetRight } = getInsetPx();
+				const left = cont.scrollLeft;
+				const relative = left - insetLeft;
+				let target = Math.round(relative / step) * step + insetLeft;
+				const maxScroll = cont.scrollWidth - cont.clientWidth; // límite derecho real
+				target = Math.max(0, Math.min(target, maxScroll));
+				cont.scrollLeft = target;
+			};
+
+			// Alinear al inicio: asegurar que la primera tarjeta esté junto al botón
+			const alignToStart = () => {
+				const { left: insetLeft } = getInsetPx();
+				cont.scrollLeft = insetLeft;
+				snapToNearest(true);
+			};
+			const endDrag = () => { if (isDown && moved) { setGuard(); snapToNearest(true); } isDown = false; moved = false; cont.classList.remove('cursor-grabbing'); };
+			cont.addEventListener('mouseleave', endDrag);
+			cont.addEventListener('mouseup', endDrag);
+
+			// Drag to scroll (touch)
+			let touchStartX = 0; let touchStartScroll = 0; let touchMoved = false;
+			cont.addEventListener('touchstart', (e) => {
+				const t = e.touches[0]; touchStartX = t.pageX - cont.offsetLeft; touchStartScroll = cont.scrollLeft; touchMoved = false;
+			}, { passive: true });
+			cont.addEventListener('touchmove', (e) => {
+				const t = e.touches[0]; const x = t.pageX - cont.offsetLeft; const walk = x - touchStartX;
+				cont.scrollLeft = touchStartScroll - walk; if (Math.abs(walk) > 5) { touchMoved = true; }
+				e.preventDefault();
+			}, { passive: false });
+			cont.addEventListener('touchend', () => { if (touchMoved) { setGuard(); snapToNearest(true); } touchMoved = false; }, { passive: true });
+
+			// Alinear al cargar para evitar tarjeta cortada inicial y al completar recursos
+			alignToStart();
+			window.addEventListener('load', alignToStart);
+			// Re-alinear en resize (cambio de viewport) con debouncing
+			let resizeTimer;
+			window.addEventListener('resize', () => {
+				clearTimeout(resizeTimer);
+				resizeTimer = setTimeout(() => alignToStart(), 120);
+			});
+
+		});
 		
 
 
@@ -613,6 +793,10 @@ if (!producto) {
 		.no-spinner[type="number"] {
 			-moz-appearance: textfield;
 		}
+
+		/* Ocultar scrollbar del carrusel de similares */
+		#similares-carousel::-webkit-scrollbar { display: none; }
+		#similares-carousel { -ms-overflow-style: none; scrollbar-width: none; }
 	</style>
 
 	<!-- Footer -->

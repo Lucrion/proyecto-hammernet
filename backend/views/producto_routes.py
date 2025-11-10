@@ -48,6 +48,14 @@ async def obtener_catalogo_publico(
     """ Obtener productos del catálogo público con paginación """
     return await ProductoController.obtener_catalogo_publico(db, skip, limit)
 
+@router.get("/catalogo/slug/{slug}", response_model=ProductoCatalogo)
+async def obtener_catalogo_por_slug(
+    slug: str,
+    db: Session = Depends(get_db)
+):
+    """ Obtener un producto del catálogo público por slug (derivado del nombre) """
+    return await ProductoController.obtener_catalogo_por_slug(db, slug)
+
 
 @router.get("/catalogo/total")
 async def obtener_total_catalogo(

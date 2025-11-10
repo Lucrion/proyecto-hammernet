@@ -23,9 +23,21 @@ from models.proveedor import ProveedorDB
 from config.cloudinary_config import upload_image
 import cloudinary.uploader
 from datetime import datetime
+import re
+import unicodedata
 
 
 class ProductoController:
+    @staticmethod
+    def _slugify_nombre(nombre: str) -> str:
+        if not nombre:
+            return ""
+        s = unicodedata.normalize('NFD', str(nombre))
+        s = ''.join(ch for ch in s if unicodedata.category(ch) != 'Mn')  # eliminar acentos
+        s = s.lower().replace('ñ', 'n')
+        s = re.sub(r'[^a-z0-9]+', '-', s)
+        s = re.sub(r'-+', '-', s).strip('-')
+        return s
     """Controlador para manejo de productos unificado con inventario"""
     
     @staticmethod
@@ -77,7 +89,8 @@ class ProductoController:
                     detail="Producto no encontrado"
                 )
             
-            return ProductoInventario.from_orm(producto)
+            # Retornar utilizando el serializador para asegurar precios en centavos
+            return serialize_producto_inventario(producto)
             
         except Exception as e:
             raise HTTPException(
@@ -162,6 +175,82 @@ class ProductoController:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error al obtener catálogo público: {str(e)}"
+            )
+
+    @staticmethod
+    async def obtener_catalogo_por_slug(db: Session, slug: str) -> ProductoCatalogo:
+        """
+        Obtiene un producto del catálogo público a partir del slug (derivado del nombre)
+        """
+        try:
+            productos = db.query(ProductoDB).options(
+                joinedload(ProductoDB.categoria),
+                joinedload(ProductoDB.subcategoria)
+            ).filter(
+                ProductoDB.en_catalogo == True,
+                ProductoDB.estado == "activo"
+            ).all()
+
+            candidato = None
+            for p in productos:
+                if ProductoController._slugify_nombre(p.nombre) == slug:
+                    candidato = p
+                    break
+
+            if not candidato:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado por slug")
+
+            precio_base = float(candidato.precio_venta) if candidato.precio_venta else 0
+            precio_final = precio_base
+            try:
+                aplica_oferta = bool(getattr(candidato, 'oferta_activa', False))
+                if aplica_oferta:
+                    inicio_ok = True
+                    fin_ok = True
+                    if getattr(candidato, 'fecha_inicio_oferta', None):
+                        inicio_ok = datetime.utcnow() >= candidato.fecha_inicio_oferta
+                    if getattr(candidato, 'fecha_fin_oferta', None):
+                        fin_ok = datetime.utcnow() <= candidato.fecha_fin_oferta
+                    if inicio_ok and fin_ok:
+                        tipo = getattr(candidato, 'tipo_oferta', None)
+                        valor = float(getattr(candidato, 'valor_oferta', 0) or 0)
+                        if tipo == 'porcentaje' and valor > 0:
+                            precio_final = max(0.0, round(precio_base * (1 - valor / 100), 2))
+                        elif tipo == 'fijo' and valor > 0:
+                            precio_final = max(0.0, round(precio_base - valor, 2))
+            except Exception:
+                precio_final = precio_base
+
+            producto_catalogo = ProductoCatalogo(
+                id_producto=candidato.id_producto,
+                nombre=candidato.nombre,
+                descripcion=candidato.descripcion or "Sin descripción",
+                imagen_url=candidato.imagen_url or "/images/default-product.jpg",
+                marca=candidato.marca or "Sin marca",
+                caracteristicas=candidato.caracteristicas or "Sin características especificadas",
+                garantia_meses=getattr(candidato, 'garantia_meses', None),
+                modelo=getattr(candidato, 'modelo', None),
+                color=getattr(candidato, 'color', None),
+                material=getattr(candidato, 'material', None),
+                precio_venta=precio_base,
+                id_categoria=candidato.id_categoria,
+                id_subcategoria=candidato.id_subcategoria,
+                disponible=(candidato.cantidad_disponible or 0) > 0,
+                fecha_agregado_catalogo=candidato.fecha_actualizacion,
+                oferta_activa=getattr(candidato, 'oferta_activa', False),
+                tipo_oferta=getattr(candidato, 'tipo_oferta', None),
+                valor_oferta=float(getattr(candidato, 'valor_oferta', 0) or 0),
+                precio_final=precio_final
+            )
+
+            return producto_catalogo
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al obtener producto por slug: {str(e)}"
             )
     
     @staticmethod
@@ -727,6 +816,7 @@ class ProductoController:
                 "id_proveedor": producto.id_proveedor,
                 "id_subcategoria": getattr(producto, 'id_subcategoria', None),
                 "marca": producto.marca,
+                "caracteristicas": getattr(producto, 'caracteristicas', None),
                 "garantia_meses": getattr(producto, 'garantia_meses', None),
                 "modelo": getattr(producto, 'modelo', None),
                 "color": getattr(producto, 'color', None),

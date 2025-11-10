@@ -1,5 +1,6 @@
 // Script para la gestión de proveedores
 import { getData, postData, updateData, deleteData } from '../utils/api.js';
+import { formatRutUI } from '../utils/rut.js';
 
 // Verificar autenticación
 const token = localStorage.getItem('token');
@@ -48,6 +49,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     if (formProveedor) {
+        // Aplicar máscara RUT al input si existe
+        const rutEl = document.getElementById('rut');
+        if (rutEl) {
+            rutEl.addEventListener('input', (e) => {
+                const formatted = formatRutUI(e.target.value);
+                e.target.value = formatted;
+                e.target.selectionStart = e.target.selectionEnd = formatted.length;
+            });
+        }
         formProveedor.addEventListener('submit', guardarProveedor);
     }
 });
@@ -110,6 +120,8 @@ window.editarProveedor = function(id) {
         document.getElementById('contacto').value = proveedorEditando.contacto || '';
         document.getElementById('celular').value = proveedorEditando.celular || '';
         document.getElementById('correo').value = proveedorEditando.correo || '';
+        const telefonoEl = document.getElementById('telefono');
+        if (telefonoEl) telefonoEl.value = proveedorEditando.telefono || '';
         document.getElementById('direccion').value = proveedorEditando.direccion || '';
         
         document.getElementById('tituloModal').textContent = 'Editar Proveedor';
@@ -131,6 +143,7 @@ async function guardarProveedor(e) {
         contacto: formData.get('contacto'),
         celular: formData.get('celular'),
         correo: formData.get('correo'),
+        telefono: formData.get('telefono'),
         direccion: formData.get('direccion')
     };
 

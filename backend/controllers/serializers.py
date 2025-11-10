@@ -14,27 +14,25 @@ from models.producto import ProductoDB
 from .usuario_controller import _rut_a_int
 
 
-def _to_cents(value: Optional[Union[int, float, str, Decimal]]) -> int:
-    """Convierte valores monetarios a enteros (centavos).
-    - Acepta int (se asume ya en pesos) -> pesos*100
-    - float/Decimal -> redondea a 2 decimales y multiplica por 100
-    - str -> intenta parsear decimal seguro
+def _to_pesos_int(value: Optional[Union[int, float, str, Decimal]]) -> int:
+    """Convierte valores monetarios a pesos chilenos enteros (sin centavos).
+    - int -> se usa tal cual (ya en pesos)
+    - float/Decimal -> se redondea al entero más cercano
+    - str -> parsea y redondea
     - None -> 0
     """
     if value is None:
         return 0
     try:
         if isinstance(value, int):
-            return value * 100
+            return value
         if isinstance(value, Decimal):
-            return int(round(float(value) * 100))
+            return int(round(float(value)))
         if isinstance(value, float):
-            return int(round(value * 100))
-        # cadenas: pueden venir como "59990" o "59990.50"
+            return int(round(value))
         if isinstance(value, str):
-            # limpiar separadores comunes
             v = value.strip().replace(",", "")
-            return int(round(float(v) * 100))
+            return int(round(float(v)))
     except Exception:
         return 0
     return 0
@@ -56,11 +54,11 @@ def serialize_usuario(u: UsuarioDB) -> Usuario:
 
 
 def serialize_producto_inventario(p: ProductoDB) -> ProductoInventario:
-    """Serializa ProductoDB a ProductoInventario, expresando dinero en centavos (int)."""
+    """Serializa ProductoDB a ProductoInventario en pesos chilenos (enteros)."""
     return ProductoInventario(
         id_inventario=p.id_producto,
         id_producto=p.id_producto,
-        precio=_to_cents(p.precio_venta),
+        precio=_to_pesos_int(p.precio_venta),
         cantidad=p.cantidad_disponible if p.cantidad_disponible else 0,
         fecha_registro=p.fecha_creacion.isoformat() if getattr(p, "fecha_creacion", None) else None,
         producto={
@@ -72,11 +70,11 @@ def serialize_producto_inventario(p: ProductoDB) -> ProductoInventario:
             "id_categoria": p.id_categoria,
             "id_proveedor": p.id_proveedor,
             "marca": p.marca,
-            "costo_bruto": _to_cents(p.costo_bruto),
-            "costo_neto": _to_cents(p.costo_neto),
-            "precio_venta": _to_cents(p.precio_venta),
+            "costo_bruto": _to_pesos_int(p.costo_bruto),
+            "costo_neto": _to_pesos_int(p.costo_neto),
+            "precio_venta": _to_pesos_int(p.precio_venta),
             "porcentaje_utilidad": float(p.porcentaje_utilidad or 0),
-            "utilidad_pesos": _to_cents(p.utilidad_pesos),
+            "utilidad_pesos": _to_pesos_int(p.utilidad_pesos),
             "cantidad_disponible": p.cantidad_disponible if p.cantidad_disponible else 0,
             "stock_minimo": p.stock_minimo if p.stock_minimo else 0,
             "estado": p.estado,

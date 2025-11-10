@@ -159,6 +159,28 @@ async def desactivar_usuario(
     return resp
 
 
+@router.put("/{usuario_id}/activar")
+async def activar_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """ Activar un usuario (alta lógica, solo administradores) """
+    resp = await UsuarioController.activar_usuario(usuario_id, db)
+    try:
+        registrar_evento(
+            db,
+            entidad_tipo="usuario",
+            entidad_id=usuario_id,
+            accion="activar",
+            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            detalle="Usuario activado (alta lógica)"
+        )
+    except Exception:
+        pass
+    return resp
+
+
 @router.delete("/{usuario_id}/eliminar-permanente")
 async def eliminar_usuario_permanente(
     usuario_id: int,

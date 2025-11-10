@@ -357,6 +357,43 @@ class UsuarioController:
             )
 
     @staticmethod
+    async def activar_usuario(usuario_id: int, db: Session) -> dict:
+        """
+        Activa un usuario previamente desactivado (alta lógica)
+        
+        Args:
+            usuario_id: ID del usuario
+            db: Sesión de base de datos
+            
+        Returns:
+            dict: Mensaje de confirmación
+            
+        Raises:
+            HTTPException: Si el usuario no existe o hay error
+        """
+        try:
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
+            if not usuario:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado"
+                )
+
+            # Activar usuario
+            usuario.activo = True
+            db.commit()
+
+            return {"message": "Usuario activado exitosamente"}
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al activar usuario: {str(e)}"
+            )
+
+    @staticmethod
     async def eliminar_usuario_permanente(usuario_id: int, db: Session) -> dict:
         """
         Elimina permanentemente un usuario de la base de datos

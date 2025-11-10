@@ -124,33 +124,29 @@ function mostrarProductosGenerales(productos) {
     contenedor.innerHTML = '';
 
     productos.forEach(producto => {
-        const imagen = producto.imagen_url || '/images/logos/herramientas.webp';
-    const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
-    const precio = Number(producto.precio_final ?? precioBase);
-    const tieneOferta = precioBase > 0 && precio < precioBase;
-    const tipo = producto.tipo_oferta;
-    const valor = Number(producto.valor_oferta ?? 0);
-    const porcentajeOferta = tipo === 'porcentaje' && valor > 0
-        ? Math.round(Math.min(100, Math.max(0, valor)))
-        : (tieneOferta && precioBase > 0 ? Math.round(100 * (precioBase - precio) / precioBase) : 0);
+        const imagen = producto.imagen_url || '/images/placeholder-product.jpg';
+        const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
+        const precio = Number(producto.precio_final ?? precioBase);
+        const tieneOferta = precioBase > 0 && precio < precioBase;
         const id = producto.id_producto ?? producto.id;
+        const descripcionCorta = (() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc; })();
         const productoHTML = `
-            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer flex flex-col" data-aos="fade-up" onclick="verProducto(${id})">
-                <div class="w-full h-36 flex items-center justify-center bg-white">
-                    <img src="${imagen}"
-                         alt="${producto.nombre}"
-                         class="h-32 w-auto object-contain" />
+            <div class="bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden" data-aos="fade-up" onclick="verProducto(${id})">
+                <div class="relative w-full aspect-square bg-white">
+                    ${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
+                    <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
+                        <img src="${imagen}" alt="${producto.nombre}" class="w-full h-full object-cover" />
+                    </div>
                 </div>
                 <div class="p-4 flex-1 flex flex-col">
-                    <h3 class="text-base font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
-                    ${(() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc?`<p class="text-xs text-gray-600 mb-3 text-center">${dc}</p>`:''; })()}
-                    <div class="mt-auto flex items-center justify-center space-x-2">
-                        ${tieneOferta ? `<span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded font-semibold">-${porcentajeOferta}%</span>` : ''}
+                    <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${producto.nombre}</h3>
+                    ${descripcionCorta ? `<p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${descripcionCorta}</p>` : ''}
+                    <div class="mt-auto flex items-center justify-center gap-2">
+                        ${tieneOferta ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(precioBase) + '</span>' : ''}
                         <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
-                        ${tieneOferta ? `<span class="text-xs text-gray-500 line-through">$${formatearPrecio(precioBase)}</span>` : ''}
+                    </div>
                 </div>
             </div>
-        </div>
         `;
         contenedor.innerHTML += productoHTML;
     });
@@ -163,33 +159,29 @@ function mostrarProductosDestacados(productos) {
     contenedor.innerHTML = '';
 
     productos.forEach(producto => {
-        const imagen = producto.imagen_url || '/images/logos/herramientas.webp';
-    const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
-    const precio = Number(producto.precio_final ?? precioBase);
-    const tieneOferta = precioBase > 0 && precio < precioBase;
-    const tipo = producto.tipo_oferta;
-    const valor = Number(producto.valor_oferta ?? 0);
-    const porcentajeOferta = tipo === 'porcentaje' && valor > 0
-        ? Math.round(Math.min(100, Math.max(0, valor)))
-        : (tieneOferta && precioBase > 0 ? Math.round(100 * (precioBase - precio) / precioBase) : 0);
+        const imagen = producto.imagen_url || '/images/placeholder-product.jpg';
+        const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
+        const precio = Number(producto.precio_final ?? precioBase);
+        const tieneOferta = precioBase > 0 && precio < precioBase;
         const id = producto.id_producto ?? producto.id;
+        const descripcionCorta = (() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc; })();
         const productoHTML = `
-            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer flex flex-col" data-aos="fade-up" onclick="verProducto(${id})">
-                <div class="w-full h-36 flex items-center justify-center bg-white">
-                    <img src="${imagen}"
-                         alt="${producto.nombre}"
-                         class="h-32 w-auto object-contain" />
+            <div class="bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden" data-aos="fade-up" onclick="verProducto(${id})">
+                <div class="relative w-full aspect-square bg-white">
+                    ${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
+                    <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
+                        <img src="${imagen}" alt="${producto.nombre}" class="w-full h-full object-cover" />
+                    </div>
                 </div>
                 <div class="p-4 flex-1 flex flex-col">
-                    <h3 class="text-base font-semibold text-gray-800 mb-2 text-center">${producto.nombre}</h3>
-                    ${(() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc?`<p class="text-xs text-gray-600 mb-3 text-center">${dc}</p>`:''; })()}
-                    <div class="mt-auto flex items-center justify-center space-x-2">
-                        ${tieneOferta ? `<span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded font-semibold">-${porcentajeOferta}%</span>` : ''}
+                    <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${producto.nombre}</h3>
+                    ${descripcionCorta ? `<p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${descripcionCorta}</p>` : ''}
+                    <div class="mt-auto flex items-center justify-center gap-2">
+                        ${tieneOferta ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(precioBase) + '</span>' : ''}
                         <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
-                        ${tieneOferta ? `<span class="text-xs text-gray-500 line-through">$${formatearPrecio(precioBase)}</span>` : ''}
+                    </div>
                 </div>
             </div>
-        </div>
         `;
         contenedor.innerHTML += productoHTML;
     });

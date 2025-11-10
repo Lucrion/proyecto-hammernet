@@ -56,8 +56,8 @@ import EnvLoader from '../components/EnvLoader.astro';
                                 </div>
                             </div>
                         </div>
-						<!-- Botón Carrito -->
-						<button id="carritoBtn" class="relative text-gray-700 hover:text-blue-600 focus:outline-none" aria-label="Carrito">
+					<!-- Botón Carrito -->
+					<button id="carritoBtn" class="relative text-black hover:text-black focus:outline-none cursor-pointer" aria-label="Carrito">
                             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l3-8H6l1 8zm-1 0a1 1 0 100 2 1 1 0 000-2zm12 0a1 1 0 100 2 1 1 0 000-2z" />
                             </svg>
@@ -229,16 +229,26 @@ import EnvLoader from '../components/EnvLoader.astro';
 		  const subtotalEl = document.getElementById('carrito-subtotal');
 		  const checkoutBtn = document.getElementById('checkoutBtn');
 
-		  const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+			  const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-		  const getCarrito = () => {
-			try {
-			  const c = JSON.parse(localStorage.getItem('carrito')) || [];
-			  return Array.isArray(c) ? c : [];
-			} catch {
-			  return [];
-			}
-		  };
+			  const getCarrito = () => {
+				try {
+				  const c = JSON.parse(localStorage.getItem('carrito')) || [];
+				  return Array.isArray(c) ? c : [];
+				} catch {
+				  return [];
+				}
+			  };
+
+			  const setCarrito = (carrito) => {
+				try { localStorage.setItem('carrito', JSON.stringify(carrito)); } catch {}
+			  };
+
+			  const eliminarItem = (id) => {
+				const carrito = getCarrito().filter(i => String(i.id) !== String(id));
+				setCarrito(carrito);
+				renderCarrito();
+			  };
 
 		  const isPlaceholderImage = (url) => {
 			if (!url) return true;
@@ -281,16 +291,19 @@ import EnvLoader from '../components/EnvLoader.astro';
 		      itemsContainer.innerHTML = '<p class="text-gray-500">Tu carrito está vacío.</p>';
 		      subtotalEl.textContent = '$0';
 		    } else {
-              itemsContainer.innerHTML = carrito.map(item => `
-                <div class="flex items-center gap-3">
-                  <img src="${item.imagen_url || '/images/logos/herramientas.webp'}" onerror="this.src='/images/logos/herramientas.webp';this.onerror=null;" class="w-12 h-12 object-cover rounded" alt="${item.nombre}">
-                  <div class="flex-1">
-                    <p class="text-sm font-medium">${item.nombre}</p>
-                    <p class="text-xs text-gray-500">Cantidad: ${item.cantidad}</p>
-                  </div>
-                  <div class="text-sm font-semibold">$${formatearPrecio(Number(item.precio_venta ?? item.precio) * item.cantidad)}</div>
-                </div>
-              `).join('');
+				  itemsContainer.innerHTML = carrito.map(item => `
+					<div class="flex items-center gap-3">
+					  <img src="${item.imagen_url || '/images/logos/herramientas.webp'}" onerror="this.src='/images/logos/herramientas.webp';this.onerror=null;" class="w-12 h-12 object-cover rounded" alt="${item.nombre}">
+					  <div class="flex-1">
+						<p class="text-sm font-medium flex items-center gap-2">
+						  <span class="truncate">${item.nombre}</span>
+						  <button class="text-gray-500 hover:text-red-600" aria-label="Quitar" onclick="eliminarItem('${item.id}')">&times;</button>
+						</p>
+						<p class="text-xs text-gray-500">Cantidad: ${item.cantidad}</p>
+					  </div>
+					  <div class="text-sm font-semibold">$${formatearPrecio(Number(item.precio_venta ?? item.precio) * item.cantidad)}</div>
+					</div>
+				  `).join('');
 		      const subtotal = carrito.reduce((acc, it) => acc + Number(it.precio_venta ?? it.precio) * it.cantidad, 0);
 		      subtotalEl.textContent = `$${formatearPrecio(subtotal)}`;
 		    }
