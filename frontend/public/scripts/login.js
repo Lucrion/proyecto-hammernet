@@ -20,6 +20,14 @@ function digitsOnly(value) {
     return String(value || '').replace(/\D/g, '');
 }
 
+// Limpiar entrada de RUT permitiendo solo dígitos y K/k, y limitar a 9 (cuerpo+DV)
+function cleanRutInput(value) {
+    return String(value ?? '')
+        .replace(/[^0-9kK]/g, '')
+        .toUpperCase()
+        .slice(0, 9);
+}
+
 function computeRutDV(digits) {
     const body = digitsOnly(digits);
     if (!body) return '';
@@ -157,11 +165,13 @@ function normalizeRut(value) {
 }
 
 function formatRut(value) {
-    if (!value) return '';
-    const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
-    if (cleaned.length <= 1) return cleaned;
+    const cleaned = cleanRutInput(value);
+    if (!cleaned) return '';
+    if (cleaned.length === 1) return cleaned;
     const dv = cleaned.slice(-1);
     let body = cleaned.slice(0, -1);
+    // Limitar cuerpo a 8 dígitos para cumplir máximo total 9 (incluye DV)
+    body = body.slice(0, 8);
     let result = '';
     while (body.length > 3) {
         result = '.' + body.slice(-3) + result;
@@ -464,7 +474,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const userStr = storagePrimary.getItem('user') || storageSecondary.getItem('user');
         if (userStr && usernameEl) {
             const u = JSON.parse(userStr);
-            const rutDigits = (u && (u.rut || digitsOnly(u.username || ''))) || '';
+            const rutDigits = (u && u.rut) || '';
             if (rutDigits) {
                 usernameEl.value = formatRutFromDigits(rutDigits);
             }
@@ -492,6 +502,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.target.value = formatted;
             e.target.selectionStart = e.target.selectionEnd = formatted.length;
         });
+        // Opcional: limitar la longitud visual máxima según el formato (hasta 13 chars)
+        try { usernameEl.maxLength = 13; } catch {}
     }
     
     // Agregar event listener al botón de Google

@@ -15,10 +15,12 @@ router = APIRouter(prefix=f"{API_PREFIX}/usuarios", tags=["Usuarios"])
 
 @router.get("/", response_model=List[Usuario])
 async def obtener_usuarios(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """Obtener todos los usuarios activos (solo administradores)"""
+    """Obtener todos los usuarios activos
+
+    VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
+    """
     usuarios = await UsuarioController.obtener_usuarios(db)
     return [
         {
@@ -38,10 +40,12 @@ async def obtener_usuarios(
 
 @router.get("/desactivados", response_model=List[Usuario])
 async def obtener_usuarios_desactivados(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """Obtener todos los usuarios desactivados (solo administradores)"""
+    """Obtener todos los usuarios desactivados
+
+    VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
+    """
     usuarios = await UsuarioController.obtener_usuarios_desactivados(db)
     return [
         {
@@ -59,10 +63,12 @@ async def obtener_usuarios_desactivados(
 @router.get("/{usuario_id}", response_model=Usuario)
 async def obtener_usuario(
     usuario_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
-    """ Obtener un usuario por ID """
+    """ Obtener un usuario por ID
+
+    VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
+    """
     # TODO: Reactivar después - Solo admin puede ver otros usuarios, usuarios normales solo pueden verse a sí mismos
     # if current_user.role != "administrador" and current_user.id_usuario != usuario_id:
     #     raise HTTPException(
@@ -87,10 +93,12 @@ async def obtener_usuario(
 @router.post("/", response_model=Usuario)
 async def crear_usuario(
     usuario: UsuarioCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """ Crear un nuevo usuario (solo administradores) """
+    """ Crear un nuevo usuario
+
+    VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
+    """
     nuevo = await UsuarioController.crear_usuario(usuario, db)
     try:
         registrar_evento(
@@ -98,7 +106,7 @@ async def crear_usuario(
             entidad_tipo="usuario",
             entidad_id=nuevo.id_usuario,
             accion="crear",
-            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            usuario_actor_id=None,
             detalle=f"Usuario creado: RUT {nuevo.rut} ({nuevo.role})"
         )
     except Exception:
@@ -111,10 +119,12 @@ async def crear_usuario(
 async def actualizar_usuario(
     usuario_id: int,
     usuario: UsuarioUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
-    """ Actualizar un usuario """
+    """ Actualizar un usuario
+
+    VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
+    """
     # TODO: Reactivar después - Solo admin puede actualizar otros usuarios, usuarios normales solo pueden actualizarse a sí mismos
     # if current_user.role != "administrador" and current_user.id_usuario != usuario_id:
     #     raise HTTPException(
@@ -129,7 +139,7 @@ async def actualizar_usuario(
             entidad_tipo="usuario",
             entidad_id=usuario_id,
             accion="actualizar",
-            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            usuario_actor_id=None,
             detalle="Datos de usuario actualizados"
         )
     except Exception:
@@ -140,10 +150,12 @@ async def actualizar_usuario(
 @router.put("/{usuario_id}/desactivar")
 async def desactivar_usuario(
     usuario_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """ Desactivar un usuario (eliminación lógica) """
+    """ Desactivar un usuario (eliminación lógica)
+
+    VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
+    """
     resp = await UsuarioController.eliminar_usuario(usuario_id, db)
     try:
         registrar_evento(
@@ -151,7 +163,7 @@ async def desactivar_usuario(
             entidad_tipo="usuario",
             entidad_id=usuario_id,
             accion="desactivar",
-            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            usuario_actor_id=None,
             detalle="Usuario desactivado (baja lógica)"
         )
     except Exception:
@@ -162,10 +174,12 @@ async def desactivar_usuario(
 @router.put("/{usuario_id}/activar")
 async def activar_usuario(
     usuario_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """ Activar un usuario (alta lógica, solo administradores) """
+    """ Activar un usuario (alta lógica)
+
+    VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
+    """
     resp = await UsuarioController.activar_usuario(usuario_id, db)
     try:
         registrar_evento(
@@ -173,7 +187,7 @@ async def activar_usuario(
             entidad_tipo="usuario",
             entidad_id=usuario_id,
             accion="activar",
-            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            usuario_actor_id=None,
             detalle="Usuario activado (alta lógica)"
         )
     except Exception:
@@ -184,10 +198,12 @@ async def activar_usuario(
 @router.delete("/{usuario_id}/eliminar-permanente")
 async def eliminar_usuario_permanente(
     usuario_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """ Eliminar permanentemente un usuario desactivado (solo administradores) """
+    """ Eliminar permanentemente un usuario desactivado
+
+    VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
+    """
     result = await UsuarioController.eliminar_usuario_permanente(usuario_id, db)
     try:
         registrar_evento(
@@ -195,7 +211,7 @@ async def eliminar_usuario_permanente(
             entidad_tipo="usuario",
             entidad_id=usuario_id,
             accion="eliminar",
-            usuario_actor_id=(current_user.get("id_usuario") if isinstance(current_user, dict) else None),
+            usuario_actor_id=None,
             detalle="Usuario eliminado permanentemente"
         )
     except Exception:

@@ -133,21 +133,18 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('AdminLayout - Estado de autenticación:', isLoggedIn);
     console.log('AdminLayout - Token:', token ? 'Token presente' : 'Token ausente');
     
-    // Validación de autenticación reactivada
-    if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
-        console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
-        // Redirigir al login si no está autenticado o no tiene token
-        window.location.href = '/login';
-        return;
-    }
-
-    // Validar rol de acceso a área administrativa
-    const effectiveRole = storedUserRole || storedRole || 'cliente';
-    if (effectiveRole !== 'administrador') {
-        console.warn('Acceso denegado: rol no administrador, redirigiendo al inicio');
-        window.location.href = '/';
-        return;
-    }
+    // VALIDACIÓN TEMPORALMENTE DESACTIVADA: No bloquear por token ni rol
+    // if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
+    //     console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
+    //     window.location.href = '/login';
+    //     return;
+    // }
+    // const effectiveRole = storedUserRole || storedRole || 'cliente';
+    // if (effectiveRole !== 'administrador') {
+    //     console.warn('Acceso denegado: rol no administrador, redirigiendo al inicio');
+    //     window.location.href = '/';
+    //     return;
+    // }
     
     // Mostrar el nombre del usuario
     if (nombreUsuario && nombreUsuarioElement) {

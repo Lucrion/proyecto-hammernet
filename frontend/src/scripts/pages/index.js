@@ -1,5 +1,5 @@
 // Funciones para la página principal
-import { API_URL, checkServerAvailability, handleApiError } from '../utils/config.js';
+import { API_URL, checkServerAvailability } from '../utils/config.js';
 import { getData, postData } from '../utils/api.js';
 
 // Estado global
@@ -21,6 +21,23 @@ if (typeof AOS !== 'undefined') {
         duration: 1000,
         once: true
     });
+}
+
+// Helpers de imagen (globales)
+function getApiHost() {
+    try {
+        const env = window.__ENV__ || {};
+        const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+        return api.replace(/\/api$/, '');
+    } catch { return ''; }
+}
+function normalizeImageUrl(u) {
+    if (!u) return null;
+    const s = String(u);
+    if (/^(https?:\/\/|data:)/i.test(s)) return s;
+    const host = getApiHost();
+    if (s.startsWith('/')) return host + s;
+    return host + '/' + s;
 }
 
 // Función para cargar productos destacados
@@ -124,10 +141,10 @@ function mostrarProductosGenerales(productos) {
     contenedor.innerHTML = '';
 
     productos.forEach(producto => {
-        const imagen = producto.imagen_url || '/images/placeholder-product.jpg';
+        const imagen = normalizeImageUrl(producto.imagen_url) || '/images/placeholder-product.jpg';
         const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
         const precio = Number(producto.precio_final ?? precioBase);
-        const tieneOferta = precioBase > 0 && precio < precioBase;
+        const tieneOferta = Boolean(producto.oferta_activa) || (precioBase > 0 && precio < precioBase);
         const id = producto.id_producto ?? producto.id;
         const descripcionCorta = (() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc; })();
         const productoHTML = `
@@ -159,10 +176,10 @@ function mostrarProductosDestacados(productos) {
     contenedor.innerHTML = '';
 
     productos.forEach(producto => {
-        const imagen = producto.imagen_url || '/images/placeholder-product.jpg';
+        const imagen = normalizeImageUrl(producto.imagen_url) || '/images/placeholder-product.jpg';
         const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
         const precio = Number(producto.precio_final ?? precioBase);
-        const tieneOferta = precioBase > 0 && precio < precioBase;
+        const tieneOferta = Boolean(producto.oferta_activa) || (precioBase > 0 && precio < precioBase);
         const id = producto.id_producto ?? producto.id;
         const descripcionCorta = (() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc; })();
         const productoHTML = `
@@ -243,6 +260,13 @@ export async function enviarMensaje(event) {
     }
 }
 
+// Utilidad: obtener sólo dígitos (para RUT)
+function digitsOnly(str) {
+    try {
+        return (str || '').toString().replace(/\D/g, '');
+    } catch { return ''; }
+}
+
 // Función para login
 export async function login(event) {
     event.preventDefault();
@@ -251,11 +275,17 @@ export async function login(event) {
     const formData = new FormData(form);
     
     try {
-        const formEncoded = new URLSearchParams();
-        formEncoded.append('username', formData.get('email'));
-        formEncoded.append('password', formData.get('password'));
+        // Aceptar tanto 'rut' como 'email' (compatibilidad), pero convertir a dígitos
+        const rutInput = formData.get('rut') || formData.get('email') || '';
+        const username = digitsOnly(rutInput);
+        const password = formData.get('password') || '';
 
-        const response = await fetch('/api/auth/login', {
+        const formEncoded = new URLSearchParams();
+        formEncoded.append('username', username);
+        formEncoded.append('password', password);
+        formEncoded.append('grant_type', 'password');
+
+        const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -265,24 +295,58 @@ export async function login(event) {
         });
 
         if (!response.ok) {
+            const text = await response.text();
+            console.error('Fallo login:', response.status, text);
             throw new Error('Credenciales inválidas');
         }
 
         const data = await response.json();
         
-        // Guardar token y datos del usuario
+        // Construir usuario desde el token
+        const user = {
+            id_usuario: data.id_usuario,
+            nombre: data.nombre,
+            rut: data.rut ?? username,
+            rol: data.role || 'cliente'
+        };
+
+        // Guardar token y estado
+        localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('token', data.access_token);
-        if (data.user) {
-            localStorage.setItem('user', JSON.stringify(data.user));
-            state.user = data.user;
-        }
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('role', user.rol);
+        localStorage.setItem('nombreUsuario', user.nombre || user.rut);
+        state.user = user;
         state.token = data.access_token;
+
+        // Intentar obtener usuario completo para asegurar email y teléfono
+        try {
+            const userId = user.id_usuario;
+            if (userId) {
+                const uResp = await fetch(`${API_URL}/usuarios/` + userId, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${data.access_token}`
+                    }
+                });
+                if (uResp.ok) {
+                    const fullUser = await uResp.json();
+                    if (fullUser && (fullUser.email || fullUser.telefono)) {
+                        localStorage.setItem('user', JSON.stringify(fullUser));
+                        state.user = fullUser;
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('No se pudo completar usuario tras login (index.js):', err);
+        }
 
         mostrarNotificacion('Login exitoso', 'success');
         actualizarUI();
         
         // Redirigir según el rol del usuario
-        if (data.user && data.user.rol === 'admin') {
+        const isAdmin = (state.user && (state.user.rol === 'administrador' || state.user.role === 'administrador' || state.user.rol === 'admin' || state.user.role === 'admin'));
+        if (isAdmin) {
             window.location.href = '/admin';
         } else {
             window.location.href = '/';
@@ -295,10 +359,18 @@ export async function login(event) {
 
 // Función para logout
 export function logout() {
+    // Limpiar todas las claves usadas en sesión
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('role');
+    localStorage.removeItem('nombreUsuario');
+
+    // Resetear estado en memoria
     state.token = null;
     state.user = null;
+
+    // Actualizar UI y permanecer en Home sin mostrar login de trabajador
     actualizarUI();
 }
 
@@ -307,6 +379,19 @@ export function actualizarUI() {
     const loginBtn = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout-btn');
     const userInfo = document.getElementById('user-info');
+    const isHome = window.location.pathname === '/' || window.location.pathname === '/index.html';
+
+    // En la página principal, no mostrar controles de inicio de sesión
+    if (isHome) {
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (userInfo) {
+            userInfo.style.display = 'none';
+            userInfo.textContent = '';
+        }
+        actualizarContadorCarrito();
+        return;
+    }
     
     const isAdmin = state.user && (state.user.rol === 'admin' || state.user.role === 'admin' || state.user.rol === 'administrador' || state.user.role === 'administrador');
     if (state.token && state.user && !isAdmin) {
@@ -319,7 +404,10 @@ export function actualizarUI() {
     } else {
         if (loginBtn) loginBtn.style.display = 'block';
         if (logoutBtn) logoutBtn.style.display = 'none';
-        if (userInfo) userInfo.style.display = 'none';
+        if (userInfo) {
+            userInfo.style.display = 'none';
+            userInfo.textContent = '';
+        }
     }
     
     actualizarContadorCarrito();

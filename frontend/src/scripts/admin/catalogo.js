@@ -169,11 +169,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnEjemploCatalogarJSON = document.getElementById('btnEjemploCatalogarJSON');
     const btnEjemploCatalogarTexto = document.getElementById('btnEjemploCatalogarTexto');
     const catalogarCaracteristicas = document.getElementById('catalogarCaracteristicas');
+    const btnEditorCatalogar = document.getElementById('btnEditorCatalogar');
+    const editorCatalogar = document.getElementById('editorCatalogar');
+    const editorCatalogarRows = document.getElementById('editorCatalogarRows');
+    const btnAgregarFilaCatalogar = document.getElementById('btnAgregarFilaCatalogar');
+    const btnAplicarCatalogar = document.getElementById('btnAplicarCatalogar');
+    const btnCerrarEditorCatalogar = document.getElementById('btnCerrarEditorCatalogar');
 
     // Botones de ejemplo para características (editar)
     const btnEjemploEditarJSON = document.getElementById('btnEjemploEditarJSON');
     const btnEjemploEditarTexto = document.getElementById('btnEjemploEditarTexto');
     const editarCaracteristicas = document.getElementById('editarCaracteristicas');
+    const btnEditorEditar = document.getElementById('btnEditorEditar');
+    const editorEditar = document.getElementById('editorEditar');
+    const editorEditarRows = document.getElementById('editorEditarRows');
+    const btnAgregarFilaEditar = document.getElementById('btnAgregarFilaEditar');
+    const btnAplicarEditar = document.getElementById('btnAplicarEditar');
+    const btnCerrarEditorEditar = document.getElementById('btnCerrarEditorEditar');
 
     const ejemploJSON = () => JSON.stringify({
         Material: 'Acero forjado',
@@ -214,6 +226,117 @@ document.addEventListener('DOMContentLoaded', () => {
             editarCaracteristicas.focus();
         });
     }
+
+    // ===== Editor de especificaciones (utilidades) =====
+    const parseSpecsInput = (str) => {
+        if (!str) return {};
+        str = String(str).trim();
+        // Intentar JSON primero
+        try {
+            const obj = JSON.parse(str);
+            if (obj && typeof obj === 'object' && !Array.isArray(obj)) return obj;
+        } catch (_) {}
+        // Intentar texto: pares separados por \n o ; con ':'
+        const specs = {};
+        const parts = str.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
+        for (const part of parts) {
+            const idx = part.indexOf(':');
+            if (idx > -1) {
+                const key = part.slice(0, idx).trim();
+                const val = part.slice(idx + 1).trim();
+                if (key) specs[key] = val;
+            }
+        }
+        return specs;
+    };
+
+    const renderEditorRows = (container, specsObj) => {
+        container.innerHTML = '';
+        const keys = Object.keys(specsObj);
+        if (keys.length === 0) {
+            // una fila vacía por defecto
+            addRow(container, '', '');
+            return;
+        }
+        for (const k of keys) {
+            addRow(container, k, specsObj[k]);
+        }
+    };
+
+    const addRow = (container, key = '', value = '') => {
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-2 gap-2 items-center';
+        row.innerHTML = `
+            <input type="text" placeholder="Clave" value="${key}" class="px-2 py-1 text-sm border rounded" />
+            <div class="flex gap-2 items-center">
+                <input type="text" placeholder="Valor" value="${value}" class="px-2 py-1 text-sm border rounded flex-1" />
+                <button type="button" class="px-2 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 border rounded">Eliminar</button>
+            </div>
+        `;
+        const removeBtn = row.querySelector('button');
+        removeBtn.addEventListener('click', () => {
+            container.removeChild(row);
+        });
+        container.appendChild(row);
+    };
+
+    const collectSpecsFromEditor = (container) => {
+        const result = {};
+        const rows = Array.from(container.children);
+        for (const row of rows) {
+            const inputs = row.querySelectorAll('input');
+            const key = inputs[0]?.value?.trim();
+            const value = inputs[1]?.value?.trim();
+            if (key) result[key] = value ?? '';
+        }
+        return result;
+    };
+
+    const applyToTextarea = (container, textarea) => {
+        const obj = collectSpecsFromEditor(container);
+        textarea.value = JSON.stringify(obj, null, 2);
+        textarea.focus();
+    };
+
+    // ===== Catálogo: wiring =====
+    if (btnEditorCatalogar && editorCatalogar && editorCatalogarRows && catalogarCaracteristicas) {
+        btnEditorCatalogar.addEventListener('click', () => {
+            const specs = parseSpecsInput(catalogarCaracteristicas.value);
+            renderEditorRows(editorCatalogarRows, specs);
+            editorCatalogar.classList.remove('hidden');
+        });
+    }
+    if (btnCerrarEditorCatalogar && editorCatalogar) {
+        btnCerrarEditorCatalogar.addEventListener('click', () => {
+            editorCatalogar.classList.add('hidden');
+        });
+    }
+    if (btnAgregarFilaCatalogar && editorCatalogarRows) {
+        btnAgregarFilaCatalogar.addEventListener('click', () => addRow(editorCatalogarRows));
+    }
+    if (btnAplicarCatalogar && editorCatalogarRows && catalogarCaracteristicas) {
+        btnAplicarCatalogar.addEventListener('click', () => applyToTextarea(editorCatalogarRows, catalogarCaracteristicas));
+    }
+
+    // ===== Editar: wiring =====
+    if (btnEditorEditar && editorEditar && editorEditarRows && editarCaracteristicas) {
+        btnEditorEditar.addEventListener('click', () => {
+            const specs = parseSpecsInput(editarCaracteristicas.value);
+            renderEditorRows(editorEditarRows, specs);
+            editorEditar.classList.remove('hidden');
+        });
+    }
+    if (btnCerrarEditorEditar && editorEditar) {
+        btnCerrarEditorEditar.addEventListener('click', () => {
+            editorEditar.classList.add('hidden');
+        });
+    }
+    if (btnAgregarFilaEditar && editorEditarRows) {
+        btnAgregarFilaEditar.addEventListener('click', () => addRow(editorEditarRows));
+    }
+    if (btnAplicarEditar && editorEditarRows && editarCaracteristicas) {
+        btnAplicarEditar.addEventListener('click', () => applyToTextarea(editorEditarRows, editarCaracteristicas));
+    }
 });
 
 // Función para obtener productos desde la API
@@ -236,22 +359,46 @@ async function obtenerCategorias() {
     }
 }
 
-// Función para obtener inventario
+// Función para obtener inventario (traer todos los registros)
 async function obtenerInventario() {
     try {
-        inventario = await getData('/api/productos/inventario');
-        console.log('Inventario cargado:', inventario);
+        // Obtener el total de registros de inventario
+        let total = 0;
+        try {
+            const totalResp = await getData('/api/productos/inventario/total');
+            total = (totalResp && typeof totalResp.total === 'number') ? totalResp.total : 0;
+        } catch (e) {
+            console.warn('No se pudo obtener el total de inventario, se usará límite alto por defecto:', e);
+        }
+
+        // Si no pudimos obtener el total, usar un límite amplio para evitar recortes por defecto (10)
+        const limit = total && total > 0 ? total : 1000;
+        const url = `/api/productos/inventario?skip=0&limit=${limit}`;
+        inventario = await getData(url);
+        console.log('Inventario cargado (cantidad):', Array.isArray(inventario) ? inventario.length : 0);
     } catch (error) {
         console.error('Error al obtener inventario:', error);
+        inventario = [];
     }
 }
 
-// Función para obtener catálogo público
+// Función para obtener catálogo público (traer todos los registros)
 async function obtenerCatalogo() {
     try {
-        const catalogo = await getData('/api/productos/catalogo');
-        console.log('Catálogo cargado:', catalogo);
-        return catalogo;
+        // Obtener el total de productos en catálogo
+        let total = 0;
+        try {
+            const totalResp = await getData('/api/productos/catalogo/total');
+            total = (totalResp && typeof totalResp.total === 'number') ? totalResp.total : 0;
+        } catch (e) {
+            console.warn('No se pudo obtener el total de catálogo, se usará límite alto por defecto:', e);
+        }
+
+        const limit = total && total > 0 ? total : 1000;
+        const url = `/api/productos/catalogo?skip=0&limit=${limit}`;
+        const catalogo = await getData(url);
+        console.log('Catálogo cargado (cantidad):', Array.isArray(catalogo) ? catalogo.length : 0);
+        return Array.isArray(catalogo) ? catalogo : [];
     } catch (error) {
         console.error('Error al obtener catálogo:', error);
         return [];
@@ -280,6 +427,14 @@ async function obtenerCatalogoInventario() {
             cantidad_disponible: itemInventario.cantidad,
             fecha_registro: itemInventario.fecha_registro
         }));
+        
+        // Filtrar del inventario los productos que ya están catalogados (evitar duplicados en la UI)
+        const idsCatalogados = new Set(
+            productosCatalogados
+                .map(p => p && (p.id_producto ?? p.producto?.id_producto))
+                .filter(id => id != null)
+        );
+        productosInventario = productosInventario.filter(p => !idsCatalogados.has(p.id_producto));
         
         // Mantener compatibilidad con el código existente
         productos = [...productosCatalogados, ...productosInventario];
@@ -390,11 +545,11 @@ function cargarProductosCompletos(productosAMostrar) {
                     </svg>
                     Editar
                 </button>
-                <button data-id="${producto.id_producto}" class="btn-eliminar-catalogado text-red-600 hover:text-red-900" title="Eliminar del catálogo">
+                <button data-id="${producto.id_producto}" class="btn-eliminar-catalogado text-red-600 hover:text-red-900" title="Quitar del catálogo">
                     <svg class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Eliminar
+                    Quitar
                 </button>
             </td>
         `;
@@ -802,7 +957,7 @@ function eliminarProductoCatalogado(e) {
     const mensaje = document.getElementById('mensajeConfirmacion');
     
     if (modal && mensaje) {
-        mensaje.textContent = `¿Está seguro que desea eliminar "${producto.nombre}" del catálogo?`;
+        mensaje.textContent = `¿Está seguro que desea quitar "${producto.nombre}" del catálogo?`;
         modal.dataset.productoId = idProducto;
         modal.classList.remove('hidden');
     }
@@ -829,12 +984,12 @@ async function confirmarEliminar() {
     
     try {
         await updateData(`/api/productos/${idProducto}/quitar-catalogo`, {});
-        alert('Producto eliminado del catálogo exitosamente');
+        alert('Producto quitado del catálogo exitosamente');
         cerrarModalConfirmar();
         cargarDatos();
     } catch (error) {
-        console.error('Error al eliminar producto:', error);
-        alert('Error en conexión del servidor');
+        console.error('Error al quitar producto del catálogo:', error);
+        alert('Error al quitar del catálogo');
     }
 }
 

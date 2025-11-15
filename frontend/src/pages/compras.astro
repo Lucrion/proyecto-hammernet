@@ -70,7 +70,8 @@ import EnvLoader from '../components/EnvLoader.astro';
       const fmtFecha = (iso) => {
         try {
           const d = new Date(iso);
-          return d.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+          // Mostrar solo la fecha, sin hora
+          return d.toLocaleDateString('es-CL', { dateStyle: 'medium' });
         } catch { return iso; }
       };
 
@@ -118,9 +119,9 @@ import EnvLoader from '../components/EnvLoader.astro';
           return;
         }
         comprasEmpty.classList.add('hidden');
-        comprasBody.innerHTML = ventas.map(v => `
+        comprasBody.innerHTML = ventas.map((v, i) => `
           <tr>
-            <td class="px-4 py-3 text-sm text-gray-800">${v.id_venta}</td>
+            <td class="px-4 py-3 text-sm text-gray-800">${i + 1}</td>
             <td class="px-4 py-3 text-sm text-gray-700">${fmtFecha(v.fecha_venta)}</td>
             <td class="px-4 py-3 text-sm">
               <span class="px-2 py-1 rounded text-white ${v.estado === 'completada' ? 'bg-green-600' : (v.estado === 'cancelada' ? 'bg-red-600' : 'bg-yellow-500')}">${v.estado}</span>

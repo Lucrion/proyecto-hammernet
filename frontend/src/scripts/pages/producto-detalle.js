@@ -191,26 +191,37 @@ function mostrarProductosSimilares(productos) {
         return;
     }
     
-    contenedorSimilares.innerHTML = productos.map(producto => `
+    contenedorSimilares.innerHTML = productos.map(p => {
+        const { precio_final, tiene_oferta } = calcularPrecioFinal(p);
+        const precioBase = Number(p.precio_venta ?? p.precio ?? 0);
+        const final = Number(precio_final ?? precioBase);
+        const id = p.id_producto ?? p.id;
+        const imagen = p.imagen_url || p.imagen || '/images/placeholder-product.jpg';
+        return `
         <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-            <div class="aspect-w-1 aspect-h-1">
-                <img src="${producto.imagen || '/images/placeholder-product.jpg'}" 
-                     alt="${producto.nombre}" 
+            <div class="aspect-w-1 aspect-h-1 relative">
+                ${tiene_oferta ? '<span class="absolute top-2 left-2 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded">Oferta</span>' : ''}
+                <img src="${imagen}" 
+                     alt="${p.nombre}" 
                      class="w-full h-48 object-cover">
             </div>
             <div class="p-4">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">${producto.nombre}</h3>
-                <p class="text-gray-600 text-sm mb-3 line-clamp-2">${producto.descripcion || 'Sin descripción'}</p>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">${p.nombre}</h3>
+                <p class="text-gray-600 text-sm mb-3 line-clamp-2">${p.descripcion || 'Sin descripción'}</p>
                 <div class="flex justify-between items-center">
-                    <span class="text-xl font-bold text-black">$${formatearPrecio(producto.precio)}</span>
-                    <button onclick="verProducto(${producto.id})" 
+                    <div class="flex items-center gap-2">
+                        ${tiene_oferta ? '<span class="text-sm line-through text-gray-500">$' + formatearPrecio(precioBase) + '</span>' : ''}
+                        <span class="text-xl font-bold text-black">$${formatearPrecio(final)}</span>
+                    </div>
+                    <button onclick="verProducto(${id})" 
                             class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
                         Ver más
                     </button>
                 </div>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // Función para mostrar errores

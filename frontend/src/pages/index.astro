@@ -90,23 +90,166 @@ import indexScriptUrl from '../scripts/pages/index.js?url';
 			</div>
 		</div>
 
-		<!-- Products Section -->
+		<!-- Carrusel de productos (máximo 15) -->
 		<section class="mb-16" data-aos="fade-up" data-aos-duration="1000">
 			<h2 class="text-3xl font-bold text-center mb-12 text-gray-800">Algunos de nuestros productos</h2>
-			<div id="productos-destacados" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-				<!-- Los productos destacados se cargarán dinámicamente desde la API -->
-				<div class="col-span-full text-center py-8">
-					<div class="animate-pulse flex justify-center">
-						<div class="h-4 w-28 bg-gray-200 rounded"></div>
+			<div class="relative overflow-hidden">
+				<button id="inicio-prev" aria-label="Anterior" class="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black text-white shadow rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/90">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+				</button>
+				<button id="inicio-next" aria-label="Siguiente" class="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black text-white shadow rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/90">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+				</button>
+
+				<div id="inicio-carousel" class="flex gap-6 overflow-x-auto pb-2 snap-x snap-mandatory cursor-grab select-none" style="scrollbar-width:none; --cols:4; --gap:1.5rem; padding-left:2.5rem; padding-right:2.5rem; scroll-padding-left:2.5rem; scroll-padding-right:2.5rem;">
+					<div class="flex-none w-full text-center py-8 snap-start">
+						<div class="animate-pulse flex justify-center">
+							<div class="h-4 w-28 bg-gray-200 rounded"></div>
+						</div>
+						<p class="text-gray-400 mt-4">Cargando carrusel...</p>
 					</div>
-					<p class="text-gray-400 mt-4">Cargando productos destacados...</p>
 				</div>
 			</div>
-			<!-- Botón único centrado para ver más productos -->
+			<!-- Botón único centrado para ver más productos debajo del carrusel -->
 			<div class="mt-8 flex justify-center">
 				<a href="/productos" class="px-4 py-2 bg-black text-white rounded font-bold text-xl hover:bg-gray-900 transition-colors duration-200" data-aos="zoom-in">Ver más</a>
 			</div>
 		</section>
+
+		<script>
+			document.addEventListener('DOMContentLoaded', () => {
+				const cont = document.getElementById('inicio-carousel');
+				const prev = document.getElementById('inicio-prev');
+				const next = document.getElementById('inicio-next');
+				if (!cont) return;
+
+				const formatearPrecio = (p) => String(Number(p || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+				async function fetchProductos() {
+					try {
+						await fetch('/api/health').catch(() => {});
+						const res = await fetch('/api/productos/catalogo?skip=0&limit=15');
+						const data = res.ok ? await res.json() : [];
+						render(data);
+						alignToStart();
+					} catch (e) {
+						cont.innerHTML = '<div class="flex-none w-full text-center py-8 snap-start"><p class="text-gray-500">No se pudo cargar el carrusel</p></div>';
+					}
+				}
+
+				// Helpers para normalizar URLs de imagen
+				function getApiHost() {
+					try {
+						const env = window.__ENV__ || {};
+						const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+						return api.replace(/\/api$/, '');
+					} catch { return ''; }
+				}
+				function normalizeImageUrl(u) {
+					if (!u) return null;
+					const s = String(u);
+					if (/^(https?:\/\/|data:)/i.test(s)) return s;
+					const host = getApiHost();
+					if (s.startsWith('/')) return host + s;
+					return host + '/' + s;
+				}
+
+				function render(items) {
+					cont.innerHTML = items.map(p => {
+						const id = p.id_producto ?? p.id;
+						const imagen = normalizeImageUrl(p.imagen_url) || '/images/logos/herramientas.webp';
+						const precioBase = Number(p.precio_venta ?? p.precio ?? 0);
+						const precio = Number(p.precio_final ?? precioBase);
+						const tieneOferta = precioBase > 0 && precio < precioBase;
+						const nombre = p.nombre || 'Producto';
+						const desc = (p.descripcion || '').trim();
+						const short = desc.length > 100 ? desc.slice(0, 100) + '...' : desc;
+						return `
+							<div class="flex-none bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden snap-start inicio-card" style="flex:0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));" onclick="if(!window.__homeDragGuard){ window.location.href='/productos/${id}'; }">
+								<div class="relative w-full aspect-square bg-white">
+									${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
+									<div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
+										<img src="${imagen}" alt="${nombre}" class="w-full h-full object-cover pointer-events-none select-none" loading="lazy" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
+									</div>
+								</div>
+								<div class="p-4 flex-1 flex flex-col">
+									<h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${nombre}</h3>
+									${short ? `<p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${short}</p>` : ''}
+									<div class="mt-auto flex items-center justify-center gap-2">
+										${tieneOferta ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(precioBase) + '</span>' : ''}
+										<span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
+									</div>
+								</div>
+							</div>
+						`;
+					}).join('');
+				}
+
+				const getGapPx = () => {
+					const g = window.getComputedStyle(cont).gap || '24px';
+					const first = (g.split(' ')[0] || g).replace('px', '');
+					const val = parseFloat(first);
+					return isNaN(val) ? 24 : val;
+				};
+				const getInsetPx = () => {
+					const s = window.getComputedStyle(cont);
+					const pl = parseFloat((s.paddingLeft || '0').replace('px', '')) || 0;
+					const pr = parseFloat((s.paddingRight || '0').replace('px', '')) || 0;
+					return { left: pl, right: pr };
+				};
+				const getCardFullWidth = () => {
+					const card = cont.querySelector('.inicio-card');
+					if (!card) return 280;
+					const rect = card.getBoundingClientRect();
+					return Math.round(rect.width + getGapPx());
+				};
+				const getStep = () => getCardFullWidth();
+				const moveInstant = (distance) => { cont.scrollLeft = cont.scrollLeft + distance; };
+				const snapToNearest = () => {
+					const step = getCardFullWidth();
+					const { left: insetLeft } = getInsetPx();
+					const left = cont.scrollLeft;
+					const relative = left - insetLeft;
+					let target = Math.round(relative / step) * step + insetLeft;
+					const maxScroll = cont.scrollWidth - cont.clientWidth;
+					target = Math.max(0, Math.min(target, maxScroll));
+					cont.scrollLeft = target;
+				};
+				const alignToStart = () => {
+					const { left: insetLeft } = getInsetPx();
+					cont.scrollLeft = insetLeft;
+					snapToNearest();
+				};
+
+				prev?.addEventListener('click', () => { moveInstant(-getStep() * 4); snapToNearest(); });
+				next?.addEventListener('click', () => { moveInstant(getStep() * 4); snapToNearest(); });
+
+				// Drag para scroll
+				let isDown = false, startX = 0, startScroll = 0, moved = false;
+				window.__homeDragGuard = false;
+				const setGuard = () => { window.__homeDragGuard = true; setTimeout(() => { window.__homeDragGuard = false; }, 150); };
+				cont.addEventListener('mousedown', (e) => { isDown = true; moved = false; cont.classList.add('cursor-grabbing'); startX = e.pageX - cont.offsetLeft; startScroll = cont.scrollLeft; });
+				cont.addEventListener('mousemove', (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - cont.offsetLeft; const walk = x - startX; cont.scrollLeft = startScroll - walk; if (Math.abs(walk) > 5) moved = true; });
+				const endDrag = () => { if (isDown && moved) { setGuard(); snapToNearest(); } isDown = false; moved = false; cont.classList.remove('cursor-grabbing'); };
+				cont.addEventListener('mouseleave', endDrag);
+				cont.addEventListener('mouseup', endDrag);
+				cont.addEventListener('touchstart', (e) => { const t = e.touches[0]; startX = t.pageX - cont.offsetLeft; startScroll = cont.scrollLeft; moved = false; });
+				cont.addEventListener('touchmove', (e) => { const t = e.touches[0]; const x = t.pageX - cont.offsetLeft; const walk = x - startX; cont.scrollLeft = startScroll - walk; if (Math.abs(walk) > 3) moved = true; });
+				cont.addEventListener('touchend', () => { if (moved) { setGuard(); snapToNearest(); } moved = false; });
+
+				// Alinear al inicio en carga y al redimensionar
+				const debounce = (fn, t = 200) => { let id; return (...args) => { clearTimeout(id); id = setTimeout(() => fn(...args), t); }; };
+				window.addEventListener('resize', debounce(alignToStart, 200));
+
+				fetchProductos();
+			});
+		</script>
+		<style>
+			#inicio-carousel::-webkit-scrollbar { display: none; }
+			#inicio-carousel { -ms-overflow-style: none; scrollbar-width: none; }
+		</style>
+
+		<!-- Products Section eliminado según solicitud -->
 
 		<!-- Why Choose Us Section -->
 		<section class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-12 shadow-lg" data-aos="fade-up" data-aos-duration="1000">
@@ -143,56 +286,4 @@ import indexScriptUrl from '../scripts/pages/index.js?url';
 
 
 
-		<!-- Footer -->
-		<footer class="mt-8 pt-6 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50">
-			<div class="container mx-auto px-4">
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-					<div class="text-center md:text-left">
-						<img src="/images/logos/logo_bn.webp" alt="Ferretería Patricio" class="w-40 h-32 object-contain mx-auto md:mx-0 mb-3">
-					</div>
-					<div class="text-center md:text-left">
-						<h3 class="text-lg font-semibold mb-3 text-gray-800">Contacto</h3>
-						<div class="space-y-2 text-sm">
-							<div class="flex items-center gap-2 justify-center md:justify-start">
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-									<path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-								</svg>
-								<span>+56 9 0000000</span>
-							</div>
-							<div class="flex items-center gap-2 justify-center md:justify-start">
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-									<path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-									<path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-								</svg>
-								<span>contacto@ferreteriapatricio.com</span>
-							</div>
-							<div class="flex items-center gap-2 justify-center md:justify-start">
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-									<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-								</svg>
-								<span>Lun-Vie 8:30-18:00 hrs</span>
-							</div>
-							<div class="flex items-center gap-3 justify-center md:justify-start mt-3">
-								<a href="https://facebook.com" class="hover:text-blue-600">
-									<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-										<path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" />
-									</svg>
-								</a>
-								<a href="https://instagram.com" class="hover:text-pink-600">
-									<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-										<path d="M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.254 1.216.598 1.772 1.153a4.908 4.908 0 011.153 1.772c.247.637.415 1.363.465 2.428.047 1.066.06 1.405.06 4.122 0 2.717-.01 3.056-.06 4.122-.05 1.065-.218 1.79-.465 2.428a4.883 4.883 0 01-1.153 1.772 4.915 4.915 0 01-1.772 1.153c-.637.247-1.363.415-2.428.465-1.066.047-1.405.06-4.122.06-2.717 0-3.056-.01-4.122-.06-1.065-.05-1.79-.218-2.428-.465a4.89 4.89 0 01-1.772-1.153 4.904 4.904 0 01-1.153-1.772c-.248-.637-.415-1.363-.465-2.428C2.013 15.056 2 14.717 2 12c0-2.717.01-3.056.06-4.122.05-1.066.217-1.79.465-2.428a4.88 4.88 0 011.153-1.772A4.897 4.897 0 015.45 2.525c.638-.248 1.362-.415 2.428-.465C8.944 2.013 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/>
-									</svg>
-								</a>
-								<a href="https://wa.me/56998116663" class="hover:text-green-600">
-									<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-										<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-									</svg>
-								</a>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</footer>
-	</main>
-</Layout>
+		

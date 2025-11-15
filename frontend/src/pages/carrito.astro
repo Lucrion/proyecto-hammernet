@@ -40,7 +40,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">RUT*</label>
-            <input id="dp-rut" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: 12.345.678-9" required>
+        <input id="dp-rut" type="text" maxlength="13" inputmode="numeric" pattern="^\\d{1,2}\\.\\d{3}\\.\\d{3}-[\\dkK]$" title="Formato: 12.345.678-5" class="w-full border rounded px-3 py-2" placeholder="Ej: 12.345.678-9" required>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono*</label>
@@ -91,16 +91,24 @@ import EnvLoader from '../components/EnvLoader.astro';
         </div>
       </div>
 
+      <!-- Estado de sesión reconocida -->
+      <div id="login-session-status" class="mb-4 hidden">
+        <div class="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded px-3 py-2">
+          <span class="font-semibold">Ya tienes tu sesión iniciada</span>
+          <span id="login-session-user" class="text-sm"></span>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Opción iniciar sesión (centrado) -->
-        <div class="border rounded-lg p-6 flex flex-col items-center text-center">
+        <div id="login-option-card" class="border rounded-lg p-6 flex flex-col items-center text-center">
           <h3 class="text-lg font-semibold text-gray-800 mb-2">¿Ya tienes cuenta?</h3>
           <p class="text-sm text-gray-600 mb-4">Inicia sesión para usar tus datos guardados.</p>
           <a href="/login" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Iniciar sesión</a>
         </div>
 
         <!-- Opción invitado (solo botón centrado) -->
-        <div class="border rounded-lg p-6 flex flex-col items-center text-center">
+        <div id="guest-option-card" class="border rounded-lg p-6 flex flex-col items-center text-center">
           <h3 class="text-lg font-semibold text-gray-800 mb-3">Continuar como invitado</h3>
           <p class="text-sm text-gray-600 mb-4">Puedes seguir sin registrarte.</p>
           <button id="btnGuestContinue" class="px-5 py-2 bg-black text-white rounded hover:bg-gray-900" onclick="continuarComoInvitado()">Continuar</button>
@@ -206,7 +214,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 
           <!-- Botón para continuar al pago desde despacho -->
           <div class="mt-3 flex justify-center">
-            <button id="delivery-continue" type="button" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="mostrarSectionPago()">Continuar</button>
+            <button id="delivery-continue" type="button" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="continuarDespacho()">Continuar</button>
           </div>
 
           <p id="addressSavedMsg" class="text-sm text-green-600 mt-2 hidden">Dirección guardada correctamente.</p>
@@ -249,6 +257,15 @@ import EnvLoader from '../components/EnvLoader.astro';
     const ENVIO_COSTO = 2000;
     const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
+    // Gestión de pasos del checkout (secuencial)
+    const Steps = {
+      get() { try { return JSON.parse(localStorage.getItem('checkoutSteps')) || {}; } catch { return {}; } },
+      set(s) { try { localStorage.setItem('checkoutSteps', JSON.stringify(s)); } catch {} },
+      mark(key, val = true) { const s = Steps.get(); s[key] = !!val; Steps.set(s); },
+      isCompleted(n) { const s = Steps.get(); return !!s[`step${n}`]; },
+      resetAfter(n) { const s = Steps.get(); for (let i = n + 1; i <= 3; i++) s[`step${i}`] = false; Steps.set(s); }
+    };
+
     const getCarrito = () => {
       try {
         const c = JSON.parse(localStorage.getItem('carrito')) || [];
@@ -282,6 +299,8 @@ import EnvLoader from '../components/EnvLoader.astro';
       if (!sec) return;
       // Mostrar login y ocultar otras secciones
       sec.classList.remove('hidden');
+      // Mostrar mensaje si la sesión está iniciada
+      try { updateLoginSessionStatus(); } catch {}
       if (secEntrega) secEntrega.classList.add('hidden');
       if (secPago) secPago.classList.add('hidden');
       const pagarBtn = document.getElementById('btnCheckoutPage');
@@ -293,6 +312,8 @@ import EnvLoader from '../components/EnvLoader.astro';
     };
 
     const continuarComoInvitado = () => {
+      Steps.mark('step1', true);
+      Steps.resetAfter(1);
       mostrarSectionTipoEntrega();
     };
 
@@ -301,6 +322,8 @@ import EnvLoader from '../components/EnvLoader.astro';
       const secEntrega = document.getElementById('checkout-delivery-section');
       const secAddress = document.getElementById('checkout-address-section');
       const secPago = document.getElementById('checkout-payment-section');
+      // Bloquear avance si el paso 1 no está completo
+      if (!Steps.isCompleted(1)) { mostrarSectionLoginGuest(); return; }
       if (secLogin) secLogin.classList.add('hidden');
       if (secPago) secPago.classList.add('hidden');
       if (secEntrega) {
@@ -349,8 +372,10 @@ import EnvLoader from '../components/EnvLoader.astro';
         desactivar(despachoBtn, despachoCheck);
         if (secAddress) secAddress.classList.add('hidden');
         actualizarEnvioYTotal();
-        // Para retiro, avanzamos directamente a Pago si corresponde.
-        if (advance) mostrarSectionPago();
+        // Para retiro, marcar paso 2 como completo y permitir avanzar
+        Steps.mark('step2', true);
+        Steps.resetAfter(2);
+        if (advance) { mostrarSectionPago(); setTimeout(forceShowPago, 50); }
       } else {
         activar(despachoBtn, despachoCheck);
         desactivar(retiroBtn, retiroCheck);
@@ -364,6 +389,8 @@ import EnvLoader from '../components/EnvLoader.astro';
         }
         actualizarMensajeDespacho();
         actualizarEnvioYTotal();
+        // Para despacho, requerir confirmación de dirección antes de completar el paso
+        Steps.mark('step2', false);
       }
     };
 
@@ -375,8 +402,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       const ciudad = 'Calama';
       const query = q ? encodeURIComponent(`${q}, ${ciudad}`) : encodeURIComponent(ciudad);
       iframe.src = `${base}${query}&hl=es&gl=cl&output=embed`;
-      // Tras confirmar ubicación en el mapa, avanzamos a Pago.
-      mostrarSectionPago();
+      // Se avanza solo al presionar Continuar (validación previa)
     };
 
     const guardarDireccion = () => {
@@ -397,6 +423,45 @@ import EnvLoader from '../components/EnvLoader.astro';
       // No guardar dirección de despacho en localStorage
       const msg = document.getElementById('addressSavedMsg');
       if (msg) msg.classList.remove('hidden');
+    };
+
+    const validarDireccionDespacho = () => {
+      const buscar = document.getElementById('dir-buscar')?.value?.trim() || '';
+      const calle = document.getElementById('dir-calle')?.value?.trim() || '';
+      const numero = document.getElementById('dir-numero')?.value?.trim() || '';
+      const depto = document.getElementById('dir-depto')?.value?.trim() || '';
+      const adicional = document.getElementById('dir-adicional')?.value?.trim() || '';
+      if (!calle || !numero) {
+        alert('Calle y Número son obligatorios para despacho.');
+        return null;
+      }
+      return { buscar, calle, numero, depto, adicional };
+    };
+
+    const continuarDespacho = async () => {
+      // Usar la función existente para obtener y validar la dirección
+      const d = guardarDireccion();
+      if (!d) return;
+      try {
+        const { isLoggedIn, token, user } = getAuth();
+        const idUsuario = user && (user.id_usuario || user.id || user.idUsuario);
+        if (isLoggedIn && token && idUsuario) {
+          const API = computeApiUrl();
+          const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+          const targetId = window.__latestDespachoId;
+          if (targetId) {
+            await fetch(`${API}/despachos/${targetId}`, { method: 'PUT', headers, body: JSON.stringify(d) });
+          } else {
+            const resp = await fetch(`${API}/despachos/usuario/${idUsuario}`, { method: 'POST', headers, body: JSON.stringify(d) });
+            try { const created = await resp.json(); window.__latestDespachoId = created?.id_despacho || created?.id; } catch {}
+          }
+        }
+      } catch (e) { console.warn('No se pudo guardar despacho en perfil:', e); }
+      Steps.mark('step2', true);
+      Steps.resetAfter(2);
+      const msg = document.getElementById('addressSavedMsg');
+      if (msg) msg.classList.remove('hidden');
+      mostrarSectionPago(); setTimeout(forceShowPago, 50);
     };
 
     // Utilidades de despacho (mensaje y costos)
@@ -438,7 +503,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       if (totalEl) totalEl.textContent = `$${formatearPrecio(subtotal + envio)}`;
     };
 
-    const mostrarSectionPago = () => {
+    const forceShowPago = () => {
       const secLogin = document.getElementById('checkout-login-section');
       const secEntrega = document.getElementById('checkout-delivery-section');
       const secPago = document.getElementById('checkout-payment-section');
@@ -453,6 +518,127 @@ import EnvLoader from '../components/EnvLoader.astro';
           window.scrollTo({ top, behavior: 'smooth' });
         } catch {}
       }
+    };
+
+    const mostrarSectionPago = () => {
+      const secLogin = document.getElementById('checkout-login-section');
+      const secEntrega = document.getElementById('checkout-delivery-section');
+      const secPago = document.getElementById('checkout-payment-section');
+      // Permitir avanzar si:
+      // - Paso 2 está marcado como completo
+      // - O si hay selección de entrega válida en localStorage
+      //   - 'retiro' siempre permite
+      //   - 'despacho' permite si Calle y Número están completos
+      let canAdvance = Steps.isCompleted(2);
+      try {
+        const entrega = localStorage.getItem('checkoutEntrega');
+        if (entrega === 'retiro') {
+          canAdvance = true;
+        } else if (entrega === 'despacho') {
+          const calle = document.getElementById('dir-calle')?.value?.trim();
+          const numero = document.getElementById('dir-numero')?.value?.trim();
+          if (calle && numero) canAdvance = true;
+        }
+      } catch {}
+      if (!canAdvance) { mostrarSectionTipoEntrega(); return; }
+      // Reconocer sesión y prellenar datos al entrar a Pago
+      try { updateLoginSessionStatus(); } catch {}
+      try { prefillOnPaymentIfLoggedIn(); } catch {}
+      if (secLogin) secLogin.classList.add('hidden');
+      if (secEntrega) secEntrega.classList.add('hidden');
+      if (secPago) {
+        secPago.classList.remove('hidden');
+        const pagarBtn = document.getElementById('btnCheckoutPage');
+        if (pagarBtn) pagarBtn.classList.remove('hidden');
+        try {
+          const top = secPago.getBoundingClientRect().top + window.scrollY - 16;
+          window.scrollTo({ top, behavior: 'smooth' });
+        } catch {}
+      }
+      // Fallback defensivo por si algún check falla
+      setTimeout(forceShowPago, 50);
+    };
+
+    const prefillOnPaymentIfLoggedIn = async () => {
+      const { isLoggedIn, token, user } = getAuth();
+      if (!isLoggedIn && !token && !user) return;
+      // Marcar paso 1 como completo si hay sesión
+      try { Steps.mark('step1', true); } catch {}
+      const API = computeApiUrl();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      // Prefill de datos personales (prioridad a datos del backend si hay token)
+      try {
+        if (token && user?.id_usuario) {
+          const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
+          if (uResp.ok) {
+            const uData = await safeJson(uResp);
+            if (uData) prefillPersonalData(uData);
+          } else {
+            prefillPersonalData(user || {});
+          }
+        } else {
+          prefillPersonalData(user || {});
+        }
+      } catch { prefillPersonalData(user || {}); }
+
+      // Fallback: si quedaron vacíos, intentar con datos guardados localmente
+      try {
+        const nombreEl = document.getElementById('dp-nombre');
+        const emailEl = document.getElementById('dp-email');
+        const rutEl = document.getElementById('dp-rut');
+        const telEl = document.getElementById('dp-telefono');
+        const empty = (el) => !el || !String(el.value || '').trim();
+        if ((empty(nombreEl) || empty(emailEl) || empty(rutEl) || empty(telEl))) {
+          const raw = localStorage.getItem('user') || localStorage.getItem('usuario') || '';
+          if (raw) {
+            try { const uLocal = JSON.parse(raw); if (uLocal) prefillPersonalData(uLocal); } catch {}
+          }
+        }
+      } catch {}
+
+      // Fallback extra: decodificar JWT para rellenar email o RUT si aún faltan
+      try {
+        if (token) {
+          const emailEl = document.getElementById('dp-email');
+          const email2El = document.getElementById('dp-email2');
+          const rutEl = document.getElementById('dp-rut');
+          const empty = (el) => !el || !String(el.value || '').trim();
+          const base64UrlToJson = (b64) => {
+            try {
+              const b64Norm = b64.replace(/-/g, '+').replace(/_/g, '/');
+              const json = atob(b64Norm);
+              return JSON.parse(json);
+            } catch { return null; }
+          };
+          const parts = String(token).split('.');
+          if (parts.length === 3) {
+            const payload = base64UrlToJson(parts[1]);
+            const sub = payload?.sub || '';
+            if (sub) {
+              if (sub.includes('@')) {
+                if (emailEl && empty(emailEl)) emailEl.value = sub;
+                if (email2El && empty(email2El)) email2El.value = sub;
+              } else {
+                const digits = String(sub).replace(/\D/g, '');
+                if (rutEl && empty(rutEl) && digits) rutEl.value = formatRutFromDigits(digits);
+              }
+            }
+          }
+        }
+      } catch {}
+
+      // Fallback extra: usar 'nombreUsuario' guardado si el nombre sigue vacío
+      try {
+        const nombreEl = document.getElementById('dp-nombre');
+        const empty = (el) => !el || !String(el.value || '').trim();
+        if (nombreEl && empty(nombreEl)) {
+          const nombreUsuario = localStorage.getItem('nombreUsuario');
+          if (nombreUsuario && /[a-zA-ZÁÉÍÓÚÑáéíóúñ]/.test(nombreUsuario)) {
+            nombreEl.value = nombreUsuario;
+          }
+        }
+      } catch {}
     };
 
     const goCheckout = () => {
@@ -510,6 +696,9 @@ import EnvLoader from '../components/EnvLoader.astro';
         if (getCarrito().length) mostrarSectionLoginGuest();
       } catch {}
 
+      // Actualizar estado de sesión visible en paso de login
+      try { updateLoginSessionStatus(); } catch {}
+
       // Cargar Google Maps Places (si hay API key disponible)
       loadGoogleMaps();
 
@@ -519,6 +708,14 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       // Si hay sesión iniciada, continuar con cuenta y prellenar datos
       try { autoflowIfLoggedIn(); } catch {}
+      // Prefill inmediato, aun si “Pago” está oculto por orden de pasos
+      try { forcePrefillNow(); } catch {}
+
+      // Asegurar que el botón "Continuar" en despacho dispare el avance
+      try {
+        const delBtn = document.getElementById('delivery-continue');
+        if (delBtn) delBtn.addEventListener('click', continuarDespacho);
+      } catch {}
     });
 
     // Exponer funciones globales para handlers inline
@@ -531,6 +728,7 @@ import EnvLoader from '../components/EnvLoader.astro';
     window.seleccionarTipoEntrega = seleccionarTipoEntrega;
     window.buscarEnMapa = buscarEnMapa;
     window.guardarDireccion = guardarDireccion;
+    window.continuarDespacho = continuarDespacho;
     window.irADetalle = irADetalle;
     window.pagar = async () => {
       const carrito = getCarrito();
@@ -688,12 +886,67 @@ import EnvLoader from '../components/EnvLoader.astro';
     // ====== Auto-fill con sesión de usuario ======
     const getAuth = () => {
       try {
-        const isLoggedInFlag = localStorage.getItem('isLoggedIn') === 'true';
-        const token = localStorage.getItem('token') || localStorage.getItem('access_token') || '';
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        const isLoggedIn = isLoggedInFlag || !!token || !!(user && user.id_usuario);
+        const ss = window.sessionStorage;
+        const ls = window.localStorage;
+        const isLoggedIn = (ss.getItem('isLoggedIn') === 'true') || (ls.getItem('isLoggedIn') === 'true');
+        const token = ss.getItem('token') || ls.getItem('token') || ls.getItem('access_token') || '';
+        const userStr = ss.getItem('user') || ls.getItem('user') || ss.getItem('usuario') || ls.getItem('usuario') || '{}';
+        const user = JSON.parse(userStr || '{}');
         return { isLoggedIn, token, user };
       } catch { return { isLoggedIn: false, token: '', user: {} }; }
+    };
+
+    const updateLoginSessionStatus = async () => {
+      const { isLoggedIn, user } = getAuth();
+      const statusEl = document.getElementById('login-session-status');
+      const userEl = document.getElementById('login-session-user');
+      const loginCard = document.getElementById('login-option-card');
+      const guestCard = document.getElementById('guest-option-card');
+      if (!statusEl) return;
+      if (isLoggedIn) {
+        statusEl.classList.remove('hidden');
+        const nombre = (user?.nombre ?? user?.name ?? '');
+        const apellido = (user?.apellido ?? user?.apellidos ?? user?.last_name ?? '');
+        const nombreCompleto = [nombre, apellido].filter(Boolean).join(' ') || (localStorage.getItem('nombreUsuario') || '');
+        if (userEl) userEl.textContent = nombreCompleto ? `(${nombreCompleto})` : '';
+        if (loginCard) loginCard.classList.add('hidden');
+        if (guestCard) guestCard.classList.add('hidden');
+        Steps.mark('step1', true);
+
+        // Prellenar datos personales de inmediato al reconocer sesión
+        try {
+          const API = computeApiUrl();
+          const headers = { 'Content-Type': 'application/json' };
+          const token = (sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('access_token') || '');
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          if (token && user?.id_usuario) {
+            const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
+            if (uResp.ok) {
+              const uData = await safeJson(uResp);
+              if (uData) prefillPersonalData(uData);
+            } else {
+              prefillPersonalData(user || {});
+            }
+          } else {
+            prefillPersonalData(user || {});
+          }
+        } catch { prefillPersonalData(user || {}); }
+
+        // Si el carrito está vacío, igual muestra el formulario de Pago para ver los datos
+        try {
+          const tieneItems = (getCarrito().length > 0);
+          if (!tieneItems) {
+            Steps.mark('step2', true);
+            Steps.resetAfter(2);
+            mostrarSectionPago();
+          }
+        } catch {}
+      } else {
+        statusEl.classList.add('hidden');
+        if (loginCard) loginCard.classList.remove('hidden');
+        if (guestCard) guestCard.classList.remove('hidden');
+        Steps.mark('step1', false);
+      }
     };
 
     const computeApiUrl = () => {
@@ -712,14 +965,36 @@ import EnvLoader from '../components/EnvLoader.astro';
         const telEl = document.getElementById('dp-telefono');
         const emailEl = document.getElementById('dp-email');
         const email2El = document.getElementById('dp-email2');
-        const nombreCompleto = [u?.nombre || '', u?.apellido || ''].filter(Boolean).join(' ');
+
+        // Nombre y apellido con distintos posibles claves
+        const nombre = u?.nombre ?? u?.name ?? '';
+        const apellido = u?.apellido ?? u?.apellidos ?? u?.last_name ?? '';
+        const nombreCompleto = [nombre, apellido].filter(Boolean).join(' ');
         if (nombreEl && nombreCompleto) nombreEl.value = nombreCompleto;
-        const rut = u?.rut || u?.username || '';
-        if (rutEl && rut) rutEl.value = formatRutFromDigits(rut);
-        let tel = (u?.telefono || '').replace(/^\+?56\s?9\s?/, '').replace(/\s+/g, '');
+
+        // RUT admitiendo variantes y normalizando a dígitos
+        const rutRaw = u?.rut ?? u?.rut_sin_dv ?? u?.rutDV ?? u?.rut_dv ?? '';
+        const rutDigits = String(rutRaw).replace(/\D/g, '');
+        if (rutEl && rutDigits) rutEl.value = formatRutFromDigits(rutDigits);
+
+        // Teléfono aceptando distintas claves y limpiando prefijo chileno
+        const telRaw = u?.telefono ?? u?.celular ?? u?.phone ?? u?.telefono_contacto ?? '';
+        const tel = String(telRaw).replace(/^\+?56\s?9\s?/, '').replace(/\s+/g, '').replace(/\D/g, '');
         if (telEl && tel) telEl.value = tel;
-        if (emailEl && u?.email) emailEl.value = u.email;
-        if (email2El && u?.email) email2El.value = u.email;
+
+        // Email aceptando alias
+        const emailRaw = u?.email ?? u?.correo ?? u?.mail ?? u?.email_address ?? '';
+        if (emailEl && emailRaw) emailEl.value = emailRaw;
+        if (email2El && emailRaw) email2El.value = emailRaw;
+
+        // Fallback adicional: tomar valores previamente guardados en localStorage si siguen vacíos
+        try {
+          const emailStored = (emailEl && !emailEl.value) ? (localStorage.getItem('checkoutEmail') || '') : '';
+          if (emailEl && emailStored) emailEl.value = emailStored;
+          if (email2El && !email2El.value && emailStored) email2El.value = emailStored;
+          const telStored = (telEl && !telEl.value) ? (localStorage.getItem('checkoutTelefono') || '') : '';
+          if (telEl && telStored) telEl.value = telStored.replace(/^\+?56\s?9\s?/, '').replace(/\D/g, '');
+        } catch {}
       } catch {}
     };
 
@@ -756,59 +1031,198 @@ import EnvLoader from '../components/EnvLoader.astro';
     };
 
     const autoflowIfLoggedIn = async () => {
-      const carritoTieneItems = getCarrito().length > 0;
-      if (!carritoTieneItems) return;
       const { isLoggedIn, token, user } = getAuth();
-      // Permitir autoflow si hay token o id_usuario, incluso si falta el flag isLoggedIn
-      if (!token && !user?.id_usuario) return;
+      // Si no hay sesión, no continuar
+      if (!isLoggedIn && !token && !user?.id_usuario) return;
 
-      // Saltar paso de login
-      mostrarSectionTipoEntrega();
+      // Mostrar secciones de entrega solo si hay ítems en el carrito
+      const carritoTieneItems = getCarrito().length > 0;
+      if (carritoTieneItems) {
+        // Saltar paso de login
+        mostrarSectionTipoEntrega();
+      }
 
       const API = computeApiUrl();
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      // 1) Cargar usuario y prellenar datos personales si hay token; si no, usar datos locales
       try {
-        // 1) Cargar usuario y prellenar datos personales
-        const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
-        if (uResp.ok) {
-          const uData = await safeJson(uResp);
-          if (uData) prefillPersonalData(uData);
+        if (token && user?.id_usuario) {
+          const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
+          if (uResp.ok) {
+            const uData = await safeJson(uResp);
+            if (uData) prefillPersonalData(uData);
+          } else {
+            prefillPersonalData(user || {});
+          }
         } else {
-          // Fallback: usar datos locales
           prefillPersonalData(user || {});
         }
       } catch (e) { 
         console.warn('No se pudo cargar datos de usuario:', e);
-        // Fallback: usar datos locales
         prefillPersonalData(user || {});
       }
 
+      // Si la sesión está reconocida, bloquear edición de RUT y correo; ocultar confirmar email
       try {
-        // 2) Cargar despachos del usuario y prellenar dirección
+        const rutEl = document.getElementById('dp-rut');
+        const emailEl = document.getElementById('dp-email');
+        const email2El = document.getElementById('dp-email2');
+        const sessionOk = isLoggedIn || !!token || !!(user && user.id_usuario);
+        if (sessionOk) {
+          if (rutEl) rutEl.readOnly = true;
+          if (emailEl) emailEl.readOnly = true;
+          if (email2El) {
+            try { email2El.required = false; } catch {}
+            if (emailEl && emailEl.value && !email2El.value) email2El.value = emailEl.value;
+            const wrapper = email2El.parentElement;
+            if (wrapper) wrapper.classList.add('hidden');
+          }
+        } else {
+          if (email2El) {
+            try { email2El.required = true; } catch {}
+            const wrapper = email2El.parentElement;
+            if (wrapper) wrapper.classList.remove('hidden');
+          }
+        }
+      } catch {}
+
+      // Fallback adicional: si email o RUT siguen vacíos, intentar desde token y storage
+      try {
+        const nombreEl = document.getElementById('dp-nombre');
+        const rutEl = document.getElementById('dp-rut');
+        const emailEl = document.getElementById('dp-email');
+        const email2El = document.getElementById('dp-email2');
+
+        const getJwtPayload = (tok) => {
+          try {
+            const parts = String(tok || '').split('.');
+            if (parts.length < 2) return null;
+            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const json = atob(base64);
+            return JSON.parse(json);
+          } catch { return null; }
+        };
+
+        const payload = getJwtPayload(token);
+        const sub = payload?.sub || '';
+        // Si sub es email y email no está, completar
+        if (sub && /@/.test(sub)) {
+          if (emailEl && !emailEl.value) emailEl.value = sub;
+          if (email2El && !email2El.value) email2El.value = sub;
+        }
+        // Si sub parece RUT (solo dígitos) y rut vacío, completar
+        if (sub && /^\d{7,9}$/.test(String(sub)) && rutEl && !rutEl.value) {
+          rutEl.value = formatRutFromDigits(String(sub));
+        }
+        // Nombre de respaldo
+        if (nombreEl && !nombreEl.value) {
+          const nombreAlt = (localStorage.getItem('nombreUsuario') || '').trim();
+          if (nombreAlt) nombreEl.value = nombreAlt;
+        }
+        // Email desde objetos alternos en storage
+        if (emailEl && !emailEl.value) {
+          try {
+            const u1 = JSON.parse(localStorage.getItem('usuario') || '{}');
+            const u2 = JSON.parse(localStorage.getItem('user') || '{}');
+            const em = u1?.email || u2?.email || '';
+            if (em) {
+              emailEl.value = em;
+              if (email2El && !email2El.value) email2El.value = em;
+            }
+          } catch {}
+        }
+      } catch {}
+
+      // Guardar email y teléfono al escribir para futuros prellenados
+      try {
+        const telEl = document.getElementById('dp-telefono');
+        const emailEl = document.getElementById('dp-email');
+        if (telEl) telEl.addEventListener('blur', () => {
+          try { localStorage.setItem('checkoutTelefono', telEl.value || ''); } catch {}
+        });
+        if (emailEl) emailEl.addEventListener('blur', () => {
+          try { localStorage.setItem('checkoutEmail', emailEl.value || ''); } catch {}
+        });
+      } catch {}
+
+      try {
+      // 2) Cargar despachos del usuario y prellenar dirección si hay token; si no, queda en retiro por defecto
+      //    Solo si hay ítems en el carrito (no forzar flujo de entrega sin compra)
+      let setTipo = false;
+      if (carritoTieneItems && token && user?.id_usuario) {
         const dResp = await fetch(`${API}/despachos/usuario/${user.id_usuario}`, { headers });
-        let setTipo = false;
         if (dResp.ok) {
           const dList = await safeJson(dResp);
           const latest = findLatestDespacho(dList || []);
           if (latest) {
+            try { window.__latestDespachoId = latest.id_despacho || latest.id; } catch {}
             prefillAddress(latest);
             try { localStorage.setItem('checkoutEntrega', 'despacho'); } catch {}
             seleccionarTipoEntrega('despacho', false);
             setTipo = true;
           }
         }
-        // No usar fallback desde localStorage para dirección de despacho
-        if (!setTipo) {
-          // Si no hay dirección, preseleccionar retiro
-          try { localStorage.setItem('checkoutEntrega', 'retiro'); } catch {}
-          seleccionarTipoEntrega('retiro', false);
-        }
+      }
+      if (carritoTieneItems && !setTipo) {
+        try { localStorage.setItem('checkoutEntrega', 'retiro'); } catch {}
+        seleccionarTipoEntrega('retiro', false);
+      }
       } catch (e) { console.warn('No se pudo cargar dirección de despacho:', e); }
+
+      // No auto-avanzar a pago; respetar avance manual tras completar pasos
     };
 
+    // Prefill inmediato de datos personales aunque la sección de Pago esté oculta
+    const forcePrefillNow = async () => {
+      try {
+        const { isLoggedIn, token, user } = getAuth();
+        if (!isLoggedIn && !token && !user) return;
+        const API = computeApiUrl();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        try {
+          if (token && user?.id_usuario) {
+            const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
+            if (uResp.ok) {
+              const uData = await safeJson(uResp);
+              if (uData) prefillPersonalData(uData);
+              else prefillPersonalData(user || {});
+            } else {
+              prefillPersonalData(user || {});
+            }
+          } else {
+            prefillPersonalData(user || {});
+          }
+        } catch { prefillPersonalData(user || {}); }
+
+        // Bloquear edición de RUT y correo y ocultar confirmar email si hay sesión
+        try {
+          const rutEl = document.getElementById('dp-rut');
+          const emailEl = document.getElementById('dp-email');
+          const email2El = document.getElementById('dp-email2');
+          if (rutEl) rutEl.readOnly = true;
+          if (emailEl) emailEl.readOnly = true;
+          if (email2El) {
+            try { email2El.required = false; } catch {}
+            if (emailEl && emailEl.value && !email2El.value) email2El.value = emailEl.value;
+            const wrapper = email2El.parentElement;
+            if (wrapper) wrapper.classList.add('hidden');
+          }
+        } catch {}
+      } catch (e) {
+        console.warn('No se pudo forzar prellenado inmediato:', e);
+      }
+    };
+
+    // Re-render ante cambios del carrito desde otros componentes/pestañas
+    window.addEventListener('storage', (e) => { if (e.key === 'carrito') { render(); actualizarEnvioYTotal(); } });
+    window.addEventListener('carrito:changed', () => { render(); actualizarEnvioYTotal(); });
+
   </script>
+  
+
   <script>
     // Utilidades RUT para UI en carrito: puntos y guion con DV
     function digitsOnly(value) { return String(value ?? '').replace(/\D/g, ''); }

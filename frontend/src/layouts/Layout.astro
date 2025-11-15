@@ -5,6 +5,7 @@ interface Props {
 
 const { title } = Astro.props;
 import EnvLoader from '../components/EnvLoader.astro';
+import Footer from '../components/Footer.astro';
 ---
 
 <!DOCTYPE html>
@@ -72,6 +73,10 @@ import EnvLoader from '../components/EnvLoader.astro';
 		</main>
 
 		{Astro.url.pathname !== '/login' && (
+			<Footer />
+		)}
+
+		{Astro.url.pathname !== '/login' && (
 			<a 
 				href="https://wa.me/956998116663?text=Hola, me gustaría obtener más información"
 				class="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-all transform hover:scale-110 z-50"
@@ -101,7 +106,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 		<div id="carrito-panel" class="fixed top-0 right-0 w-80 h-full bg-white shadow-xl transform translate-x-full transition-transform z-50">
 			<div class="p-4 border-b flex justify-between items-center">
 				<h3 class="text-lg font-semibold">Tu carrito</h3>
-				<button id="cerrarCarrito" class="text-gray-500 hover:text-gray-800" aria-label="Cerrar">&times;</button>
+				<button id="cerrarCarrito" class="text-gray-500 hover:text-gray-800 text-2xl leading-none p-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-300 cursor-pointer" aria-label="Cerrar">&times;</button>
 			</div>
 			<div id="carrito-items" class="p-4 space-y-4"></div>
 			<div class="p-4 border-t">
@@ -240,15 +245,20 @@ import EnvLoader from '../components/EnvLoader.astro';
 				}
 			  };
 
-			  const setCarrito = (carrito) => {
-				try { localStorage.setItem('carrito', JSON.stringify(carrito)); } catch {}
-			  };
+		  const setCarrito = (carrito) => {
+			try { localStorage.setItem('carrito', JSON.stringify(carrito)); } catch {}
+		  };
 
-			  const eliminarItem = (id) => {
-				const carrito = getCarrito().filter(i => String(i.id) !== String(id));
-				setCarrito(carrito);
-				renderCarrito();
-			  };
+		  const eliminarItem = (id) => {
+			const carrito = getCarrito().filter(i => String(i.id) !== String(id));
+			setCarrito(carrito);
+			renderCarrito();
+			// Notificar otros componentes/páginas para sincronizar vista
+			try { window.dispatchEvent(new Event('carrito:changed')); } catch {}
+		  };
+
+		  // Exponer eliminación al ámbito global para uso en botones inline
+		  window.eliminarItem = eliminarItem;
 
 		  const isPlaceholderImage = (url) => {
 			if (!url) return true;
@@ -336,6 +346,16 @@ import EnvLoader from '../components/EnvLoader.astro';
 		    localStorage.setItem('checkout_items', JSON.stringify(carrito));
 		    window.location.href = '/carrito';
 		  });
+
+		  // Actualizar badge y panel sin interacción:
+		  // 1) Al cargar la página
+		  renderCarrito();
+		  // 2) Cuando cambia localStorage desde cualquier pestaña
+		  window.addEventListener('storage', (e) => { if (e.key === 'carrito') renderCarrito(); });
+		  // 3) Evento personalizado para cambios locales
+		  window.addEventListener('carrito:changed', () => { renderCarrito(); });
+		  // 4) Al volver a la pestaña
+		  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderCarrito(); });
 		});
 		</script>
 	</body>

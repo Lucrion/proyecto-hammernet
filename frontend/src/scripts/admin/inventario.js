@@ -1,6 +1,6 @@
 // Importar configuración de API
 import { API_URL } from '../utils/config.js';
-import { getData, fetchWithAuth } from '../utils/api.js';
+import { getData, fetchWithAuth, deleteData } from '../utils/api.js';
 
 // Variables globales
 let inventarios = [];
@@ -506,52 +506,28 @@ async function confirmarEliminacion() {
     try {
         console.log('Confirmando eliminación de inventario ID:', inventarioAEliminar);
         
-        // TODO: Reactivar validación de token después del desarrollo
-        // const token = getAuthToken();
-        // if (!token) {
-        //     console.error('No hay token de autenticación');
-        //     return;
-        // }
+        // Usar utilitario con autenticación
+        const responseData = await deleteData(`/api/productos/inventario/${inventarioAEliminar}`);
         
-        const response = await fetch(`${API_URL}/api/productos/inventario/${inventarioAEliminar}`, {
-            method: 'DELETE'
-        });
-        // TODO: Reactivar headers de autorización
-        // const response = await fetch(`${API_URL}/api/productos/inventario/${inventarioAEliminar}`, {
-        //     method: 'DELETE',
-        //     headers: {
-        //         'Authorization': `Bearer ${token}`
-        //     }
-        // });
-        
-        if (response.ok) {
+        if (responseData) {
             console.log('Inventario eliminado exitosamente');
             modalEliminar.classList.add('hidden');
             inventarioAEliminar = null;
             await cargarInventario();
             alert('Registro de inventario eliminado exitosamente');
-        } else if (response.status === 401) {
+        } else {
+            // Si no hay respuesta válida, considerar error genérico
+            throw new Error('Error desconocido al eliminar inventario');
+        }
+    } catch (error) {
+        // Manejo específico de 401 si proviene del utilitario
+        if (error && (error.message || '').includes('401')) {
             console.log('Error de autenticación al eliminar inventario. Redirigiendo a login...');
             alert('Sesión expirada. Por favor, inicie sesión nuevamente.');
             localStorage.removeItem('token');
             window.location.href = '/login';
             return;
-        } else {
-            const error = await response.json();
-            console.error('Error al eliminar inventario:', error);
-            let errorMsg = 'Error al eliminar registro';
-            if (error.detail) {
-                if (typeof error.detail === 'string') {
-                    errorMsg += ': ' + error.detail;
-                } else if (Array.isArray(error.detail)) {
-                    errorMsg += ': ' + error.detail.map(err => err.msg).join(', ');
-                } else {
-                    errorMsg += ': ' + JSON.stringify(error.detail);
-                }
-            }
-            alert(errorMsg);
         }
-    } catch (error) {
         console.error('Error al eliminar inventario:', error);
         let errorMessage = 'Error al eliminar registro';
         

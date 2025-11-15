@@ -33,10 +33,11 @@ function getAuthToken() {
 // Verificar autenticación
 function verificarAuth() {
     const token = getAuthToken();
-    if (!token) {
-        window.location.href = '/login';
-        return false;
-    }
+    // VALIDACIÓN TEMPORALMENTE DESACTIVADA: No redirigir por falta de token
+    // if (!token) {
+    //     window.location.href = '/login';
+    //     return false;
+    // }
     return true;
 }
 

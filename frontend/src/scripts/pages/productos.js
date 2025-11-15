@@ -21,6 +21,26 @@ function formatearPrecio(precio) {
     return precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+// Normalización de URLs de imagen relativas al backend
+function getApiHost() {
+    try {
+        const env = window.__ENV__ || {};
+        const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+        return api.replace(/\/api$/, '');
+    } catch {
+        return '';
+    }
+}
+
+function normalizeImageUrl(u) {
+    if (!u) return null;
+    const s = String(u);
+    if (/^(https?:\/\/|data:)/i.test(s)) return s;
+    const host = getApiHost();
+    if (s.startsWith('/')) return host + s;
+    return host + '/' + s;
+}
+
 // Estado global para almacenar productos y filtros
 const state = {
     productos: [],
@@ -347,11 +367,13 @@ function mostrarProductos(productos) {
         return;
     }
     
-    contenedorProductos.innerHTML = productos.map(producto => `
+    contenedorProductos.innerHTML = productos.map(producto => {
+        const img = normalizeImageUrl(producto.imagen_url);
+        return `
         <div class="bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col" onclick="verProducto(${producto.id_producto})">
             <div class="relative w-full h-40 flex items-center justify-center bg-white">
                 ${producto.oferta_activa ? '<span class=\'absolute top-2 left-2 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
-                <img src="${producto.imagen_url || '/images/placeholder-product.jpg'}" 
+                <img src="${img || '/images/placeholder-product.jpg'}" 
                      alt="${producto.nombre}" 
                      class="h-32 w-auto object-contain">
             </div>
@@ -364,7 +386,7 @@ function mostrarProductos(productos) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 // Eliminado: append de productos para "Cargar más"
@@ -459,6 +481,7 @@ function cambiarPagina(pagina) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 // Eliminado: función "Cargar más"
+}
 
 // Mostrar estado de carga
 function mostrarCargando() {

@@ -86,6 +86,22 @@ import catalogoScriptUrl from '../../../scripts/admin/catalogo.js?url';
                 <label for="caracteristicas" class="block text-sm font-medium text-gray-700 mb-1">Características</label>
                 <textarea id="caracteristicas" name="caracteristicas" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required></textarea>
                 <p class="text-xs text-gray-500 mt-1">Separa las características con punto y coma (;)</p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    <button id="btnEjemploCatalogarJSON" type="button" class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 border rounded">Ejemplo JSON</button>
+                    <button id="btnEjemploCatalogarTexto" type="button" class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 border rounded">Ejemplo texto</button>
+                    <button id="btnEditorCatalogar" type="button" class="px-2 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 border rounded">Abrir editor de especificaciones</button>
+                </div>
+                <div id="editorCatalogar" class="hidden mt-3 border rounded p-3 bg-gray-50">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-gray-700">Editor de especificaciones</span>
+                        <button id="btnCerrarEditorCatalogar" type="button" class="text-xs text-gray-600 hover:text-gray-800">Cerrar</button>
+                    </div>
+                    <div id="editorCatalogarRows" class="space-y-2"></div>
+                    <div class="flex gap-2 mt-3">
+                        <button id="btnAgregarFilaCatalogar" type="button" class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 border rounded">Agregar fila</button>
+                        <button id="btnAplicarCatalogar" type="button" class="px-2 py-1 text-xs bg-green-100 text-green-700 hover:bg-green-200 border rounded">Aplicar al campo</button>
+                    </div>
+                </div>
             </div>
             
             <div>
@@ -187,11 +203,7 @@ import catalogoScriptUrl from '../../../scripts/admin/catalogo.js?url';
                     <div>
                         <label for="catalogarCaracteristicas" class="block text-sm font-medium text-gray-700 mb-1">Características</label>
                         <textarea id="catalogarCaracteristicas" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" placeholder="Características del producto (opcional)"></textarea>
-                        <div class="mt-2 flex gap-2">
-                            <button type="button" id="btnEjemploCatalogarJSON" class="px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-50">Insertar ejemplo JSON</button>
-                            <button type="button" id="btnEjemploCatalogarTexto" class="px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-50">Insertar ejemplo texto</button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">Puedes usar JSON con claves y valores, o pares "clave: valor" por línea o separados por punto y coma.</p>
+                        <p class="text-xs text-gray-500 mt-1">Puedes usar pares "clave: valor" por línea o separados por punto y coma.</p>
                     </div>
 
                     <!-- Detalles del producto -->
@@ -333,11 +345,23 @@ import catalogoScriptUrl from '../../../scripts/admin/catalogo.js?url';
                         <textarea id="editarCaracteristicas" name="caracteristicas" rows="4" 
                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" 
                                   placeholder="Características del producto (opcional)"></textarea>
-                        <div class="mt-2 flex gap-2">
-                            <button type="button" id="btnEjemploEditarJSON" class="px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-50">Insertar ejemplo JSON</button>
-                            <button type="button" id="btnEjemploEditarTexto" class="px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-50">Insertar ejemplo texto</button>
+                        <p class="text-xs text-gray-500 mt-1">Puedes usar pares "clave: valor" por línea o separados por punto y coma.</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <button id="btnEjemploEditarJSON" type="button" class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 border rounded">Ejemplo JSON</button>
+                            <button id="btnEjemploEditarTexto" type="button" class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 border rounded">Ejemplo texto</button>
+                            <button id="btnEditorEditar" type="button" class="px-2 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 border rounded">Abrir editor de especificaciones</button>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">Puedes usar JSON con claves y valores, o pares "clave: valor" por línea o separados por punto y coma.</p>
+                        <div id="editorEditar" class="hidden mt-3 border rounded p-3 bg-gray-50">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm font-medium text-gray-700">Editor de especificaciones</span>
+                                <button id="btnCerrarEditorEditar" type="button" class="text-xs text-gray-600 hover:text-gray-800">Cerrar</button>
+                            </div>
+                            <div id="editorEditarRows" class="space-y-2"></div>
+                            <div class="flex gap-2 mt-3">
+                                <button id="btnAgregarFilaEditar" type="button" class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 border rounded">Agregar fila</button>
+                                <button id="btnAplicarEditar" type="button" class="px-2 py-1 text-xs bg-green-100 text-green-700 hover:bg-green-200 border rounded">Aplicar al campo</button>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Detalles del producto -->
@@ -417,10 +441,10 @@ import catalogoScriptUrl from '../../../scripts/admin/catalogo.js?url';
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                 </div>
-                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Confirmar eliminación</h3>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Confirmar quitar del catálogo</h3>
                 <div class="mt-2 px-7 py-3">
                     <p class="text-sm text-gray-500" id="mensajeConfirmacion">
-                        ¿Está seguro que desea eliminar este producto del catálogo? Esta acción no se puede deshacer.
+                        ¿Está seguro que desea quitar este producto del catálogo? Esta acción no se puede deshacer.
                     </p>
                 </div>
                 <div class="items-center px-4 py-3">
@@ -428,7 +452,7 @@ import catalogoScriptUrl from '../../../scripts/admin/catalogo.js?url';
                         Cancelar
                     </button>
                     <button id="btnConfirmarEliminar" class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-24 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300">
-                        Eliminar
+                        Quitar
                     </button>
                 </div>
             </div>

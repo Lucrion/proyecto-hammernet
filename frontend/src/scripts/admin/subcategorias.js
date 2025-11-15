@@ -1,4 +1,5 @@
 // Gestión de Subcategorías en Admin
+import { getData, postData, updateData, deleteData } from '../utils/api.js';
 
 const API_BASE = '/api';
 
@@ -30,18 +31,11 @@ let subcategoriaAEliminar = null;
 const showModal = (el) => el.classList.remove('hidden');
 const hideModal = (el) => el.classList.add('hidden');
 
-async function fetchJSON(url, options) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+// Las llamadas usarán utilitarios con token (getData/postData/updateData/deleteData)
 
 // Cargar categorías para filtros y modal
 async function cargarCategorias() {
-  const categorias = await fetchJSON(`${API_BASE}/categorias`);
+  const categorias = await getData(`${API_BASE}/categorias`);
   // Filtro
   filtroCategoria.innerHTML = '<option value="">Todas las categorías</option>' +
     categorias.map(c => `<option value="${c.id_categoria}">${c.nombre}</option>`).join('');
@@ -55,7 +49,7 @@ async function cargarSubcategorias() {
   const nombre = (filtroNombre.value || '').trim();
   const idCat = (filtroCategoria.value || '').trim();
   if (idCat) params.set('id_categoria', idCat);
-  const data = await fetchJSON(`${API_BASE}/subcategorias?${params.toString()}`);
+  const data = await getData(`${API_BASE}/subcategorias?${params.toString()}`);
   const filtradas = nombre ? data.filter(s => s.nombre.toLowerCase().includes(nombre.toLowerCase())) : data;
   renderTabla(filtradas);
 }
@@ -97,7 +91,7 @@ function abrirNuevo() {
 }
 
 async function abrirEditar(id) {
-  const item = await fetchJSON(`${API_BASE}/subcategorias/${id}`);
+  const item = await getData(`${API_BASE}/subcategorias/${id}`);
   tituloModal.textContent = 'Editar Subcategoría';
   subcategoriaIdInput.value = item.id_subcategoria;
   nombreInput.value = item.nombre || '';
@@ -113,7 +107,7 @@ function confirmarEliminar(id) {
 
 async function eliminarConfirmado() {
   if (!subcategoriaAEliminar) return;
-  await fetchJSON(`${API_BASE}/subcategorias/${subcategoriaAEliminar}`, { method: 'DELETE' });
+  await deleteData(`${API_BASE}/subcategorias/${subcategoriaAEliminar}`);
   subcategoriaAEliminar = null;
   hideModal(modalConfirmar);
   await cargarSubcategorias();
@@ -128,17 +122,9 @@ async function guardarSubcategoria(e) {
   };
   const id = subcategoriaIdInput.value ? parseInt(subcategoriaIdInput.value, 10) : null;
   if (id) {
-    await fetchJSON(`${API_BASE}/subcategorias/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    await updateData(`${API_BASE}/subcategorias/${id}`, payload);
   } else {
-    await fetchJSON(`${API_BASE}/subcategorias`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    await postData(`${API_BASE}/subcategorias`, payload);
   }
   hideModal(modalSubcategoria);
   await cargarSubcategorias();

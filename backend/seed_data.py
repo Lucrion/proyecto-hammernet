@@ -549,19 +549,422 @@ def seed_mas_productos_catalogo(db, cantidad=60):
     return insertados
 
 
+def seed_ferreteria_15_realistas(db):
+    """Inserta 15 productos de ferretería realistas con categorías,
+    subcategorías y proveedores. Marca los productos como activos y en catálogo.
+    Evita duplicados por nombre/código.
+    """
+    resumen = {}
+
+    # Categorías base
+    categorias_def = [
+        {"nombre": "Herramientas", "descripcion": "Herramientas manuales y eléctricas"},
+        {"nombre": "Electricidad", "descripcion": "Materiales y accesorios eléctricos"},
+        {"nombre": "Plomería", "descripcion": "Tubos, fittings y grifería"},
+        {"nombre": "Construcción", "descripcion": "Materiales y fijaciones"},
+        {"nombre": "Jardinería", "descripcion": "Riego y mantenimiento de jardín"},
+    ]
+    cat_map = {}
+    for c in categorias_def:
+        ex = db.query(CategoriaDB).filter(CategoriaDB.nombre == c["nombre"]).first()
+        if not ex:
+            ex = CategoriaDB(**c)
+            db.add(ex)
+            db.flush()
+        cat_map[c["nombre"]] = ex.id_categoria
+    resumen["categorias_insertadas"] = len(categorias_def)
+
+    # Subcategorías
+    subcats_def = [
+        {"nombre": "Taladros", "descripcion": "Taladros y atornilladores", "categoria": "Herramientas"},
+        {"nombre": "Llaves", "descripcion": "Llaves ajustables y combinadas", "categoria": "Herramientas"},
+        {"nombre": "Destornilladores", "descripcion": "Destornilladores y puntas", "categoria": "Herramientas"},
+        {"nombre": "Iluminación", "descripcion": "Luminarias y paneles LED", "categoria": "Electricidad"},
+        {"nombre": "Cables", "descripcion": "Cables eléctricos y extensiones", "categoria": "Electricidad"},
+        {"nombre": "Tubos PVC", "descripcion": "Tubos y fittings de PVC", "categoria": "Plomería"},
+        {"nombre": "Grifería", "descripcion": "Llaves de paso y accesorios", "categoria": "Plomería"},
+        {"nombre": "Fijaciones", "descripcion": "Tornillos y pernos", "categoria": "Construcción"},
+        {"nombre": "Pinturas", "descripcion": "Pinturas y recubrimientos", "categoria": "Construcción"},
+        {"nombre": "Riego", "descripcion": "Accesorios de riego por goteo", "categoria": "Jardinería"},
+        {"nombre": "Mangueras", "descripcion": "Mangueras y conectores", "categoria": "Jardinería"},
+    ]
+    sub_map = {}
+    for s in subcats_def:
+        ex = db.query(SubCategoriaDB).filter(SubCategoriaDB.nombre == s["nombre"]).first()
+        if not ex:
+            ex = SubCategoriaDB(
+                nombre=s["nombre"],
+                descripcion=s.get("descripcion"),
+                id_categoria=cat_map[s["categoria"]]
+            )
+            db.add(ex)
+            db.flush()
+        sub_map[s["nombre"]] = ex.id_subcategoria
+    resumen["subcategorias_insertadas"] = len(subcats_def)
+
+    # Proveedores
+    proveedores_def = [
+        {"nombre": "FerreMax", "telefono": "+56922000001", "correo": "ventas@ferremax.cl"},
+        {"nombre": "ProElec Chile", "telefono": "+56922000002", "correo": "contacto@proelec.cl"},
+        {"nombre": "AquaPipe Ltda", "telefono": "+56922000003", "correo": "ventas@aquapipe.cl"},
+        {"nombre": "ConstruMarket", "telefono": "+56922000004", "correo": "soporte@construmarket.cl"},
+        {"nombre": "GardenPro", "telefono": "+56922000005", "correo": "ventas@gardenpro.cl"},
+    ]
+    prov_map = {}
+    for p in proveedores_def:
+        ex = db.query(ProveedorDB).filter(ProveedorDB.nombre == p["nombre"]).first()
+        if not ex:
+            ex = ProveedorDB(**p)
+            db.add(ex)
+            db.flush()
+        prov_map[p["nombre"]] = ex.id_proveedor
+    resumen["proveedores_insertados"] = len(proveedores_def)
+
+    # Productos (15 en total; algunos comparten subcategoría para "similares")
+    productos_def = [
+        # Herramientas / Taladros (3)
+        {
+            "nombre": "Taladro Percutor 850W",
+            "descripcion": "Taladro percutor 850W con velocidad variable",
+            "codigo_interno": "FER-001",
+            "imagen_url": "https://picsum.photos/seed/FER-001/600/600",
+            "id_categoria": cat_map["Herramientas"],
+            "id_subcategoria": sub_map["Taladros"],
+            "id_proveedor": prov_map["FerreMax"],
+            "marca": "Bosch",
+            "precio_venta": Decimal("79990"),
+            "cantidad_disponible": 20,
+            "stock_minimo": 3,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 24,
+            "modelo": "GSB-850",
+            "color": "Azul",
+            "material": "Plástico y metal",
+            "caracteristicas": "Potencia: 850W; Golpe; Portabrocas 13mm; Maletín"
+        },
+        {
+            "nombre": "Atornillador Inalámbrico 12V",
+            "descripcion": "Atornillador 12V con batería y cargador",
+            "codigo_interno": "FER-002",
+            "imagen_url": "https://picsum.photos/seed/FER-002/600/600",
+            "id_categoria": cat_map["Herramientas"],
+            "id_subcategoria": sub_map["Taladros"],
+            "id_proveedor": prov_map["FerreMax"],
+            "marca": "Makita",
+            "precio_venta": Decimal("64990"),
+            "cantidad_disponible": 25,
+            "stock_minimo": 3,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 12,
+            "modelo": "DF333D",
+            "color": "Verde",
+            "material": "Plástico y metal",
+            "caracteristicas": "Batería 12V; Incluye maletín; 2 velocidades"
+        },
+        {
+            "nombre": "Taladro Inalámbrico 20V",
+            "descripcion": "Taladro sin cable 20V con luz LED",
+            "codigo_interno": "FER-003",
+            "imagen_url": "https://picsum.photos/seed/FER-003/600/600",
+            "id_categoria": cat_map["Herramientas"],
+            "id_subcategoria": sub_map["Taladros"],
+            "id_proveedor": prov_map["FerreMax"],
+            "marca": "DeWalt",
+            "precio_venta": Decimal("99990"),
+            "cantidad_disponible": 18,
+            "stock_minimo": 3,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 24,
+            "modelo": "DCD777",
+            "color": "Amarillo",
+            "material": "Plástico y metal",
+            "caracteristicas": "20V; Motor sin escobillas; Luz LED"
+        },
+        # Herramientas / Llaves (2)
+        {
+            "nombre": "Llave Ajustable 10\"",
+            "descripcion": "Llave ajustable de 10 pulgadas",
+            "codigo_interno": "FER-004",
+            "imagen_url": "https://picsum.photos/seed/FER-004/600/600",
+            "id_categoria": cat_map["Herramientas"],
+            "id_subcategoria": sub_map["Llaves"],
+            "id_proveedor": prov_map["FerreMax"],
+            "marca": "Truper",
+            "precio_venta": Decimal("14990"),
+            "cantidad_disponible": 60,
+            "stock_minimo": 5,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 6,
+            "modelo": "AJ-10",
+            "color": "Plateado",
+            "material": "Acero cromado",
+            "caracteristicas": "Apertura 30mm; Antideslizante; Escala grabada"
+        },
+        {
+            "nombre": "Juego Llaves Combinadas 12 pzs",
+            "descripcion": "Set de llaves combinadas de 8 a 19mm",
+            "codigo_interno": "FER-005",
+            "imagen_url": "https://picsum.photos/seed/FER-005/600/600",
+            "id_categoria": cat_map["Herramientas"],
+            "id_subcategoria": sub_map["Llaves"],
+            "id_proveedor": prov_map["FerreMax"],
+            "marca": "Stanley",
+            "precio_venta": Decimal("29990"),
+            "cantidad_disponible": 35,
+            "stock_minimo": 5,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 12,
+            "modelo": "ST-12",
+            "color": "Plateado",
+            "material": "Acero cromado",
+            "caracteristicas": "12 piezas; Estuche enrollable; Métrica"
+        },
+        # Herramientas / Destornilladores (1)
+        {
+            "nombre": "Set Destornilladores 6 pzs",
+            "descripcion": "Planos y Phillips con puntas imantadas",
+            "codigo_interno": "FER-006",
+            "imagen_url": "https://picsum.photos/seed/FER-006/600/600",
+            "id_categoria": cat_map["Herramientas"],
+            "id_subcategoria": sub_map["Destornilladores"],
+            "id_proveedor": prov_map["FerreMax"],
+            "marca": "Stanley",
+            "precio_venta": Decimal("12990"),
+            "cantidad_disponible": 80,
+            "stock_minimo": 8,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 6,
+            "modelo": "SD-6",
+            "color": "Amarillo/Negro",
+            "material": "Acero y plástico",
+            "caracteristicas": "6 piezas; Puntas imantadas; Mangos ergonómicos"
+        },
+        # Electricidad / Iluminación (2)
+        {
+            "nombre": "Foco LED 30W Exterior",
+            "descripcion": "Proyector LED IP65 para exteriores",
+            "codigo_interno": "ELE-001",
+            "imagen_url": "https://picsum.photos/seed/ELE-001/600/600",
+            "id_categoria": cat_map["Electricidad"],
+            "id_subcategoria": sub_map["Iluminación"],
+            "id_proveedor": prov_map["ProElec Chile"],
+            "marca": "Osram",
+            "precio_venta": Decimal("24990"),
+            "cantidad_disponible": 50,
+            "stock_minimo": 5,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 12,
+            "modelo": "FL-30W",
+            "color": "Negro",
+            "material": "Aluminio",
+            "caracteristicas": "30W; IP65; 3000K"
+        },
+        {
+            "nombre": "Panel LED 48W Empotrado",
+            "descripcion": "Panel LED 60x60cm para oficinas",
+            "codigo_interno": "ELE-002",
+            "imagen_url": "https://picsum.photos/seed/ELE-002/600/600",
+            "id_categoria": cat_map["Electricidad"],
+            "id_subcategoria": sub_map["Iluminación"],
+            "id_proveedor": prov_map["ProElec Chile"],
+            "marca": "Philips",
+            "precio_venta": Decimal("39990"),
+            "cantidad_disponible": 40,
+            "stock_minimo": 5,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 24,
+            "modelo": "PL-48W",
+            "color": "Blanco",
+            "material": "Aluminio y acrílico",
+            "caracteristicas": "48W; 4000K; Alto brillo"
+        },
+        # Electricidad / Cables (1)
+        {
+            "nombre": "Cable Eléctrico 2x1.5mm 100m",
+            "descripcion": "Rollo de cable dúplex 2x1.5mm",
+            "codigo_interno": "ELE-003",
+            "imagen_url": "https://picsum.photos/seed/ELE-003/600/600",
+            "id_categoria": cat_map["Electricidad"],
+            "id_subcategoria": sub_map["Cables"],
+            "id_proveedor": prov_map["ProElec Chile"],
+            "marca": "Ducab",
+            "precio_venta": Decimal("69990"),
+            "cantidad_disponible": 15,
+            "stock_minimo": 2,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 12,
+            "modelo": "C-2X1.5-100",
+            "color": "Blanco",
+            "material": "Cobre y PVC",
+            "caracteristicas": "2x1.5mm; 100m; Aislamiento PVC"
+        },
+        # Plomería / Tubos PVC (1)
+        {
+            "nombre": "Tubo PVC 1/2\" x 3m",
+            "descripcion": "Tubo PVC presión 1/2 pulgada",
+            "codigo_interno": "PLO-001",
+            "imagen_url": "https://picsum.photos/seed/PLO-001/600/600",
+            "id_categoria": cat_map["Plomería"],
+            "id_subcategoria": sub_map["Tubos PVC"],
+            "id_proveedor": prov_map["AquaPipe Ltda"],
+            "marca": "Tigre",
+            "precio_venta": Decimal("5990"),
+            "cantidad_disponible": 120,
+            "stock_minimo": 10,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 6,
+            "modelo": "PVC-1/2-3M",
+            "color": "Gris",
+            "material": "PVC",
+            "caracteristicas": "Clase 10; Longitud 3m; 1/2\""
+        },
+        # Plomería / Grifería (1)
+        {
+            "nombre": "Llave de Paso 1/2\"",
+            "descripcion": "Llave de paso de bronce 1/2 pulgada",
+            "codigo_interno": "PLO-002",
+            "imagen_url": "https://picsum.photos/seed/PLO-002/600/600",
+            "id_categoria": cat_map["Plomería"],
+            "id_subcategoria": sub_map["Grifería"],
+            "id_proveedor": prov_map["AquaPipe Ltda"],
+            "marca": "Foset",
+            "precio_venta": Decimal("8990"),
+            "cantidad_disponible": 90,
+            "stock_minimo": 8,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 12,
+            "modelo": "LP-1/2",
+            "color": "Bronce",
+            "material": "Bronce",
+            "caracteristicas": "Rosca 1/2\"; Cierre rápido; Durable"
+        },
+        # Construcción / Fijaciones (1)
+        {
+            "nombre": "Tornillos Madera 8x1\" Caja 500",
+            "descripcion": "Tornillos para madera punta aguda",
+            "codigo_interno": "CON-001",
+            "imagen_url": "https://picsum.photos/seed/CON-001/600/600",
+            "id_categoria": cat_map["Construcción"],
+            "id_subcategoria": sub_map["Fijaciones"],
+            "id_proveedor": prov_map["ConstruMarket"],
+            "marca": "Fischer",
+            "precio_venta": Decimal("19990"),
+            "cantidad_disponible": 70,
+            "stock_minimo": 7,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 6,
+            "modelo": "FM-8X1",
+            "color": "Zincado",
+            "material": "Acero",
+            "caracteristicas": "Caja 500; 8x1\"; Rosca fina"
+        },
+        # Construcción / Pinturas (1)
+        {
+            "nombre": "Pintura Látex Interior 1 Galón",
+            "descripcion": "Pintura blanca mate para interiores",
+            "codigo_interno": "CON-003",
+            "imagen_url": "https://picsum.photos/seed/CON-003/600/600",
+            "id_categoria": cat_map["Construcción"],
+            "id_subcategoria": sub_map["Pinturas"],
+            "id_proveedor": prov_map["ConstruMarket"],
+            "marca": "Tricolor",
+            "precio_venta": Decimal("15990"),
+            "cantidad_disponible": 45,
+            "stock_minimo": 5,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 6,
+            "modelo": "LATEX-G1",
+            "color": "Blanco",
+            "material": "Base agua",
+            "caracteristicas": "Rendimiento 30m²/galón; Secado rápido"
+        },
+        # Jardinería / Mangueras (1)
+        {
+            "nombre": "Manguera Jardín 1/2\" 20m",
+            "descripcion": "Manguera flexible con conectores",
+            "codigo_interno": "JAR-001",
+            "imagen_url": "https://picsum.photos/seed/JAR-001/600/600",
+            "id_categoria": cat_map["Jardinería"],
+            "id_subcategoria": sub_map["Mangueras"],
+            "id_proveedor": prov_map["GardenPro"],
+            "marca": "Gardena",
+            "precio_venta": Decimal("19990"),
+            "cantidad_disponible": 50,
+            "stock_minimo": 5,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 12,
+            "modelo": "MG-1/2-20",
+            "color": "Verde",
+            "material": "PVC",
+            "caracteristicas": "20 metros; Con conectores; Resistente UV"
+        },
+        # Jardinería / Riego (1)
+        {
+            "nombre": "Kit Riego por Goteo 30m",
+            "descripcion": "Kit completo para riego por goteo",
+            "codigo_interno": "JAR-002",
+            "imagen_url": "https://picsum.photos/seed/JAR-002/600/600",
+            "id_categoria": cat_map["Jardinería"],
+            "id_subcategoria": sub_map["Riego"],
+            "id_proveedor": prov_map["GardenPro"],
+            "marca": "Gardena",
+            "precio_venta": Decimal("34990"),
+            "cantidad_disponible": 30,
+            "stock_minimo": 4,
+            "estado": "activo",
+            "en_catalogo": True,
+            "garantia_meses": 12,
+            "modelo": "RG-30",
+            "color": "Negro",
+            "material": "PVC y PE",
+            "caracteristicas": "30m; 50 goteros; Accesorios incluidos"
+        },
+    ]
+
+    insertados = 0
+    for p in productos_def:
+        ya = None
+        if p.get("codigo_interno"):
+            ya = db.query(ProductoDB).filter(ProductoDB.codigo_interno == p["codigo_interno"]).first()
+        if ya:
+            continue
+        db.add(ProductoDB(**p))
+        insertados += 1
+    db.commit()
+
+    # Asegurar conteo final de 15: eliminar posibles extras insertados previamente
+    extras_a_eliminar = ["CON-002", "ELE-004"]
+    for cod in extras_a_eliminar:
+        db.query(ProductoDB).filter(ProductoDB.codigo_interno == cod).delete(synchronize_session=False)
+    db.commit()
+
+    resumen["productos_insertados"] = insertados
+    resumen["total_categorias"] = len(cat_map)
+    resumen["total_subcategorias"] = len(sub_map)
+    resumen["total_proveedores"] = len(prov_map)
+    return resumen
+
+
 def main():
     db = SessionLocal()
     try:
         resumen = {}
-        resumen.update(seed_usuarios(db))
-        resumen.update(seed_catalogo_y_productos(db))
-        resumen.update(seed_venta_simple(db))
-        resumen.update(seed_despacho_y_pago(db))
-        # Insertar 20 ejemplos por tabla
-        resumen.update(seed_20_ejemplos_por_tabla(db))
-        # Agregar más productos al catálogo para probar la paginación
-        extras = seed_mas_productos_catalogo(db, cantidad=60)
-        resumen["productos_extra_catalogo"] = extras
+        # Solo ejecutar el seed solicitado de 15 productos realistas
+        resumen.update(seed_ferreteria_15_realistas(db))
         print(resumen)
     finally:
         db.close()

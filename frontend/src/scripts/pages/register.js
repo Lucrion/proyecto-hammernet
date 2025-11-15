@@ -116,6 +116,25 @@ async function handleRegister(e) {
     };
     localStorage.setItem('user', JSON.stringify(user));
 
+    // Completar datos del usuario (email y teléfono) inmediatamente después del registro
+    try {
+      const uResp = await fetch(`${API_URL}/usuarios/${user.id_usuario}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${data.access_token}`
+        }
+      });
+      if (uResp.ok) {
+        const fullUser = await uResp.json();
+        if (fullUser && (fullUser.email || fullUser.telefono)) {
+          localStorage.setItem('user', JSON.stringify(fullUser));
+        }
+      }
+    } catch (err) {
+      // No bloquear el flujo de registro por esta mejora
+      console.warn('No se pudo completar datos de usuario tras registro:', err);
+    }
+
     showStatus(`Cuenta creada: ${formatRutFromDigits(rutNormDigits)}. Iniciando sesión...`, 'success');
     setTimeout(() => { 
       if (user.rol === 'admin') {

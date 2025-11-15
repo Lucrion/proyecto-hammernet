@@ -240,6 +240,26 @@ async function handleLogin(e) {
         storage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
         console.log('Token guardado:', data.access_token ? 'Token presente' : 'Token ausente');
         console.log('Autenticación exitosa');
+
+        // Intentar obtener el usuario completo (email y teléfono) y actualizar storage
+        try {
+            const uResp = await fetch(`${API_URL}/usuarios/${user.id_usuario}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${data.access_token}`
+                }
+            });
+            if (uResp.ok) {
+                const fullUser = await uResp.json();
+                if (fullUser && (fullUser.email || fullUser.telefono)) {
+                    storage.setItem('user', JSON.stringify(fullUser));
+                }
+            } else {
+                console.warn('No se pudo cargar usuario completo, status:', uResp.status);
+            }
+        } catch (err) {
+            console.warn('Fallo al cargar usuario completo:', err);
+        }
         
         // Mostrar mensaje de éxito
         showStatus('Autenticación exitosa. Redirigiendo...', 'success');
@@ -361,7 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const userStr = storagePrimary.getItem('user') || storageSecondary.getItem('user');
         if (userStr && usernameEl) {
             const u = JSON.parse(userStr);
-            const rutDigits = (u && (u.rut || digitsOnly(u.username || ''))) || '';
+            const rutDigits = (u && u.rut) || '';
             if (rutDigits) {
                 usernameEl.value = formatRutFromDigits(rutDigits);
             }
