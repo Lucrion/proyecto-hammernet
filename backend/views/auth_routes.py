@@ -27,6 +27,20 @@ async def login(
     """ Endpoint para autenticar usuarios """
     return await AuthController.login(form_data, db)
 
+@router.post("/login-cliente", response_model=Token)
+async def login_cliente(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    return await AuthController.login_cliente(form_data, db)
+
+@router.post("/login-trabajador", response_model=Token)
+async def login_trabajador(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    return await AuthController.login_trabajador(form_data, db)
+
 @router.post("/register", response_model=Usuario)
 async def register(
     usuario: UsuarioCreate,

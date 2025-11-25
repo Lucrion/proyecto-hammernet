@@ -2,7 +2,7 @@
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_URL = isDevelopment 
     ? (window.__ENV__?.PUBLIC_API_URL || 'http://localhost:8000/api')
-    : (window.__ENV__?.PUBLIC_API_URL_PRODUCTION || 'https://hammernet-backend.onrender.com/api');
+    : (window.__ENV__?.PUBLIC_API_URL_PRODUCTION || 'https://hammernet.onrender.com/api');
 
 const corsConfig = {
     credentials: window.__ENV__?.PUBLIC_CORS_CREDENTIALS || 'include',
@@ -251,7 +251,8 @@ async function handleLogin(e) {
             ...corsConfig
         };
         
-        let response = await fetch(`${API_URL}/auth/login`, fetchOptions);
+        const loginEndpoint = (tipoSeleccionado === 'trabajador') ? 'login-trabajador' : 'login-cliente';
+        let response = await fetch(`${API_URL}/auth/${loginEndpoint}`, fetchOptions);
         
         // Limpiar el timeout ya que la solicitud se completó
         clearTimeout(timeoutId);
@@ -278,7 +279,7 @@ async function handleLogin(e) {
                     formDataAlt.append('grant_type', 'password');
                     const fetchOptionsAlt = { method: 'POST', body: formDataAlt, signal: controller.signal, ...corsConfig };
                     console.warn('401 al login cliente. Reintentando con email crudo:', formDataAlt.toString());
-                    response = await fetch(`${API_URL}/auth/login`, fetchOptionsAlt);
+                    response = await fetch(`${API_URL}/auth/${loginEndpoint}`, fetchOptionsAlt);
                     if (response.ok) {
                         clearTimeout(timeoutId);
                         const data = await response.json();

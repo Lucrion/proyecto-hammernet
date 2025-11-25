@@ -124,3 +124,27 @@ class AuthController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error interno del servidor: {str(e)}"
             )
+
+    @staticmethod
+    async def login_cliente(form_data: OAuth2PasswordRequestForm, db: Session) -> Token:
+        try:
+            result = await AuthController.login(form_data, db)
+            if (result.role or '').lower() != 'cliente':
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso restringido a clientes")
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno del servidor: {str(e)}")
+
+    @staticmethod
+    async def login_trabajador(form_data: OAuth2PasswordRequestForm, db: Session) -> Token:
+        try:
+            result = await AuthController.login(form_data, db)
+            if (result.role or '').lower() == 'cliente':
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso restringido a trabajadores")
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno del servidor: {str(e)}")
