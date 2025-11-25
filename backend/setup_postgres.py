@@ -17,6 +17,12 @@ from dotenv import load_dotenv
 # Importar modelos y configuración
 from config.database import Base, engine, get_db
 from models.usuario import UsuarioDB
+# Importar los modelos relacionados para asegurar el registro de mapeos antes de crear tablas
+from models import (
+    CategoriaDB, SubCategoriaDB, ProductoDB, ProveedorDB,
+    VentaDB, DetalleVentaDB, MovimientoInventarioDB,
+    PagoDB, DespachoDB, RolDB, PermisoDB, RolPermisoDB,
+)
 from core.auth import hash_contraseña
 from core.auth import hash_contraseña
 
