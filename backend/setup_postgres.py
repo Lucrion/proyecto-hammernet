@@ -97,7 +97,6 @@ def crear_usuario_admin():
         admin_rut_str = os.getenv('ADMIN_RUT', '0')
         admin_rut_digits = re.sub(r"\D", "", admin_rut_str)
         admin_rut = int(admin_rut_digits) if admin_rut_digits else None
-        admin_existente = db.query(UsuarioDB).filter(UsuarioDB.rut == admin_rut).first()
 
         admin_password = os.getenv('ADMIN_PASSWORD', '123')
         admin_email = os.getenv('ADMIN_EMAIL', 'admin@localhost')
@@ -109,12 +108,16 @@ def crear_usuario_admin():
             role_val = 'administrador'
             activo_val = True
 
-            if admin_existente:
-                up_sql = "UPDATE usuarios SET nombre=:nombre, password=:password, role=:role, activo=:activo WHERE rut=:rut"
-                conn.execute(text(up_sql), {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "rut": admin_rut})
+            # Verificar existencia por rut como texto (compatible con varchar/int)
+            exists_sql = "SELECT 1 FROM usuarios WHERE CAST(rut AS TEXT) = :rut_txt LIMIT 1"
+            exists_row = conn.execute(text(exists_sql), {"rut_txt": admin_rut_str}).fetchone()
+
+            if exists_row:
+                up_sql = "UPDATE usuarios SET nombre=:nombre, password=:password, role=:role, activo=:activo WHERE CAST(rut AS TEXT) = :rut_txt"
+                conn.execute(text(up_sql), {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "rut_txt": admin_rut_str})
                 db.commit()
                 print("✅ Usuario administrador actualizado exitosamente")
-                print(f"   RUT: {admin_rut}")
+                print(f"   RUT: {admin_rut_str}")
                 print(f"   Contraseña: {admin_password}")
                 print(f"   Rol: administrador")
                 print(f"   Email: {admin_email}")
@@ -125,11 +128,11 @@ def crear_usuario_admin():
                 placeholders = ",".join([f":{c}" for c in insert_cols])
                 cols_str = ",".join(insert_cols)
                 ins_sql = f"INSERT INTO usuarios ({cols_str}) VALUES ({placeholders})"
-                params = {"nombre": nombre_val, "rut": admin_rut, "email": admin_email, "password": password_hash, "role": role_val, "activo": activo_val}
+                params = {"nombre": nombre_val, "rut": admin_rut_str, "email": admin_email, "password": password_hash, "role": role_val, "activo": activo_val}
                 conn.execute(text(ins_sql), params)
                 db.commit()
                 print("✅ Usuario administrador creado exitosamente")
-                print(f"   RUT: {admin_rut}")
+                print(f"   RUT: {admin_rut_str}")
                 print(f"   Contraseña: {admin_password}")
                 print(f"   Rol: administrador")
                 print(f"   Email: {admin_email}")
