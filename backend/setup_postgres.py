@@ -12,6 +12,7 @@ import os
 import re
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import configure_mappers
 from dotenv import load_dotenv
 
 # Importar modelos y configuración
@@ -44,6 +45,12 @@ def verificar_conexion():
 def crear_tablas():
     """Crea todas las tablas definidas en los modelos"""
     try:
+        print("📋 Configurando mapeos de SQLAlchemy...")
+        try:
+            configure_mappers()
+            print("🧩 Mappers configurados correctamente")
+        except Exception as me:
+            print(f"⚠️  Advertencia al configurar mappers: {me}")
         print("📋 Creando tablas en PostgreSQL...")
         Base.metadata.create_all(bind=engine)
         print("🐘 Tablas creadas en PostgreSQL (setup_postgres.py)")

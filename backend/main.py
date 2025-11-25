@@ -14,6 +14,8 @@ load_dotenv()
 # Importar módulos personalizados
 from config.database import Base, engine
 from config.cloudinary_config import configure_cloudinary
+# Registrar todos los modelos antes de crear tablas para evitar errores de mapeo en producción
+from models import *  # noqa: F401,F403
 
 # Importar las rutas organizadas
 from views.auth_routes import router as auth_router
