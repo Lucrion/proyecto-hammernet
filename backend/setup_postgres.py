@@ -107,14 +107,20 @@ def crear_usuario_admin():
             password_hash = hash_contraseña(admin_password)
             role_val = 'administrador'
             activo_val = True
+            username_val = os.getenv('ADMIN_USERNAME', 'admin')
 
             # Verificar existencia por rut como texto (compatible con varchar/int)
             exists_sql = "SELECT 1 FROM usuarios WHERE CAST(rut AS TEXT) = :rut_txt LIMIT 1"
             exists_row = conn.execute(text(exists_sql), {"rut_txt": admin_rut_str}).fetchone()
 
             if exists_row:
-                up_sql = "UPDATE usuarios SET nombre=:nombre, password=:password, role=:role, activo=:activo WHERE CAST(rut AS TEXT) = :rut_txt"
-                conn.execute(text(up_sql), {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "rut_txt": admin_rut_str})
+                set_parts = ["nombre=:nombre", "password=:password", "role=:role", "activo=:activo"]
+                params = {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "rut_txt": admin_rut_str}
+                if 'username' in cols_set:
+                    set_parts.append("username=:username")
+                    params["username"] = username_val
+                up_sql = f"UPDATE usuarios SET {', '.join(set_parts)} WHERE CAST(rut AS TEXT) = :rut_txt"
+                conn.execute(text(up_sql), params)
                 db.commit()
                 print("✅ Usuario administrador actualizado exitosamente")
                 print(f"   RUT: {admin_rut_str}")
@@ -125,10 +131,14 @@ def crear_usuario_admin():
             else:
                 insert_cols = ["nombre", "rut", "email", "password", "role", "activo"]
                 insert_cols = [c for c in insert_cols if c in cols_set]
+                if 'username' in cols_set:
+                    insert_cols.append('username')
                 placeholders = ",".join([f":{c}" for c in insert_cols])
                 cols_str = ",".join(insert_cols)
                 ins_sql = f"INSERT INTO usuarios ({cols_str}) VALUES ({placeholders})"
                 params = {"nombre": nombre_val, "rut": admin_rut_str, "email": admin_email, "password": password_hash, "role": role_val, "activo": activo_val}
+                if 'username' in cols_set:
+                    params['username'] = username_val
                 conn.execute(text(ins_sql), params)
                 db.commit()
                 print("✅ Usuario administrador creado exitosamente")
