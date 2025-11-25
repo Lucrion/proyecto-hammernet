@@ -59,6 +59,13 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 # Crear las tablas en la base de datos (solo si no existen)
 try:
     Base.metadata.create_all(bind=engine)
+    # Ajuste de compatibilidad de esquema: asegurar columna id_rol en usuarios
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS id_rol INTEGER"))
+        except Exception as ie:
+            print(f"⚠️  No se pudo asegurar columna id_rol en usuarios: {ie}")
     print("🔄 Servidor iniciado - Base de datos verificada")
 except Exception as e:
     print(f"❌ Error al inicializar base de datos: {e}")

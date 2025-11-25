@@ -42,6 +42,34 @@ def verificar_conexion():
         print(f"❌ Error de conexión a PostgreSQL: {str(e)}")
         return False
 
+
+def asegurar_esquema_usuarios():
+    """Asegura que la tabla usuarios tenga la columna id_rol y FK opcional hacia roles."""
+    try:
+        with engine.connect() as connection:
+            # Crear columna si no existe
+            connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS id_rol INTEGER"))
+            # Agregar FK si no existe (controlando por nombre de constraint)
+            fk_name = 'fk_usuarios_roles'
+            exists = connection.execute(text(
+                """
+                SELECT 1 FROM information_schema.table_constraints
+                WHERE table_name = 'usuarios' AND constraint_name = :fk
+                """
+            ), {"fk": fk_name}).fetchone()
+            if not exists:
+                try:
+                    connection.execute(text(
+                        "ALTER TABLE usuarios ADD CONSTRAINT fk_usuarios_roles FOREIGN KEY (id_rol) REFERENCES roles(id_rol) ON DELETE SET NULL"
+                    ))
+                except Exception as ce:
+                    print(f"⚠️  No se pudo crear FK fk_usuarios_roles: {ce}")
+            print("✅ Esquema de usuarios verificado/actualizado (id_rol)")
+            return True
+    except Exception as e:
+        print(f"❌ Error al asegurar esquema de usuarios: {e}")
+        return False
+
 def crear_tablas():
     """Crea todas las tablas definidas en los modelos"""
     try:
@@ -53,6 +81,8 @@ def crear_tablas():
             print(f"⚠️  Advertencia al configurar mappers: {me}")
         print("📋 Creando tablas en PostgreSQL...")
         Base.metadata.create_all(bind=engine)
+        # Asegurar compatibilidad de esquema
+        asegurar_esquema_usuarios()
         print("🐘 Tablas creadas en PostgreSQL (setup_postgres.py)")
         print("✅ Tablas creadas exitosamente")
         return True
