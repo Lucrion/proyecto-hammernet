@@ -28,18 +28,21 @@ import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
             <input type="hidden" id="userId" value="">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                    <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                     <input type="text" id="nombre" name="nombre" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                 </div>
                 <div>
+                    <label for="apellido" class="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+                    <input type="text" id="apellido" name="apellido" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
                     <label for="rut" class="block text-sm font-medium text-gray-700 mb-1">RUT</label>
-                    <input type="text" id="rut" name="rut" placeholder="12.345.678-9" maxlength="13" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" inputmode="numeric" required>
-                    <small class="text-gray-500 text-xs">Ingresa el RUT con o sin puntos y guion</small>
+                    <input type="text" id="rut" name="rut" placeholder="12.345.678-9" maxlength="12" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" inputmode="numeric" required>
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
                     <input type="password" id="password" name="password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <small class="text-gray-500 text-xs">Dejar vacío para mantener la contraseña actual (solo al editar)</small>
+                    <small class="text-gray-500 text-xs">Dejar vacío para mantener la contraseña actual</small>
                 </div>
                 <div>
                     <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
@@ -79,20 +82,14 @@ import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
             <div class="text-sm text-gray-600 mb-2 md:mb-0">
                 Mostrando <span id="mostrandoDesde">0</span>–<span id="mostrandoHasta">0</span> de <span id="totalUsuarios">0</span>
             </div>
-            <div class="flex items-center space-x-2">
-                <label for="selectTamPaginaUsuarios" class="text-sm text-gray-600">Por página</label>
-                <select id="selectTamPaginaUsuarios" class="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                </select>
-                <button id="btnPrevUsuarios" class="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-100">Anterior</button>
-                <button id="btnNextUsuarios" class="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-100">Siguiente</button>
-            </div>
+        <div class="flex items-center space-x-2">
+            <button id="btnPrevUsuarios" class="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-100">Anterior</button>
+            <button id="btnNextUsuarios" class="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-100">Siguiente</button>
+        </div>
         </div>
     </div>
 
-    <!-- Modal de confirmación para desactivar usuario -->
+    <!-- Confirmación para desactivar usuario -->
     <div id="modalConfirmar" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
@@ -117,7 +114,7 @@ import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
         </div>
     </div>
 
-    <!-- Modal de usuarios desactivados -->
+    <!-- Usuarios desactivados -->
     <div id="modalUsuariosDesactivados" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
         <div class="relative top-10 mx-auto p-5 border w-5/6 max-w-4xl shadow-lg rounded-md bg-white">
             <div class="flex justify-between items-center mb-4">
@@ -155,7 +152,7 @@ import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
 
     <!-- Vista de clientes ahora se mostrará en la tabla principal -->
 
-    <!-- Modal de información de usuario -->
+    <!-- Información de usuario -->
     <div id="modalInfoUsuario" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
         <div class="relative top-10 mx-auto p-5 border w-5/6 max-w-3xl shadow-lg rounded-md bg-white">
             <div class="flex justify-between items-center mb-4">

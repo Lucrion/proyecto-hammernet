@@ -3,9 +3,15 @@ export const prerender = false; // Habilitar SSR para esta página
 
 import Layout from '../../layouts/Layout.astro';
 
-// Configuración de API - usar URL completa para evitar problemas con el proxy en SSR
-const API_BASE = 'http://localhost:8000/api';
-const API_HOST = API_BASE.replace(/\/api$/, '');
+const isDev = (import.meta.env.MODE === 'development') || (import.meta.env.DEV === true);
+const devApi = '/api';
+const prodApi = (import.meta.env.PUBLIC_API_URL_PRODUCTION || import.meta.env.PUBLIC_API_URL || 'http://localhost:8000/api');
+const chosenApi = isDev ? devApi : prodApi;
+const API_BASE = chosenApi.endsWith('/api') ? chosenApi : chosenApi.replace(/\/$/, '') + '/api';
+const FRONT_ORIGIN = typeof Astro !== 'undefined' ? Astro.url.origin : '';
+const API_HOST = /^https?:\/\//i.test(API_BASE) ? API_BASE.replace(/\/api$/, '') : (FRONT_ORIGIN ? FRONT_ORIGIN.replace(/\/$/, '') : '');
+const PROXY_BASE = FRONT_ORIGIN ? (FRONT_ORIGIN.replace(/\/$/, '') + '/api') : null;
+const ABS_API_BASE = /^https?:\/\//i.test(API_BASE) ? API_BASE : (PROXY_BASE || 'http://127.0.0.1:8000/api');
 
 // Normaliza URLs de imagen: si vienen relativas desde BD, se prefijan con el host del backend
 const normalizeImageUrl = (u) => {
@@ -38,7 +44,7 @@ try {
     const PAGE_SIZE = 100;
     // Intento 1: endpoint dedicado por slug
     try {
-      const slugResp = await fetch(`${API_BASE}/productos/catalogo/slug/${productoSlug}`);
+      const slugResp = await fetch(`${ABS_API_BASE}/productos/catalogo/slug/${productoSlug}`);
       if (slugResp.ok) {
         const prod = await slugResp.json();
         productoId = prod?.id_producto;
@@ -49,7 +55,7 @@ try {
     // Intento 2: fallback paginado si no se resolvió
     try {
       let total = 0;
-      const respTotal = await fetch(`${API_BASE}/productos/catalogo/total`);
+      const respTotal = await fetch(`${ABS_API_BASE}/productos/catalogo/total`);
       if (respTotal.ok) {
         const jsonTotal = await respTotal.json();
         total = Number(jsonTotal.total || 0);
@@ -58,7 +64,7 @@ try {
       const maxItems = total > 0 ? total : PAGE_SIZE;
       let skip = 0;
       while (skip < maxItems && !productoId) {
-        const respPage = await fetch(`${API_BASE}/productos/catalogo?skip=${skip}&limit=${PAGE_SIZE}`);
+        const respPage = await fetch(`${ABS_API_BASE}/productos/catalogo?skip=${skip}&limit=${PAGE_SIZE}`);
         if (!respPage.ok) break;
         const productos = await respPage.json();
         if (!Array.isArray(productos) || productos.length === 0) break;
@@ -87,68 +93,113 @@ try {
   }
   
   if (productoId) {
-    // Obtener el producto específico por ID
-    const responseProducto = await fetch(`${API_BASE}/productos/${productoId}`);
-    
+    let responseProducto = await fetch(`${ABS_API_BASE}/productos/${productoId}`);
+    if (!responseProducto.ok && PROXY_BASE) {
+      try { responseProducto = await fetch(`${PROXY_BASE}/productos/${productoId}`); } catch {}
+    }
     if (responseProducto.ok) {
       const productoData = await responseProducto.json();
-      
-      // Verificar si el producto está en catálogo y disponible
-      if (productoData.cantidad_disponible > 0 && productoData.precio_venta > 0) {
-        const now = new Date();
-        const inicio = productoData.fecha_inicio_oferta ? new Date(productoData.fecha_inicio_oferta) : null;
-        const fin = productoData.fecha_fin_oferta ? new Date(productoData.fecha_fin_oferta) : null;
-        const ofertaVigente = !!productoData.oferta_activa && (!inicio || now >= inicio) && (!fin || now <= fin);
-        let precioFinal = Number(productoData.precio_venta);
-        if (ofertaVigente && productoData.tipo_oferta && Number(productoData.valor_oferta) > 0) {
-          if (productoData.tipo_oferta === 'porcentaje') {
-            const desc = Math.min(100, Math.max(0, Number(productoData.valor_oferta)));
-            precioFinal = Math.max(0, precioFinal * (1 - desc / 100));
-          } else if (productoData.tipo_oferta === 'fijo') {
-            precioFinal = Math.max(0, precioFinal - Number(productoData.valor_oferta));
-          }
-        }
-        producto = {
-          id: productoData.id_producto,
-          nombre: productoData.nombre,
-          descripcion: productoData.descripcion || '',
-          precio: precioFinal,
-          precio_original: ofertaVigente ? productoData.precio_venta : null,
-          tiene_oferta: ofertaVigente,
-          imagen: normalizeImageUrl(productoData.imagen_url),
-          categoria: productoData.categoria || 'Sin categoría',
-          caracteristicas: productoData.caracteristicas || '',
-          stock: productoData.cantidad_disponible,
-          marca: productoData.marca || '',
-          garantia_meses: productoData.garantia_meses ?? null,
-          modelo: productoData.modelo || '',
-          color: productoData.color || '',
-          material: productoData.material || '',
-          subcategoria: productoData.subcategoria || '',
-          id_subcategoria: productoData.id_subcategoria ?? null,
-          codigo_interno: productoData.codigo_interno || ''
-        };
-        console.log('Producto encontrado:', producto.nombre);
 
-        // Obtener productos similares desde la base de datos vía endpoint dedicado (máximo 6)
-        try {
- const respSim = await fetch(`${API_BASE}/productos/similares/${productoData.id_producto}?limit=10`);
-          if (respSim.ok) {
-            const similares = await respSim.json();
-            productosSimilares = Array.isArray(similares) ? similares.map(s => ({
-              id: s.id,
-              nombre: s.nombre,
-              descripcion: s.descripcion || '',
-              imagen: normalizeImageUrl(s.imagen),
-              precio: Number(s.precio || 0)
-            })) : [];
-          }
-        } catch (e) {
-          console.warn('No se pudo cargar productos similares:', e);
+      const now = new Date();
+      const inicio = productoData.fecha_inicio_oferta ? new Date(productoData.fecha_inicio_oferta) : null;
+      const fin = productoData.fecha_fin_oferta ? new Date(productoData.fecha_fin_oferta) : null;
+      const ofertaVigenteFlag = !!productoData.oferta_activa && (!inicio || now >= inicio) && (!fin || now <= fin);
+      const precioOriginal = Number(productoData.precio_venta ?? productoData.precio ?? 0);
+      const apiPrecioFinal = Number(productoData.precio_final ?? NaN);
+      let precioFinal = Number.isFinite(apiPrecioFinal) ? apiPrecioFinal : precioOriginal;
+      if (!Number.isFinite(apiPrecioFinal) && ofertaVigenteFlag && productoData.tipo_oferta && Number(productoData.valor_oferta) > 0) {
+        if (productoData.tipo_oferta === 'porcentaje') {
+          const desc = Math.min(100, Math.max(0, Number(productoData.valor_oferta)));
+          precioFinal = Math.max(0, precioOriginal * (1 - desc / 100));
+        } else if (productoData.tipo_oferta === 'fijo') {
+          precioFinal = Math.max(0, precioOriginal - Number(productoData.valor_oferta));
         }
-      } else {
-        console.log('Producto no disponible o sin precio');
-        error = 'Producto no disponible';
+      }
+      const tieneDescuento = precioFinal < precioOriginal;
+      const descuentoPct = (tieneDescuento && precioOriginal > 0)
+        ? Math.max(0, Math.min(100, Math.round(((precioOriginal - precioFinal) / precioOriginal) * 100)))
+        : 0;
+      producto = {
+        id: productoData.id_producto,
+        nombre: productoData.nombre,
+        descripcion: productoData.descripcion || '',
+        precio: precioFinal,
+        precio_original: tieneDescuento ? precioOriginal : null,
+        tiene_oferta: tieneDescuento,
+        descuento_pct: descuentoPct,
+        imagen: normalizeImageUrl(productoData.imagen_url),
+        categoria: productoData.categoria || 'Sin categoría',
+        caracteristicas: productoData.caracteristicas || '',
+        stock: productoData.cantidad_disponible,
+        marca: productoData.marca || '',
+        garantia_meses: productoData.garantia_meses ?? null,
+        modelo: productoData.modelo || '',
+        color: productoData.color || '',
+        material: productoData.material || '',
+        subcategoria: productoData.subcategoria || '',
+        id_subcategoria: productoData.id_subcategoria ?? null,
+        codigo_interno: productoData.codigo_interno || ''
+      };
+      console.log('Producto encontrado:', producto.nombre);
+
+      // Obtener productos similares desde la base de datos vía endpoint dedicado (máximo 10)
+      try {
+        let respSim = await fetch(`${ABS_API_BASE}/productos/similares/${productoData.id_producto}?limit=10`);
+        if (!respSim.ok && PROXY_BASE) {
+          try { respSim = await fetch(`${PROXY_BASE}/productos/similares/${productoData.id_producto}?limit=10`); } catch {}
+        }
+        if (respSim.ok) {
+          const similares = await respSim.json();
+          const baseSim = Array.isArray(similares) ? similares.map(s => ({
+            id: s.id,
+            nombre: s.nombre,
+            descripcion: s.descripcion || '',
+            imagen: normalizeImageUrl(s.imagen),
+            precio: Number(s.precio || 0)
+          })) : [];
+
+          productosSimilares = await Promise.all(baseSim.map(async (sim) => {
+            try {
+              let respDet = await fetch(`${ABS_API_BASE}/productos/${sim.id}`);
+              if (!respDet.ok && PROXY_BASE) {
+                try { respDet = await fetch(`${PROXY_BASE}/productos/${sim.id}`); } catch {}
+              }
+              if (respDet.ok) {
+                const data = await respDet.json();
+                const now = new Date();
+                const inicio = data.fecha_inicio_oferta ? new Date(data.fecha_inicio_oferta) : null;
+                const fin = data.fecha_fin_oferta ? new Date(data.fecha_fin_oferta) : null;
+                const ofertaVigente = !!data.oferta_activa && (!inicio || now >= inicio) && (!fin || now <= fin);
+                const precioOriginal = Number(data.precio_venta ?? data.precio ?? sim.precio ?? 0);
+                const apiPrecioFinal = Number(data.precio_final ?? NaN);
+                let precioFinal = Number.isFinite(apiPrecioFinal) ? apiPrecioFinal : precioOriginal;
+                if (!Number.isFinite(apiPrecioFinal) && ofertaVigente && data.tipo_oferta && Number(data.valor_oferta) > 0) {
+                  if (data.tipo_oferta === 'porcentaje') {
+                    const desc = Math.min(100, Math.max(0, Number(data.valor_oferta)));
+                    precioFinal = Math.max(0, precioOriginal * (1 - desc / 100));
+                  } else if (data.tipo_oferta === 'fijo') {
+                    precioFinal = Math.max(0, precioOriginal - Number(data.valor_oferta));
+                  }
+                }
+                const tieneDescuento = precioFinal < precioOriginal;
+                const descuentoPct = (tieneDescuento && precioOriginal > 0)
+                  ? Math.max(0, Math.min(100, Math.round(((precioOriginal - precioFinal) / precioOriginal) * 100)))
+                  : 0;
+                return {
+                  ...sim,
+                  imagen: normalizeImageUrl(data.imagen_url) || sim.imagen,
+                  precio: precioFinal,
+                  precio_original: tieneDescuento ? precioOriginal : null,
+                  tiene_oferta: tieneDescuento,
+                  descuento_pct: descuentoPct
+                };
+              }
+            } catch {}
+            return sim;
+          }));
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar productos similares:', e);
       }
     } else {
       console.log('Producto no encontrado en la API');
@@ -207,6 +258,41 @@ try {
   // Fallback silencioso: si falla el parseo, se mantiene la visualización simple
 }
 
+let specList = [];
+try {
+  const mapKeys = {
+    potencia: 'Potencia',
+    watt: 'Potencia',
+    w: 'Potencia',
+    voltaje: 'Voltaje',
+    v: 'Voltaje',
+    velocidad: 'Velocidad',
+    capacidad: 'Capacidad',
+    dimensiones: 'Dimensiones',
+    peso: 'Peso',
+    material: 'Material',
+    modelo: 'Modelo',
+    color: 'Color'
+  };
+  const normKey = k => {
+    const base = String(k || '').trim().toLowerCase();
+    if (!base) return '';
+    const hit = Object.keys(mapKeys).find(s => base.includes(s));
+    if (hit) return mapKeys[hit];
+    return base.charAt(0).toUpperCase() + base.slice(1);
+  };
+  const normVal = v => String(v || '').trim().replace(/(\d)([a-zA-Z])/g, '$1 $2').replace(/\s+/g, ' ');
+  const seen = new Set();
+  specList = specItems.map(it => ({ key: normKey(it.key), value: normVal(it.value) }))
+    .filter(({ key, value }) => {
+      const sig = (key + '|' + value).toLowerCase();
+      if (seen.has(sig)) return false;
+      seen.add(sig);
+      if ((key === 'Modelo' && producto?.modelo) || (key === 'Color' && producto?.color) || (key === 'Material' && producto?.material)) return false;
+      return Boolean(value);
+    });
+} catch {}
+
 // Si no se encuentra el producto, devolver 404
 if (!producto) {
   Astro.response.status = 404;
@@ -240,26 +326,26 @@ if (!producto) {
 				<div class="space-y-4">
 					<div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
 						<div class="relative aspect-square rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
-							{producto.tiene_oferta && (
-								<span class="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded">Oferta</span>
-							)}
-						{producto.imagen ? (
-							<img 
-								src={producto.imagen} 
-								alt={producto.nombre}
-								loading="lazy" decoding="async" fetchpriority="high"
-								class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
-								onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-							/>
-						) : (
-							<img 
-								src="/images/logos/herramientas.webp" 
-								alt={producto.nombre}
-								loading="lazy" decoding="async"
-								class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
-								onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-							/>
-						)}
+                            {producto.tiene_oferta && (
+                                <span class="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded">Oferta</span>
+                            )}
+                        {producto.imagen ? (
+                            <img 
+                                src={producto.imagen} 
+                                alt={producto.nombre}
+                                loading="lazy" decoding="async" fetchpriority="high" sizes="(min-width: 1024px) 50vw, 100vw"
+                                class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                            />
+                        ) : (
+                            <img 
+                                src="/images/logos/herramientas.webp" 
+                                alt={producto.nombre}
+                                loading="lazy" decoding="async" sizes="(min-width: 1024px) 50vw, 100vw"
+                                class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                            />
+                        )}
 						<!-- Fallback cuando la imagen no carga -->
 						<div class="w-full h-full bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center" style="display: none;">
 							<div class="text-center">
@@ -272,83 +358,124 @@ if (!producto) {
 						</div>
 						</div>
 						<!-- Especificaciones debajo de la imagen -->
-						<div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
-							<h3 class="text-lg font-semibold text-gray-900 mb-3">Especificaciones</h3>
-							<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-								<dl class="divide-y divide-gray-100">
-									<div class="grid grid-cols-1 sm:grid-cols-2">
-										<div class="px-4 py-3 bg-gray-50">
-											<dt class="text-gray-600">Categoría</dt>
-											<dd class="font-medium">{producto.categoria?.replace(/_/g, ' ')}</dd>
-										</div>
-										<div class="px-4 py-3">
-											<dt class="text-gray-600">Stock disponible</dt>
-											<dd class="font-medium text-green-600">{producto.stock} unidades</dd>
-										</div>
-									</div>
-									{producto.marca && (
-										<div class="px-4 py-3">
-											<dt class="text-gray-600">Marca</dt>
-											<dd class="font-medium">{producto.marca}</dd>
-										</div>
-									)}
-									{(specItems && specItems.length > 0) ? (
-										<div>
-											<div class="px-4 py-3 bg-gray-50">
-												<dt class="text-gray-600">Características</dt>
-											</div>
-											<div class="px-4">
-												<ul class="divide-y divide-gray-100">
-													{specItems.map((item) => (
-														<li class="flex justify-between py-3">
-															<span class="text-gray-600">{item.key ?? 'Especificación'}</span>
-															<span class="font-medium">{item.value}</span>
-														</li>
-													))}
-												</ul>
-											</div>
-										</div>
-									) : (
-										producto.caracteristicas && (
-											<div class="px-4 py-3">
-												<dt class="text-gray-600">Características</dt>
-												<dd class="font-medium mt-1">{producto.caracteristicas}</dd>
-											</div>
-										)
-									)}
-									{producto.modelo && (
-										<div class="px-4 py-3">
-											<dt class="text-gray-600">Modelo</dt>
-											<dd class="font-medium">{producto.modelo}</dd>
-										</div>
-									)}
-									{producto.color && (
-										<div class="px-4 py-3">
-											<dt class="text-gray-600">Color</dt>
-											<dd class="font-medium flex items-center gap-2">
-												<span>{producto.color}</span>
-												<span class="inline-block w-4 h-4 rounded-full border" style={`background-color: ${String(producto.color).toLowerCase()}`}></span>
-											</dd>
-										</div>
-									)}
-									{producto.material && (
-										<div class="px-4 py-3">
-											<dt class="text-gray-600">Material</dt>
-											<dd class="font-medium">{producto.material}</dd>
-										</div>
-									)}
-
-									<div class="px-4 py-3 bg-gray-50">
-										<dt class="text-gray-600">Garantía</dt>
-										<dd class="font-medium">{producto.garantia_meses ? `${producto.garantia_meses} meses` : 'Sin garantía'}</dd>
-									</div>
-								</dl>
-							</div>
-						</div>
+                        <div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+                            <div class="flex items-center gap-2 mb-4">
+                                <button id="tabSpecs" class="px-3 py-2 rounded bg-blue-600 text-white text-sm">Especificaciones</button>
+                                <button id="tabFeatures" class="px-3 py-2 rounded bg-gray-100 text-gray-700 text-sm">Características</button>
+                            </div>
+                            <div id="specsPane">
+                                <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                    <dl class="divide-y divide-gray-100">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2">
+                                            <div class="px-4 py-3 bg-gray-50">
+                                                <dt class="text-gray-600">Categoría</dt>
+                                                <dd class="font-medium">{producto.categoria?.replace(/_/g, ' ')}</dd>
+                                            </div>
+                                            <div class="px-4 py-3">
+                                                <dt class="text-gray-600">Stock disponible</dt>
+                                                <dd class="font-medium text-green-600">{producto.stock} unidades</dd>
+                                            </div>
+                                        </div>
+                                        {producto.marca && (
+                                            <div class="px-4 py-3">
+                                                <dt class="text-gray-600">Marca</dt>
+                                                <dd class="font-medium">{producto.marca}</dd>
+                                            </div>
+                                        )}
+                                        {producto.modelo && (
+                                            <div class="px-4 py-3">
+                                                <dt class="text-gray-600">Modelo</dt>
+                                                <dd class="font-medium">{producto.modelo}</dd>
+                                            </div>
+                                        )}
+                                        {producto.color && (
+                                            <div class="px-4 py-3">
+                                                <dt class="text-gray-600">Color</dt>
+                                                <dd class="font-medium flex items-center gap-2">
+                                                    <span>{producto.color}</span>
+                                                    <span class="inline-block w-4 h-4 rounded-full border" style={`background-color: ${String(producto.color).toLowerCase()}`}></span>
+                                                </dd>
+                                            </div>
+                                        )}
+                                        {producto.material && (
+                                            <div class="px-4 py-3">
+                                                <dt class="text-gray-600">Material</dt>
+                                                <dd class="font-medium">{producto.material}</dd>
+                                            </div>
+                                        )}
+                                        <div class="px-4 py-3 bg-gray-50">
+                                            <dt class="text-gray-600">Garantía</dt>
+                                            <dd class="font-medium">{producto.garantia_meses ? `${producto.garantia_meses} meses` : 'Sin garantía'}</dd>
+                                        </div>
+                                        {producto.subcategoria && (
+                                            <div class="px-4 py-3">
+                                                <dt class="text-gray-600">Subcategoría</dt>
+                                                <dd class="font-medium">{producto.subcategoria.replace(/_/g, ' ')}</dd>
+                                            </div>
+                                        )}
+                                        {producto.codigo_interno && (
+                                            <div class="px-4 py-3">
+                                                <dt class="text-gray-600">Código interno</dt>
+                                                <dd class="font-medium">{producto.codigo_interno}</dd>
+                                            </div>
+                                        )}
+                                    </dl>
+                                </div>
+                            </div>
+                            <div id="featuresPane" class="hidden">
+                                {(specList && specList.length > 0) ? (
+                                    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                        <ul class="divide-y divide-gray-100">
+                                            {specList.map((item) => (
+                                                item.key ? (
+                                                    <li class="flex justify-between px-4 py-3">
+                                                        <span class="text-gray-600">{item.key}</span>
+                                                        <span class="font-medium">{item.value}</span>
+                                                    </li>
+                                                ) : (
+                                                    <li class="flex justify-end px-4 py-3">
+                                                        <span class="font-medium">{item.value}</span>
+                                                    </li>
+                                                )
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ) : (
+                                    producto.caracteristicas && (
+                                        <div class="px-4 py-3 border border-gray-200 rounded-lg">
+                                            <p class="font-medium">{producto.caracteristicas}</p>
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                            <script>
+                                document.addEventListener('DOMContentLoaded', () => {
+                                    const tabSpecs = document.getElementById('tabSpecs');
+                                    const tabFeatures = document.getElementById('tabFeatures');
+                                    const specsPane = document.getElementById('specsPane');
+                                    const featuresPane = document.getElementById('featuresPane');
+                                    const activate = (pane) => {
+                                        if (pane === 'specs') {
+                                            specsPane.classList.remove('hidden');
+                                            featuresPane.classList.add('hidden');
+                                            tabSpecs.className = 'px-3 py-2 rounded bg-blue-600 text-white text-sm';
+                                            tabFeatures.className = 'px-3 py-2 rounded bg-gray-100 text-gray-700 text-sm';
+                                        } else {
+                                            featuresPane.classList.remove('hidden');
+                                            specsPane.classList.add('hidden');
+                                            tabFeatures.className = 'px-3 py-2 rounded bg-blue-600 text-white text-sm';
+                                            tabSpecs.className = 'px-3 py-2 rounded bg-gray-100 text-gray-700 text-sm';
+                                        }
+                                    };
+                                    tabSpecs && tabSpecs.addEventListener('click', () => activate('specs'));
+                                    tabFeatures && tabFeatures.addEventListener('click', () => activate('features'));
+                                });
+                            </script>
+                        </div>
 					</div>
 
 				<!-- Detalles del producto -->
-				<div class="space-y-6 lg:sticky lg:top-24">
+                <div class="space-y-6">
 					<!-- Título y precio -->
 					<div>
 						<h1 class="text-4xl font-bold text-gray-900 mb-2">{producto.nombre}</h1>
@@ -356,18 +483,10 @@ if (!producto) {
                             {producto.tiene_oferta ? (
                                 <>
                                     <span class="px-4 py-2 bg-black text-white rounded text-3xl font-bold">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
+                                    {producto.descuento_pct > 0 && (
+                                        <span class="text-sm font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-{producto.descuento_pct}%</span>
+                                    )}
                                     <span class="text-xl text-gray-500 line-through">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio_original)}</span>
-                                    <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">
-                                        <svg class="w-3 h-3 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.39 4.84 5.34.78-3.86 3.76.91 5.32L10 14.77 4.22 16.7l.91-5.32L1.27 7.62l5.34-.78L10 2z"/></svg>
-                                        Oferta
-                                    </span>
-                                    {(() => {
-                                        const ahorro = (producto.precio_original || 0) - (producto.precio || 0);
-                                        const pct = producto.precio_original ? Math.round((ahorro / producto.precio_original) * 100) : 0;
-                                        return (
-                                            <span class="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 rounded text-xs">Ahorra {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.max(0, ahorro))} ({pct}% OFF)</span>
-                                        );
-                                    })()}
                                 </>
                             ) : (
                                 <span class="px-4 py-2 bg-black text-white rounded text-3xl font-bold">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
@@ -494,15 +613,26 @@ if (!producto) {
             {productosSimilares.map(sim => (
               <div class="flex-none bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden snap-start sim-card" style="flex:0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));" onclick={`if(!window.__simDragGuard){ window.location.href='/productos/${sim.id}'; }`}>
                 <div class="relative w-full h-40 flex items-center justify-center bg-white">
+                  {sim.tiene_oferta && (
+                    <span class="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded">Oferta</span>
+                  )}
                   <img src={sim.imagen || '/images/logos/herramientas.webp'} alt={sim.nombre} class="h-32 w-auto object-contain pointer-events-none select-none" loading="lazy" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
                 </div>
                 <div class="p-4 flex-1 flex flex-col">
                   <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center line-clamp-2">{sim.nombre}</h3>
                   <p class="text-xs text-gray-600 mb-3 text-center line-clamp-2">{sim.descripcion || 'Sin descripción'}</p>
-                  <div class="mt-auto flex items-center justify-center">
-                    <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">
+                  <div class="mt-auto flex items-center justify-center gap-2">
+                    <span class="px-3 py-1 bg-black text-white rounded text-lg font-bold">
                       {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(sim.precio)}
                     </span>
+                    {sim?.tiene_oferta && sim?.descuento_pct > 0 && (
+                      <span class="text-[11px] font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-{sim.descuento_pct}%</span>
+                    )}
+                    {sim?.tiene_oferta && sim?.precio_original != null && (
+                      <span class="text-sm text-gray-500 line-through">
+                        {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(sim.precio_original)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -522,15 +652,17 @@ if (!producto) {
 		data-imagen={producto?.imagen}
 	></div>
 
-	<script>
-		// Construir objeto desde atributos embebidos (evita JSON.parse y errores de compilación)
-		const meta = document.getElementById('producto-meta');
-		const PRODUCTO = {
-			id: meta?.dataset?.id ? Number(meta.dataset.id) : null,
-			nombre: meta?.dataset?.nombre || '',
-			precio: meta?.dataset?.precio ? Number(meta.dataset.precio) : 0,
-			imagen: meta?.dataset?.imagen || ''
-		};
+    <script type="module">
+        import { trackEvent } from '/src/scripts/utils/analytics.js';
+        // Construir objeto desde atributos embebidos (evita JSON.parse y errores de compilación)
+        const meta = document.getElementById('producto-meta');
+        const PRODUCTO = {
+            id: meta?.dataset?.id ? Number(meta.dataset.id) : null,
+            nombre: meta?.dataset?.nombre || '',
+            precio: meta?.dataset?.precio ? Number(meta.dataset.precio) : 0,
+            imagen: meta?.dataset?.imagen || ''
+        };
+        try { trackEvent('product_view', { id: PRODUCTO.id, name: PRODUCTO.nombre, price: PRODUCTO.precio }); } catch {}
 		// Funciones para el contador de cantidad
 		let maxStock = 1;
 		
@@ -596,12 +728,12 @@ if (!producto) {
 			}
 		}
 		
-		function agregarAlCarrito(productoId) {
-			const cantidad = parseInt(document.getElementById('cantidad').value);
-			// Usar valores seguros desde SSR en lugar de leer del DOM
-			const nombre = PRODUCTO.nombre;
-			const precio = Number(PRODUCTO.precio) || 0;
-			const imagen = PRODUCTO.imagen || '';
+        function agregarAlCarrito(productoId) {
+            const cantidad = parseInt(document.getElementById('cantidad').value);
+            // Usar valores seguros desde SSR en lugar de leer del DOM
+            const nombre = PRODUCTO.nombre;
+            const precio = Number(PRODUCTO.precio) || 0;
+            const imagen = PRODUCTO.imagen || '';
 			
 			// Obtener carrito actual del localStorage
 			let carrito = JSON.parse(localStorage.getItem('carrito')) || [];
@@ -612,31 +744,34 @@ if (!producto) {
 			if (productoExistente) {
 				productoExistente.cantidad += cantidad;
 			} else {
-				carrito.push({
-					id: productoId,
-					cantidad: cantidad,
-					nombre: nombre,
-					precio_venta: precio, // usar clave precio_venta para layout
-					imagen_url: imagen    // usar clave imagen_url para layout
-				});
+                carrito.push({
+                    id: productoId,
+                    cantidad: cantidad,
+                    nombre: nombre,
+                    precio_venta: precio, // usar clave precio_venta para layout
+                    imagen_url: imagen,   // usar clave imagen_url para layout
+                    stock_max: typeof maxStock === 'number' ? maxStock : undefined
+                });
 			}
 			
-			// Guardar carrito actualizado
-			localStorage.setItem('carrito', JSON.stringify(carrito));
-			// Notificar a otras vistas para actualizar badge/panel
-			try { window.dispatchEvent(new Event('carrito:changed')); } catch {}
-			
-			// Mostrar notificación
-			mostrarNotificacion(`${cantidad} producto(s) agregado(s) al carrito`, 'success');
-			
-			// Actualizar contador del carrito si existe
-			actualizarContadorCarrito();
-		}
+            // Guardar carrito actualizado
+            localStorage.setItem('carrito', JSON.stringify(carrito));
+            // Notificar a otras vistas para actualizar badge/panel
+            try { window.dispatchEvent(new Event('carrito:changed')); } catch {}
+            
+            // Mostrar notificación
+            mostrarNotificacion(`${cantidad} producto(s) agregado(s) al carrito`, 'success');
+            
+            // Actualizar contador del carrito si existe
+            actualizarContadorCarrito();
+            try { trackEvent('add_to_cart', { id: productoId, qty: cantidad, price }); } catch {}
+        }
 
-		function comprarAhora(productoId) {
-			agregarAlCarrito(productoId);
-			try { window.location.href = '/checkout'; } catch { window.location.href = '/carrito'; }
-		}
+        function comprarAhora(productoId) {
+            agregarAlCarrito(productoId);
+            try { window.location.href = '/carrito'; } catch { window.location.assign('/carrito'); }
+            try { trackEvent('buy_now_click', { id: productoId }); } catch {}
+        }
 		
 		function mostrarNotificacion(mensaje, tipo = 'success') {
 			// Crear elemento de notificación
@@ -768,24 +903,28 @@ if (!producto) {
 	</script>
 
 	<!-- JSON-LD: Product -->
-	<script is:inline type="application/ld+json">
-		{JSON.stringify({
-			"@context": "https://schema.org",
-			"@type": "Product",
-			"name": producto?.nombre || "",
-			"image": producto?.imagen || "/images/logos/herramientas.webp",
-			"description": producto?.descripcion || "",
-			"brand": producto?.marca ? { "@type": "Brand", "name": producto.marca } : undefined,
-			"category": producto?.categoria || undefined,
-			"offers": {
-				"@type": "Offer",
-				"priceCurrency": "CLP",
-				"price": Math.round(producto?.precio || 0),
-				"availability": (producto?.stock || 0) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-				"url": typeof Astro !== 'undefined' ? Astro.url.toString() : undefined
-			}
-		})}
-	</script>
+    <script is:inline type="application/ld+json">
+        {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": producto?.nombre || "",
+            "image": producto?.imagen || "/images/logos/herramientas.webp",
+            "description": producto?.descripcion || "",
+            "brand": producto?.marca ? { "@type": "Brand", "name": producto.marca } : undefined,
+            "category": producto?.categoria || undefined,
+            "sku": producto?.codigo_interno || undefined,
+            "color": producto?.color || undefined,
+            "material": producto?.material || undefined,
+            "model": producto?.modelo || undefined,
+            "offers": {
+                "@type": "Offer",
+                "priceCurrency": "CLP",
+                "price": Math.round(producto?.precio || 0),
+                "availability": (producto?.stock || 0) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+                "url": typeof Astro !== 'undefined' ? Astro.url.toString() : undefined
+            }
+        })}
+    </script>
 
 	<style>
 		/* Ocultar flechas del input number (Chrome, Safari, Edge Chromium) */

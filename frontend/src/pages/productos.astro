@@ -1,11 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import EnvLoader from '../components/EnvLoader.astro';
 // Evitar cargar script externo por ahora; inyectar lógica mínima inline
 ---
 
-<EnvLoader />
 <script type="module">
+  import { trackEvent } from '/src/scripts/utils/analytics.js';
   // Helpers para normalizar URLs de imágenes (soporta relativas del backend)
   function getApiHost() {
     try {
@@ -22,15 +21,17 @@ import EnvLoader from '../components/EnvLoader.astro';
     const s = String(u);
     if (/^(https?:\/\/|data:)/i.test(s)) return s;
     const host = getApiHost();
-    if (s.startsWith('/')) return host + s;
-    return host + '/' + s;
+    const base = host || (typeof location !== 'undefined' ? location.origin : '');
+    if (s.startsWith('/')) return base ? (base + s) : s;
+    return base ? (base + '/' + s) : s;
   }
   // Lógica mínima para catálogo sin botón "Ver más"
   const state = {
     todosProductos: [],
     totalProductos: 0,
     paginacion: { paginaActual: 1, productosPorPagina: 12, totalPaginas: 1 },
-    filtros: { busqueda: '', precioMin: 0, precioMax: 100000, usarPrecio: false }
+    filtros: { busqueda: '', precioMin: 0, precioMax: 100000, usarPrecio: false, categoriaId: null, subcategoriaId: null },
+    orden: { sortBy: 'default' }
   };
 
   const contenedorProductos = document.getElementById('productos-grid');
@@ -42,6 +43,118 @@ import EnvLoader from '../components/EnvLoader.astro';
   const btnTogglePrecio = document.getElementById('toggle-precio');
   const precioContainer = document.getElementById('precio-container');
   const iconPrecio = document.getElementById('icon-precio');
+  const btnToggleOrden = document.getElementById('toggle-orden');
+  const iconOrden = document.getElementById('icon-orden');
+  const ordenContainer = document.getElementById('orden-container');
+  const btnClearFilters = document.getElementById('btn-clear-filters');
+  const btnClearFiltersBottom = document.getElementById('btn-clear-filters-bottom');
+  const btnToggleCategorias = document.getElementById('toggle-categorias');
+  const iconCategorias = document.getElementById('icon-categorias');
+  const categoriasContainer = document.getElementById('categorias-container');
+  const btnToggleSubcats = document.getElementById('toggle-subcats');
+  const iconSubcats = document.getElementById('icon-subcats');
+  const subcatsContainer = document.getElementById('subcats-container');
+  async function cargarCategorias() {
+    try {
+      const res = await fetch('/api/categorias/');
+      const cats = res.ok ? await res.json() : [];
+      renderCategorias(Array.isArray(cats) ? cats : []);
+    } catch {}
+  }
+  async function cargarSubcategorias(categoriaId) {
+    try {
+      const res = await fetch(`/api/subcategorias/?categoria_id=${encodeURIComponent(categoriaId)}`);
+      const subs = res.ok ? await res.json() : [];
+      renderSubcategorias(Array.isArray(subs) ? subs : []);
+    } catch {}
+  }
+  function renderCategorias(cats) {
+    if (!categoriasContainer) return;
+    categoriasContainer.innerHTML = cats.map(c => `
+      <button type="button" data-cat-id="${c.id_categoria}" class="w-full px-3 py-2 rounded border text-sm hover:bg-gray-100 ${String(state.filtros.categoriaId)===String(c.id_categoria)?'bg-black text-white':''}">${c.nombre}</button>
+    `).join('');
+    categoriasContainer.querySelectorAll('[data-cat-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = Number(e.currentTarget.getAttribute('data-cat-id'));
+        state.filtros.categoriaId = (state.filtros.categoriaId === id) ? null : id;
+        state.filtros.subcategoriaId = null;
+        try {
+          categoriasContainer.querySelectorAll('[data-cat-id]').forEach(el => el.classList.remove('bg-black','text-white'));
+          if (state.filtros.categoriaId === id) e.currentTarget.classList.add('bg-black','text-white');
+        } catch {}
+        subcatsContainer && (subcatsContainer.innerHTML = '');
+        if (state.filtros.categoriaId) cargarSubcategorias(state.filtros.categoriaId);
+        state.paginacion.paginaActual = 1;
+        aplicarFiltros();
+      });
+    });
+  }
+  function renderSubcategorias(subs) {
+    if (!subcatsContainer) return;
+    if (!subs.length) { subcatsContainer.innerHTML = ''; return; }
+    subcatsContainer.innerHTML = subs.map(s => `
+      <button type="button" data-subcat-id="${s.id_subcategoria}" class="w-full px-3 py-2 rounded border text-sm hover:bg-gray-100 ${String(state.filtros.subcategoriaId)===String(s.id_subcategoria)?'bg-black text-white':''}">${s.nombre}</button>
+    `).join('');
+    subcatsContainer.querySelectorAll('[data-subcat-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = Number(e.currentTarget.getAttribute('data-subcat-id'));
+        state.filtros.subcategoriaId = (state.filtros.subcategoriaId === id) ? null : id;
+        try {
+          subcatsContainer.querySelectorAll('[data-subcat-id]').forEach(el => el.classList.remove('bg-black','text-white'));
+          if (state.filtros.subcategoriaId === id) e.currentTarget.classList.add('bg-black','text-white');
+        } catch {}
+        state.paginacion.paginaActual = 1;
+        aplicarFiltros();
+      });
+    });
+  }
+
+  try {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get('q');
+    const max = url.searchParams.get('max');
+    const page = url.searchParams.get('page');
+    const sort = url.searchParams.get('sort');
+    const cat = url.searchParams.get('cat');
+    const subcat = url.searchParams.get('subcat');
+    if (q) {
+      state.filtros.busqueda = q.toLowerCase();
+      if (inputBusqueda) inputBusqueda.value = q;
+    }
+    if (max) {
+      const val = Number(max);
+      if (!Number.isNaN(val)) {
+        state.filtros.usarPrecio = true;
+        if (precioContainer) precioContainer.classList.remove('hidden');
+        if (iconPrecio) iconPrecio.classList.add('rotate-180');
+        if (rangoPrecio) rangoPrecio.value = String(val);
+        state.filtros.precioMax = val;
+        if (precioValor) precioValor.textContent = `$${val.toLocaleString('es-CL')}+`;
+      }
+    }
+    if (page) {
+      const p = Number(page);
+      if (!Number.isNaN(p) && p >= 1) state.paginacion.paginaActual = p;
+    }
+    if (sort) {
+      state.orden.sortBy = sort;
+      try {
+        const active = document.querySelector(`[data-sort-option="${sort}"]`);
+        if (active) {
+          document.querySelectorAll('[data-sort-option]').forEach(el => el.classList.remove('bg-black','text-white'));
+          active.classList.add('bg-black','text-white');
+        }
+      } catch {}
+    }
+    if (cat) {
+      const cid = Number(cat);
+      if (!Number.isNaN(cid)) state.filtros.categoriaId = cid;
+    }
+    if (subcat) {
+      const sid = Number(subcat);
+      if (!Number.isNaN(sid)) state.filtros.subcategoriaId = sid;
+    }
+  } catch {}
 
   function formatearPrecio(precio) {
     return String(precio ?? 0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -65,19 +178,23 @@ import EnvLoader from '../components/EnvLoader.astro';
     }
     contenedorProductos.innerHTML = productos.map(p => {
       const img = normalizeImageUrl(p.imagen_url);
+      const base = Number(p.precio_venta ?? p.precio ?? 0);
+      const final = Number(p.precio_final ?? base);
+      const percCalc = base > 0 && final < base ? Math.round((1 - final / base) * 100) : 0;
+      const perc = Number(p.tipo_oferta === 'porcentaje' ? (p.valor_oferta ?? percCalc) : percCalc) || 0;
       return `
       <div class="bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden" onclick="verProducto(${p.id_producto})">
         <div class="relative w-full aspect-square bg-white">
           ${p.oferta_activa ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
           <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
-            <img src="${img || '/images/placeholder-product.jpg'}" alt="${p.nombre}" class="w-full h-full object-cover" />
+            <img src="${img || '/images/placeholder-product.jpg'}" alt="${p.nombre}" class="w-full h-full object-cover" loading="lazy" decoding="async" sizes="(min-width:1024px) 25vw, 50vw" />
           </div>
         </div>
         <div class="p-4 flex-1 flex flex-col">
           <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${p.nombre}</h3>
           <p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${p.descripcion || 'Sin descripción'}</p>
           <div class="mt-auto flex items-center justify-center gap-2">
-            ${p.oferta_activa ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(p.precio_venta ?? p.precio ?? 0) + '</span>' : ''}
+            ${perc > 0 ? '<span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-' + perc + '%</span>' : ''}
             <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(p.precio_final ?? p.precio_venta ?? p.precio ?? 0)}</span>
           </div>
         </div>
@@ -145,12 +262,45 @@ import EnvLoader from '../components/EnvLoader.astro';
         const d = (p.descripcion || '').toLowerCase();
         if (!n.includes(term) && !d.includes(term)) return false;
       }
+      if (state.filtros.categoriaId) {
+        if (String(p.id_categoria) !== String(state.filtros.categoriaId)) return false;
+      }
+      if (state.filtros.subcategoriaId) {
+        if (String(p.id_subcategoria) !== String(state.filtros.subcategoriaId)) return false;
+      }
       if (state.filtros.usarPrecio) {
         const precio = Number(p.precio_final ?? p.precio_venta ?? p.precio ?? 0);
         if (!(precio >= state.filtros.precioMin && precio <= state.filtros.precioMax)) return false;
       }
       return true;
     });
+    // Ordenamiento
+    const byPrice = (p) => Number(p.precio_final ?? p.precio_venta ?? p.precio ?? 0);
+    const bySold = (p) => Number(p.ventas_count ?? p.total_vendido ?? p.unidades_vendidas ?? 0);
+    const byRated = (p) => Number(p.rating ?? p.valoracion ?? p.estrellas ?? 0);
+    const byDate = (p) => {
+      const d = p.fecha_creacion || p.created_at || p.fecha_creado;
+      try { return new Date(d).getTime(); } catch { return 0; }
+    };
+    switch (state.orden.sortBy) {
+      case 'price_asc':
+        arr.sort((a, b) => byPrice(a) - byPrice(b));
+        break;
+      case 'price_desc':
+        arr.sort((a, b) => byPrice(b) - byPrice(a));
+        break;
+      case 'sold_desc':
+        arr.sort((a, b) => bySold(b) - bySold(a));
+        break;
+      case 'rated_desc':
+        arr.sort((a, b) => byRated(b) - byRated(a));
+        break;
+      case 'newest':
+        arr.sort((a, b) => byDate(b) - byDate(a));
+        break;
+      default:
+        break;
+    }
     state.totalProductos = arr.length;
     state.paginacion.totalPaginas = Math.ceil(state.totalProductos / state.paginacion.productosPorPagina);
     const inicio = (state.paginacion.paginaActual - 1) * state.paginacion.productosPorPagina;
@@ -159,6 +309,19 @@ import EnvLoader from '../components/EnvLoader.astro';
     mostrarProductos(pagina);
     actualizarInfoPaginacion();
     actualizarPaginacion();
+    try {
+      const params = new URLSearchParams();
+      const term = state.filtros.busqueda?.trim();
+      if (term) params.set('q', term);
+      if (state.filtros.usarPrecio) params.set('max', String(state.filtros.precioMax));
+      params.set('page', String(state.paginacion.paginaActual));
+      if (state.orden.sortBy && state.orden.sortBy !== 'default') params.set('sort', state.orden.sortBy);
+      if (state.filtros.categoriaId) params.set('cat', String(state.filtros.categoriaId));
+      if (state.filtros.subcategoriaId) params.set('subcat', String(state.filtros.subcategoriaId));
+      const url = new URL(window.location.href);
+      url.search = params.toString();
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
   }
 
   window.cambiarPagina = function(p) {
@@ -170,6 +333,7 @@ import EnvLoader from '../components/EnvLoader.astro';
   };
 
   window.verProducto = function(id) {
+    try { trackEvent('catalog_view_product', { id }); } catch {}
     window.location.href = `/productos/${id}`;
   };
 
@@ -179,27 +343,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       await fetch('/api/health').catch(() => {});
       const res = await fetch('/api/productos/catalogo?skip=0&limit=1000');
       const productos = res.ok ? await res.json() : [];
-      // Aplicar ofertas de demostración a una parte del catálogo
-      function aplicarOfertasDemo(arr) {
-        const productos = Array.isArray(arr) ? [...arr] : [];
-        const indices = [0, 2, 4, 6, 8, 10]; // algunos productos para demo
-        const descuentos = [10, 15, 20, 25, 30, 35];
-        indices.forEach((idx, i) => {
-          const p = productos[idx];
-          if (!p) return;
-          const base = Number(p.precio_venta ?? p.precio_final ?? p.precio ?? 0);
-          if (!base || base <= 0) return;
-          const porc = descuentos[i % descuentos.length];
-          const final = Math.max(0, Math.round(base * (1 - porc / 100)));
-          p.oferta_activa = true;
-          p.tipo_oferta = 'porcentaje';
-          p.valor_oferta = porc;
-          p.precio_venta = base; // asegurar precio original
-          p.precio_final = final; // precio con descuento para visualización
-        });
-        return productos;
-      }
-      state.todosProductos = aplicarOfertasDemo(productos);
+      state.todosProductos = productos;
       state.paginacion.paginaActual = 1;
       aplicarFiltros();
     } catch (e) {
@@ -210,7 +354,11 @@ import EnvLoader from '../components/EnvLoader.astro';
     }
   }
 
-  document.addEventListener('DOMContentLoaded', cargarProductos);
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarCategorias();
+    if (state.filtros.categoriaId) cargarSubcategorias(state.filtros.categoriaId);
+    cargarProductos();
+  });
 
   // Eventos UI: búsqueda y precio
   if (inputBusqueda) {
@@ -250,13 +398,55 @@ import EnvLoader from '../components/EnvLoader.astro';
       aplicarFiltros();
     });
   }
+
+  // Toggle de orden
+  if (btnToggleOrden && ordenContainer) {
+    btnToggleOrden.addEventListener('click', () => {
+      const activo = !ordenContainer.classList.contains('hidden');
+      if (activo) {
+        ordenContainer.classList.add('hidden');
+      } else {
+        ordenContainer.classList.remove('hidden');
+      }
+      if (iconOrden) iconOrden.classList.toggle('rotate-180');
+    });
+    // Opciones de orden
+    ordenContainer.querySelectorAll('[data-sort-option]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const val = e.currentTarget.getAttribute('data-sort-option') || 'default';
+        state.orden.sortBy = val;
+        // marcar activa
+        try {
+          ordenContainer.querySelectorAll('[data-sort-option]').forEach(el => el.classList.remove('bg-black','text-white'));
+          e.currentTarget.classList.add('bg-black','text-white');
+        } catch {}
+        state.paginacion.paginaActual = 1;
+        aplicarFiltros();
+      });
+    });
+  }
+
+  // Toggle de categorías
+  if (btnToggleCategorias && categoriasContainer) {
+    btnToggleCategorias.addEventListener('click', () => {
+      categoriasContainer.classList.toggle('hidden');
+      if (iconCategorias) iconCategorias.classList.toggle('rotate-180');
+    });
+  }
+  // Toggle de subcategorías
+  if (btnToggleSubcats && subcatsContainer) {
+    btnToggleSubcats.addEventListener('click', () => {
+      subcatsContainer.classList.toggle('hidden');
+      if (iconSubcats) iconSubcats.classList.toggle('rotate-180');
+    });
+  }
 </script>
 
 <Layout title="Productos - Ferretería Patricio">
-	<div class="container mx-auto px-4 py-8">
-        <div class="flex flex-col md:flex-row gap-8">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex flex-row gap-8">
             <!-- Filtros -->
-            <div class="w-full md:w-64 bg-white border border-gray-200 p-6 rounded-xl shadow h-fit transition-all duration-300 font-sans text-sm sticky top-24" data-aos="fade-right" data-aos-duration="1000">
+            <div class="w-64 flex-shrink-0 bg-white border border-gray-200 p-6 rounded-xl shadow h-fit transition-all duration-300 font-sans text-sm sticky top-24" data-aos="fade-right" data-aos-duration="1000">
                 <!-- Buscador arriba de los filtros -->
                 <div class="mb-6">
                     <label for="busqueda" class="block text-sm font-medium text-gray-700 mb-2">Buscar Producto</label>
@@ -272,10 +462,50 @@ import EnvLoader from '../components/EnvLoader.astro';
                         </svg>
                     </div>
                 </div>
-                <!-- Título de filtros eliminado -->
-                
+
                 <div class="space-y-8">
-                    <!-- Rango de precio (activo solo cuando se presiona el botón) -->
+                    <!-- Ordenar por -->
+                    <div class="border-b pb-6">
+                        <button id="toggle-orden" class="flex items-center justify-between w-full font-semibold mb-4 text-gray-700 hover:text-blue-600">
+                            <span>Ordenar por</span>
+                            <svg id="icon-orden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transform transition-transform duration-200">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div id="orden-container" class="space-y-3 hidden">
+                            <div class="grid grid-cols-1 gap-2">
+                                <button type="button" data-sort-option="price_asc" class="w-full px-3 py-2 rounded border text-sm hover:bg-gray-100">Precio: menor → mayor</button>
+                                <button type="button" data-sort-option="price_desc" class="w-full px-3 py-2 rounded border text-sm hover:bg-gray-100">Precio: mayor → menor</button>
+                                <button type="button" data-sort-option="sold_desc" class="w-full px-3 py-2 rounded border text-sm hover:bg-gray-100">Más vendidos</button>
+                                <button type="button" data-sort-option="rated_desc" class="w-full px-3 py-2 rounded border text-sm hover:bg-gray-100">Mejor valorados</button>
+                                <button type="button" data-sort-option="newest" class="w-full px-3 py-2 rounded border text-sm hover:bg-gray-100">Más nuevos</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Categorías -->
+                    <div class="border-b pb-6">
+                        <button id="toggle-categorias" class="flex items-center justify-between w-full font-semibold mb-4 text-gray-700 hover:text-blue-600">
+                            <span>Categorías</span>
+                            <svg id="icon-categorias" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transform transition-transform duration-200">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div id="categorias-container" class="space-y-2 hidden"></div>
+                    </div>
+
+                    <!-- Subcategorías -->
+                    <div class="border-b pb-6">
+                        <button id="toggle-subcats" class="flex items-center justify-between w-full font-semibold mb-4 text-gray-700 hover:text-blue-600">
+                            <span>Subcategorías</span>
+                            <svg id="icon-subcats" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transform transition-transform duration-200">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div id="subcats-container" class="space-y-2 hidden"></div>
+                    </div>
+
+                    <!-- Buscar por precio -->
                     <div class="border-b pb-6">
                         <button id="toggle-precio" class="flex items-center justify-between w-full font-semibold mb-4 text-gray-700 hover:text-blue-600">
                             <span>Buscar por precio</span>
@@ -291,36 +521,11 @@ import EnvLoader from '../components/EnvLoader.astro';
                             </div>
                         </div>
                     </div>
-
-					<!-- Categorías -->
-					<div class="border-b pb-6">
-						<button id="toggle-categorias" class="flex items-center justify-between w-full font-semibold mb-4 text-gray-700 hover:text-blue-600">
-							<span>Categorías</span>
-							<svg id="icon-categorias" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transform transition-transform duration-200">
-								<path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
-							</svg>
-						</button>
-						<div id="categorias-lista" class="space-y-3 hidden"></div>
-					</div>
-
-					<!-- Subcategorías -->
-					<div class="border-b pb-6">
-						<button id="toggle-subcategorias" class="flex items-center justify-between w-full font-semibold mb-4 text-gray-700 hover:text-blue-600 disabled:text-gray-400" disabled>
-							<span>Subcategorías</span>
-							<svg id="icon-subcategorias" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transform transition-transform duration-200">
-								<path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
-							</svg>
-						</button>
-						<div id="subcategorias-lista" class="space-y-3 hidden"></div>
-					</div>
-
-                    
-                    
-				</div>
-			</div>
+                </div>
+            </div>
 
 			<!-- Productos -->
-			<div class="flex-1">
+            <div class="flex-1 min-w-0">
 				<div id="productos-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 					<!-- Los productos se cargarán dinámicamente desde la API -->
 					<div class="col-span-full text-center py-8">

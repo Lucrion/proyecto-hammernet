@@ -55,6 +55,18 @@ import EnvLoader from '../components/EnvLoader.astro';
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const url = new URL(window.location.href);
+        const paid = url.searchParams.get('paid');
+        if (paid === '1') {
+          try {
+            localStorage.removeItem('carrito');
+            localStorage.removeItem('checkout_items');
+            localStorage.removeItem('checkoutEntrega');
+          } catch {}
+          try { window.dispatchEvent(new Event('carrito:changed')); } catch {}
+        }
+      } catch {}
       const estadoCuenta = document.getElementById('estadoCuenta');
       const comprasBody = document.getElementById('comprasBody');
       const comprasEmpty = document.getElementById('comprasEmpty');

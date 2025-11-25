@@ -11,16 +11,10 @@ let usuarioIdEliminarPermanente = null;
 function verificarAutenticacion() {
     const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
     const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-    
-    console.log('Usuarios Index - Estado de autenticación:', isLoggedIn);
-    console.log('Usuarios Index - Token:', token ? 'Token presente' : 'Token ausente');
-    
-    // VALIDACIÓN TEMPORALMENTE DESACTIVADA: No redirigir por falta de token o login
-    // if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
-    //     console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
-    //     window.location.href = '/login';
-    //     return false;
-    // }
+    if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
+        window.location.href = '/login?tipo=trabajador';
+        return false;
+    }
     return true;
 }
 
@@ -31,7 +25,9 @@ async function obtenerUsuarios() {
         if (response && Array.isArray(response)) {
             // Mostrar solo trabajadores (excluir clientes)
             const trabajadores = response.filter(u => u.role !== 'cliente');
-            cargarUsuarios(trabajadores);
+            usuariosLista = trabajadores;
+            paginaActual = 1;
+            renderPagina();
         } else {
             console.error('Respuesta inválida del servidor:', response);
             mostrarMensaje('Error al cargar usuarios', 'error');
@@ -62,7 +58,7 @@ async function obtenerUsuariosDesactivados() {
 let vistaActual = 'trabajadores';
 let usuariosLista = [];
 let paginaActual = 1;
-let tamPagina = 10;
+let tamPagina = 20;
 
 // mostrarMensaje: definido más abajo con UI de notificación fija
 
@@ -146,8 +142,20 @@ function actualizarPaginacionUI(desde, hasta, total) {
     if (desdeEl) desdeEl.textContent = total > 0 ? desde : 0;
     if (hastaEl) hastaEl.textContent = total > 0 ? hasta : 0;
     if (totalEl) totalEl.textContent = total;
-    if (btnPrev) btnPrev.disabled = paginaActual <= 1;
-    if (btnNext) btnNext.disabled = hasta >= total;
+    const prevDisabled = paginaActual <= 1;
+    const nextDisabled = hasta >= total || total === 0;
+    if (btnPrev) {
+        btnPrev.disabled = prevDisabled;
+        btnPrev.classList.toggle('opacity-50', prevDisabled);
+        btnPrev.classList.toggle('cursor-not-allowed', prevDisabled);
+        btnPrev.setAttribute('aria-disabled', String(prevDisabled));
+    }
+    if (btnNext) {
+        btnNext.disabled = nextDisabled;
+        btnNext.classList.toggle('opacity-50', nextDisabled);
+        btnNext.classList.toggle('cursor-not-allowed', nextDisabled);
+        btnNext.setAttribute('aria-disabled', String(nextDisabled));
+    }
 }
 
 // Mostrar trabajadores en la tabla principal
@@ -213,10 +221,13 @@ function cargarUsuarios(usuarios) {
             `;
         }
         
+        const nombreCompleto = `${usuario.nombre || ''}${usuario.apellido ? ' ' + usuario.apellido : ''}`.trim();
+        const rutDigits = String(usuario.rut ?? '').replace(/\D/g, '');
+        const rutDisplay = (rutDigits && rutDigits !== '0') ? formatRutFromDigits(rutDigits) : '—';
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.id_usuario}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatRutFromDigits(usuario.rut)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${nombreCompleto || '—'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rutDisplay}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.role}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -251,10 +262,13 @@ function cargarUsuariosDesactivados(usuarios) {
         
         const fechaCreacion = new Date(usuario.fecha_creacion).toLocaleDateString('es-ES');
         
+        const nombreCompleto = `${usuario.nombre || ''}${usuario.apellido ? ' ' + usuario.apellido : ''}`.trim();
+        const rutDigits2 = String(usuario.rut ?? '').replace(/\D/g, '');
+        const rutDisplay2 = (rutDigits2 && rutDigits2 !== '0') ? formatRutFromDigits(rutDigits2) : '—';
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.id_usuario}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatRutFromDigits(usuario.rut)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${nombreCompleto || '—'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rutDisplay2}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.role}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -295,7 +309,7 @@ async function crearUsuario(formData) {
         if (response) {
             mostrarMensaje('Usuario creado exitosamente', 'success');
             cerrarFormulario();
-            obtenerUsuarios();
+            await mostrarTrabajadores();
         }
     } catch (error) {
         console.error('Error al crear usuario:', error);
@@ -310,7 +324,7 @@ async function actualizarUsuario(id, formData) {
         if (response) {
             mostrarMensaje('Usuario actualizado exitosamente', 'success');
             cerrarFormulario();
-            obtenerUsuarios();
+            await mostrarTrabajadores();
         }
     } catch (error) {
         console.error('Error al actualizar usuario:', error);
@@ -419,7 +433,7 @@ window.verInfoUsuario = async function(id) {
             document.getElementById('infoId').textContent = usuario.id_usuario ?? '—';
             document.getElementById('infoNombre').textContent = usuario.nombre ?? '—';
             document.getElementById('infoApellido').textContent = usuario.apellido ?? '—';
-            document.getElementById('infoUsername').textContent = formatearRut(usuario.rut) ?? '—';
+            document.getElementById('infoUsername').textContent = formatRutUI(String(usuario.rut ?? '')) ?? '—';
             document.getElementById('infoRut').textContent = usuario.rut ?? '—';
             document.getElementById('infoEmail').textContent = usuario.email ?? '—';
             document.getElementById('infoTelefono').textContent = usuario.telefono ?? '—';
@@ -513,9 +527,14 @@ window.editarUsuario = async function(id) {
         if (response) {
             document.getElementById('userId').value = response.id_usuario;
             document.getElementById('nombre').value = response.nombre;
+            const apellidoInput = document.getElementById('apellido');
+            if (apellidoInput) {
+                apellidoInput.value = response.apellido || '';
+            }
             const rutInput = document.getElementById('rut');
             if (rutInput) {
-                rutInput.value = formatearRut(response.rut);
+                const d = String(response.rut ?? '').replace(/\D/g, '');
+                rutInput.value = (d && d !== '0') ? formatRutFromDigits(d) : '';
             }
             document.getElementById('role').value = response.role;
             document.getElementById('formTitle').textContent = 'Editar Usuario';
@@ -647,8 +666,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Normalizar y sanitizar RUT: enviar solo el cuerpo numérico (sin DV)
             if (rutOriginal) {
-                const cleaned = cleanRutInput(rutOriginal); // hasta 9 chars (cuerpo+DV)
-                const body = cleaned.length >= 2 ? cleaned.slice(0, -1).slice(0, 8) : '';
+                const cleaned = cleanRutInput(rutOriginal); // hasta 9 (cuerpo+DV)
+                let body = '';
+                if (/^[0-9]+[kK]?$/.test(cleaned)) {
+                    body = cleaned.length >= 2 ? cleaned.slice(0, -1) : cleaned;
+                }
+                body = body.slice(0, 8);
                 data.rut = body ? Number(body) : null;
             } else {
                 data.rut = null;
@@ -657,6 +680,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Normalizar campos de texto
             if (data.nombre !== undefined) {
                 data.nombre = String(data.nombre).trim();
+            }
+            if (data.apellido !== undefined) {
+                data.apellido = String(data.apellido).trim();
             }
             if (data.role !== undefined) {
                 data.role = String(data.role).toLowerCase().trim();
@@ -677,8 +703,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (userId) {
+                console.log('Actualizar usuario payload', { id: userId, data });
                 await actualizarUsuario(userId, data);
             } else {
+                console.log('Crear usuario payload', data);
                 await crearUsuario(data);
             }
         });
@@ -690,16 +718,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnNext = document.getElementById('btnNextUsuarios');
 
     if (selectTam) {
+        const initialVal = parseInt(selectTam.value, 10);
+        tamPagina = isNaN(initialVal) ? 20 : initialVal;
         selectTam.addEventListener('change', () => {
             const val = parseInt(selectTam.value, 10);
-            tamPagina = isNaN(val) ? 10 : val;
+            tamPagina = isNaN(val) ? 20 : val;
             paginaActual = 1;
             renderPagina();
         });
     }
     if (btnPrev) {
         btnPrev.addEventListener('click', () => {
-            if (paginaActual > 1) {
+            if (!btnPrev.disabled && paginaActual > 1) {
                 paginaActual -= 1;
                 renderPagina();
             }
@@ -709,7 +739,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btnNext.addEventListener('click', () => {
             const total = usuariosLista.length;
             const maxPagina = Math.ceil(total / tamPagina) || 1;
-            if (paginaActual < maxPagina) {
+            if (!btnNext.disabled && paginaActual < maxPagina) {
                 paginaActual += 1;
                 renderPagina();
             }

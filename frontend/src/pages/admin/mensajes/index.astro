@@ -42,6 +42,15 @@ import mensajesScriptUrl from '../../../scripts/admin/mensajes.js?url';
                 <!-- Los mensajes se cargarán aquí dinámicamente -->
             </tbody>
         </table>
+        <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200">
+            <div class="text-sm text-gray-600">
+                Mostrando <span id="mensDesde">0</span>–<span id="mensHasta">0</span> de <span id="mensTotal">0</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="mensPrev" class="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-100">Anterior</button>
+                <button id="mensNext" class="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-100">Siguiente</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal para ver mensaje -->

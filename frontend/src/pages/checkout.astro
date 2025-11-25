@@ -3,14 +3,7 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout title="Carrito de compras - Ferretería Patricio">
-  <div class="container mx-auto px-4 py-12">
-    <h1 class="text-2xl font-semibold text-gray-900">Redirigiendo al carrito…</h1>
-    <p class="text-gray-600 mt-2">El checkout está deshabilitado por ahora.</p>
-    <p class="mt-4"><a href="/carrito" class="text-blue-600 underline">Ir al carrito</a></p>
-  </div>
-
   <script>
-    // Redirección inmediata al carrito
-    try { window.location.replace('/carrito'); } catch {}
+    try { window.location.replace('/carrito'); } catch { window.location.href = '/carrito'; }
   </script>
 </Layout>

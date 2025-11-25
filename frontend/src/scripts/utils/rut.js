@@ -1,6 +1,6 @@
 // Utilidades para trabajar con RUT (formato UI y envío)
 export function cleanRutInput(value) {
-  // Limpiar y limitar a 9 caracteres (cuerpo + DV), excluyendo guion
+  // Limpiar y limitar a 9 caracteres (cuerpo hasta 8 + DV), excluyendo guion
   return String(value ?? '')
     .replace(/[^0-9kK]/g, '')
     .toUpperCase()
@@ -11,7 +11,7 @@ export function digitsOnly(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
-// Cálculo del dígito verificador (DV) para un RUT chileno
+// Cálculo del dígito verificador (DV) para un RUT
 export function computeRutDV(digits) {
   const body = digitsOnly(digits);
   if (!body) return '';
@@ -34,7 +34,7 @@ export function formatRutUI(value) {
   if (cleaned.length === 1) return cleaned;
   const dv = cleaned.slice(-1);
   let body = cleaned.slice(0, -1);
-  // Limitar cuerpo a 8 dígitos para cumplir máximo total 9 (incluye DV)
+  // Permitir cuerpo hasta 8 dígitos
   body = body.slice(0, 8);
   let formatted = '';
   while (body.length > 3) {

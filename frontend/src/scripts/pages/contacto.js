@@ -82,17 +82,23 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.textContent = 'Enviando...';
             
             try {
-                // Recopilar datos del formulario
+                // Recopilar y validar datos del formulario
                 const formData = {
-                    nombre: document.getElementById('nombre').value,
-                    apellido: document.getElementById('apellido').value,
-                    email: document.getElementById('email').value,
-                    asunto: document.getElementById('asunto').value,
-                    mensaje: document.getElementById('mensaje').value
+                    nombre: document.getElementById('nombre').value.trim(),
+                    apellido: document.getElementById('apellido').value.trim(),
+                    email: document.getElementById('email').value.trim(),
+                    asunto: document.getElementById('asunto').value.trim(),
+                    mensaje: document.getElementById('mensaje').value.trim()
                 };
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!formData.nombre || formData.nombre.length < 2) throw new Error('El nombre debe tener al menos 2 caracteres');
+                if (!formData.apellido || formData.apellido.length < 2) throw new Error('El apellido debe tener al menos 2 caracteres');
+                if (!emailRegex.test(formData.email)) throw new Error('El correo electrónico no es válido');
+                if (!formData.asunto || formData.asunto.length < 5) throw new Error('El asunto debe tener al menos 5 caracteres');
+                if (!formData.mensaje || formData.mensaje.length < 10) throw new Error('El mensaje debe tener al menos 10 caracteres');
                 
                 // Enviar datos a la API usando utilidad que normaliza la URL
-                const result = await postData('/api/mensajes', formData);
+                const result = await postData('/api/mensajes/', formData);
                 
                 if (!result) {
                     throw new Error('Error al enviar el mensaje');
@@ -107,7 +113,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 
             } catch (error) {
                 console.error('Error al enviar mensaje:', error);
-                alert('Error en conexión del servidor');
+                let msg = 'Error en conexión del servidor';
+                const text = String(error && error.message ? error.message : '');
+                try {
+                    const jsonStr = text.replace(/^Error\s+\d+:\s+/, '');
+                    const data = JSON.parse(jsonStr);
+                    if (data && data.detail) {
+                        msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+                    }
+                } catch {
+                    if (text) msg = text;
+                }
+                alert(msg);
             } finally {
                 // Restaurar botón
                 submitButton.disabled = false;

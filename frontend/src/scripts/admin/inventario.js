@@ -1,6 +1,6 @@
 // Importar configuración de API
 import { API_URL } from '../utils/config.js';
-import { getData, fetchWithAuth, deleteData } from '../utils/api.js';
+import { getData, fetchWithAuth, deleteData, updateData } from '../utils/api.js';
 
 // Variables globales
 let inventarios = [];
@@ -9,7 +9,7 @@ let categorias = [];
 let proveedores = [];
 let subcategorias = [];
 let paginaActual = 0;
-const registrosPorPagina = 10;
+const registrosPorPagina = 20;
 let totalRegistros = 0;
 let inventarioEditando = null;
 let inventarioAEliminar = null;
@@ -35,35 +35,29 @@ const btnFiltrar = document.getElementById('btnFiltrar');
 
 // Obtener token de autenticación
 function getAuthToken() {
-    const token = localStorage.getItem('token');
+    const token = (
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('access_token')
+    );
     console.log('Token de autenticación:', token ? 'Presente' : 'No encontrado');
     return token;
 }
 
 // Verificar autenticación
 function verificarAuth() {
-    // TODO: Reactivar validación de token después del desarrollo
-    // const token = getAuthToken();
-    // if (!token) {
-    //     console.log('Usuario no autenticado, redirigiendo a login');
-    //     window.location.href = '/login';
-    //     return false;
-    // }
-    console.log('Usuario autenticado correctamente');
+    const token = getAuthToken();
+    if (!token) {
+        window.location.href = '/login?tipo=trabajador';
+        return false;
+    }
     return true;
 }
 
 // Cargar productos para el selector
 async function cargarProductos() {
     try {
-        // TODO: Reactivar validación de token después del desarrollo
-        // const token = getAuthToken();
-        // if (!token) {
-        //     console.error('No hay token de autenticación');
-        //     return;
-        // }
-        
-        const data = await getData('/api/productos/');
+        const data = await getData(`/api/productos/?_=${Date.now()}`);
         productos = data;
         console.log('Productos cargados:', productos);
     } catch (error) {
@@ -101,6 +95,12 @@ async function cargarCategorias() {
                 // Evitar listeners duplicados cuando se reabre el modal
                 categoriaProducto.onchange = async (e) => {
                     const categoriaId = parseInt(e.target.value) || null;
+                    const subEl = document.getElementById('subcategoriaProducto');
+                    if (subEl) {
+                        subEl.value = '';
+                        subEl.disabled = true;
+                        subEl.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+                    }
                     await cargarSubcategorias(categoriaId);
                 };
             }
@@ -192,14 +192,14 @@ async function cargarInventario() {
         
         // Primero obtener el total de productos
         try {
-            const totalData = await getData('/api/productos/inventario/total');
+            const totalData = await getData(`/api/productos/inventario/total?_=${Date.now()}`);
             totalRegistros = totalData.total;
         } catch (e) {
             console.warn('No se pudo obtener el total de inventario:', e);
         }
         
         // Luego obtener los productos paginados
-        const urlEndpoint = `/api/productos/inventario?skip=${paginaActual * registrosPorPagina}&limit=${registrosPorPagina}`;
+        const urlEndpoint = `/api/productos/inventario?skip=${paginaActual * registrosPorPagina}&limit=${registrosPorPagina}&_=${Date.now()}`;
         let inventario = await getData(urlEndpoint);
             
             // Aplicar filtros en el frontend si es necesario
@@ -317,58 +317,73 @@ function redondearADecena(valor) {
 
 // Función para calcular precio automáticamente
 function calcularPrecio() {
-    const costoBrutoValue = document.getElementById('costoBruto').value;
-    const costoNetoValue = document.getElementById('costoNeto').value;
-    const porcentajeUtilidadValue = document.getElementById('porcentajeUtilidad').value;
-    const utilidadPesosValue = document.getElementById('utilidadPesos').value;
-    
-    const costoBruto = parseInt(costoBrutoValue) || 0;
-    const costoNeto = parseInt(costoNetoValue) || 0;
-    const porcentajeUtilidad = parseInt(porcentajeUtilidadValue) || 0;
-    const utilidadPesos = parseInt(utilidadPesosValue) || 0;
-    
-    let precioBase = 0;
-    
-    // Solo calcular si hay valores reales (no vacíos) y no estamos editando ese campo
-    // Si hay costo bruto y el campo costo neto está vacío, calcular costo neto
-    if (costoBruto > 0 && costoNetoValue.trim() === '' && campoEnEdicion !== 'costoNeto') {
-        const costoNetoCalculado = costoBruto / 1.19;
-        const costoNetoRedondeado = redondearADecena(costoNetoCalculado);
-        document.getElementById('costoNeto').value = costoNetoRedondeado;
-        precioBase = costoNetoRedondeado;
+    const brutoEl = document.getElementById('costoBruto');
+    const netoEl = document.getElementById('costoNeto');
+    const utilPctEl = document.getElementById('porcentajeUtilidad');
+    const utilPesEl = document.getElementById('utilidadPesos');
+    const precioEl = document.getElementById('precio');
+
+    const brutoVal = parseFloat(brutoEl.value) || 0;
+    const netoVal = parseFloat(netoEl.value) || 0;
+    const utilPct = parseFloat(utilPctEl.value) || 0;
+    const utilPes = parseFloat(utilPesEl.value) || 0;
+    const precioVal = parseFloat(precioEl.value) || 0;
+
+    const calcPrecioDesdeNeto = (neto) => {
+        let p = neto;
+        if (utilPct > 0) p = p * (1 + utilPct / 100);
+        if (utilPes > 0) p = p + utilPes;
+        return redondearADecena(p);
+    };
+    const calcNetoDesdePrecio = (precio) => {
+        let base = precio;
+        if (utilPes > 0) base = base - utilPes;
+        if (utilPct > 0) base = base / (1 + utilPct / 100);
+        if (base < 0) base = 0;
+        return redondearADecena(base);
+    };
+
+    if (campoEnEdicion === 'costoNeto') {
+        const bruto = redondearADecena(netoVal * 1.19);
+        brutoEl.value = bruto;
+        precioEl.value = calcPrecioDesdeNeto(netoVal);
+        return;
     }
-    // Si hay costo neto y el campo costo bruto está vacío, calcular costo bruto
-    else if (costoNeto > 0 && costoBrutoValue.trim() === '' && campoEnEdicion !== 'costoBruto') {
-        const costoBrutoCalculado = costoNeto * 1.19;
-        const costoBrutoRedondeado = redondearADecena(costoBrutoCalculado);
-        document.getElementById('costoBruto').value = costoBrutoRedondeado;
-        precioBase = costoNeto;
+    if (campoEnEdicion === 'costoBruto') {
+        const neto = redondearADecena(brutoVal / 1.19);
+        netoEl.value = neto;
+        precioEl.value = calcPrecioDesdeNeto(neto);
+        return;
     }
-    // Si ambos están llenos, usar costo neto como base
-    else if (costoNeto > 0) {
-        precioBase = costoNeto;
+    if (campoEnEdicion === 'precio') {
+        const neto = calcNetoDesdePrecio(precioVal);
+        netoEl.value = neto;
+        brutoEl.value = redondearADecena(neto * 1.19);
+        return;
     }
-    else if (costoBruto > 0) {
-        precioBase = costoBruto / 1.19;
+    if (campoEnEdicion === 'porcentajeUtilidad' || campoEnEdicion === 'utilidadPesos') {
+        if (netoVal > 0) {
+            precioEl.value = calcPrecioDesdeNeto(netoVal);
+            brutoEl.value = redondearADecena(netoVal * 1.19);
+            return;
+        }
+        if (precioVal > 0) {
+            const neto = calcNetoDesdePrecio(precioVal);
+            netoEl.value = neto;
+            brutoEl.value = redondearADecena(neto * 1.19);
+            return;
+        }
     }
-    
-    // Calcular precio final con utilidad
-    let precioFinal = precioBase;
-    
-    // Agregar utilidad por porcentaje
-    if (porcentajeUtilidad > 0) {
-        precioFinal = precioBase * (1 + porcentajeUtilidad / 100);
+    if (netoVal > 0) {
+        precioEl.value = calcPrecioDesdeNeto(netoVal);
+        brutoEl.value = redondearADecena(netoVal * 1.19);
+        return;
     }
-    
-    // Agregar utilidad en pesos
-    if (utilidadPesos > 0) {
-        precioFinal += utilidadPesos;
-    }
-    
-    // Redondear precio final y actualizar el campo
-    if (precioFinal > 0) {
-        const precioFinalRedondeado = redondearADecena(precioFinal);
-        document.getElementById('precio').value = precioFinalRedondeado;
+    if (brutoVal > 0) {
+        const neto = redondearADecena(brutoVal / 1.19);
+        netoEl.value = neto;
+        precioEl.value = calcPrecioDesdeNeto(neto);
+        return;
     }
 }
 
@@ -407,22 +422,7 @@ function abrirModalNuevo() {
 async function editarInventario(id) {
     try {
         console.log('Editando inventario con ID:', id);
-        
-        // TODO: Reactivar validación de token después del desarrollo
-        // const token = getAuthToken();
-        // if (!token) {
-        //     console.error('No hay token de autenticación');
-        //     return;
-        // }
-        
         const response = await fetchWithAuth(`/api/productos/inventario/${id}`);
-        // TODO: Reactivar headers de autorización
-        // const response = await fetch(`${API_URL}/api/productos/inventario/${id}`, {
-        //     headers: {
-        //         'Authorization': `Bearer ${token}`
-        //     }
-        // });
-        
         if (response.ok) {
             const inventario = await response.json();
             console.log('Inventario cargado para edición:', inventario);
@@ -587,27 +587,17 @@ async function guardarInventario(event) {
             
             console.log('🔥 Datos de inventario a actualizar:', inventarioActualizado);
             
-            const endpoint = `/api/productos/inventario/${inventarioEditando.id_inventario}?cantidad=${inventarioActualizado.cantidad_disponible}&precio=${inventarioActualizado.precio}`;
-            console.log('🔥 Endpoint del PUT:', endpoint);
-            
-            // TODO: Reactivar validación de token después del desarrollo
-            // const token = getAuthToken();
-            
-            console.log('🔥 Enviando PUT request...');
-            // Llamar al endpoint PUT para actualizar el inventario
-            const response = await fetchWithAuth(endpoint, {
-                method: 'PUT'
-            });
-            
-            console.log('🔥 Response recibido:', response.status, response.statusText);
-            // TODO: Reactivar headers de autorización
-            // const response = await fetch(`${API_URL}/api/productos/inventario/${inventarioEditando.id_inventario}?cantidad=${inventarioActualizado.cantidad_disponible}`, {
-            //     method: 'PUT',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //         'Authorization': `Bearer ${token}`
-            //     }
-            // });
+            console.log('🔥 Enviando actualización de inventario');
+            const urlInv = `/api/productos/inventario/${inventarioEditando.id_inventario}?cantidad=${inventarioActualizado.cantidad_disponible}` +
+                (isNaN(inventarioActualizado.precio) ? '' : `&precio=${inventarioActualizado.precio}`);
+            const invResponse = await fetchWithAuth(urlInv, { method: 'PUT' });
+            let inventarioResp = null;
+            if (invResponse.ok) {
+                inventarioResp = await invResponse.json();
+            } else {
+                const errText = await invResponse.text();
+                throw new Error(`Error ${invResponse.status}: ${errText}`);
+            }
             
             // También actualizar el producto si hay cambios
             const nombreProducto = formData.get('nombreProducto');
@@ -619,8 +609,10 @@ async function guardarInventario(event) {
                     id_categoria: parseInt(formData.get('categoriaProducto')) || producto.id_categoria,
                     id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
                     id_subcategoria: (function(){
-                        const val = formData.get('subcategoriaProducto');
-                        return val && val !== '' ? parseInt(val) : null;
+                        const val = (formData.get('subcategoriaProducto') || '').trim();
+                        if (val === '' || val.toLowerCase() === 'null') return null;
+                        const num = parseInt(val, 10);
+                        return isNaN(num) ? null : num;
                     })(),
                     codigo_interno: formData.get('codigoInterno') || producto.codigo_interno,
                     costo_bruto: parseFloat(formData.get('costoBruto')) || producto.costo_bruto || 0,
@@ -647,32 +639,19 @@ async function guardarInventario(event) {
                 console.log('Datos de producto a actualizar:', productoActualizado);
                 
                 // Llamar al endpoint PUT para actualizar el producto
-                const productoResponse = await fetchWithAuth(`/api/productos/${producto.id_producto}`, {
-                    method: 'PUT',
-                    body: JSON.stringify(productoActualizado)
-                });
-                // TODO: Reactivar headers de autorización
-                // const productoResponse = await fetch(`${API_URL}/api/productos/${producto.id_producto}`, {
-                //     method: 'PUT',
-                //     headers: {
-                //         'Content-Type': 'application/json',
-                //         'Authorization': `Bearer ${token}`
-                //     },
-                //     body: JSON.stringify(productoActualizado)
-                // });
+                const productoResponse = await updateData(`/api/productos/${producto.id_producto}`, productoActualizado);
                 
-                if (!productoResponse.ok) {
-                    const productoError = await productoResponse.json();
-                    console.error('Error al actualizar el producto:', productoError);
+                if (!productoResponse) {
+                    console.error('Error al actualizar el producto');
                 }
             }
             
-            if (!response.ok) {
-                const error = await response.json();
+            if (!inventarioResp || inventarioResp.error) {
+                const error = inventarioResp?.error || inventarioResp;
                 let errorMsg = 'Error al actualizar inventario';
                 
                 // Verificar si es un error de autenticación
-                if (response.status === 401) {
+                if (String(error).includes('401')) {
                     console.log('Error de autenticación al actualizar inventario. Redirigiendo a login...');
                     alert('Sesión expirada. Por favor, inicie sesión nuevamente.');
                     localStorage.removeItem('token');
@@ -680,7 +659,7 @@ async function guardarInventario(event) {
                     return;
                 }
                 
-                if (error.detail) {
+                if (error && error.detail) {
                     if (typeof error.detail === 'string') {
                         errorMsg += ': ' + error.detail;
                     } else if (Array.isArray(error.detail)) {
@@ -689,7 +668,7 @@ async function guardarInventario(event) {
                         errorMsg += ': ' + JSON.stringify(error.detail);
                     }
                 } else {
-                    errorMsg += ': ' + JSON.stringify(error);
+                    errorMsg += ': ' + JSON.stringify(error || {});
                 }
                 
                 console.error('Error de respuesta:', error);
@@ -697,13 +676,14 @@ async function guardarInventario(event) {
                 return;
             }
             
-            const inventarioActualizadoResponse = await response.json();
-            console.log('Inventario actualizado exitosamente:', inventarioActualizadoResponse);
+            console.log('Inventario actualizado exitosamente:', inventarioResp);
             
             modalInventario.classList.add('hidden');
             inventarioEditando = null;
             
-            // Recargar inventario
+            await cargarProductos();
+            await cargarCategorias();
+            await cargarProveedores();
             await cargarInventario();
             
             // Mostrar mensaje de éxito
@@ -715,8 +695,10 @@ async function guardarInventario(event) {
                 id_categoria: parseInt(formData.get('categoriaProducto')) || null,
                 id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
                 id_subcategoria: (function(){
-                    const val = formData.get('subcategoriaProducto');
-                    return val && val !== '' ? parseInt(val) : null;
+                    const val = (formData.get('subcategoriaProducto') || '').trim();
+                    if (val === '' || val.toLowerCase() === 'null') return null;
+                    const num = parseInt(val, 10);
+                    return isNaN(num) ? null : num;
                 })(),
                 codigo_interno: formData.get('codigoInterno') || null,
                 costo_bruto: parseFloat(formData.get('costoBruto')) || 0,
@@ -749,15 +731,6 @@ async function guardarInventario(event) {
                 method: 'POST',
                 body: JSON.stringify(nuevoProducto)
             });
-            // TODO: Reactivar headers de autorización
-            // const productoResponse = await fetch(`${API_URL}/api/productos/`, {
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //         'Authorization': `Bearer ${token}`
-            //     },
-            //     body: JSON.stringify(nuevoProducto)
-            // });
             
             if (!productoResponse.ok) {
                 const error = await productoResponse.json();
@@ -793,7 +766,9 @@ async function guardarInventario(event) {
             
             modalInventario.classList.add('hidden');
             
-            // Recargar inventario
+            await cargarProductos();
+            await cargarCategorias();
+            await cargarProveedores();
             await cargarInventario();
             
             // Mostrar mensaje de éxito
@@ -867,11 +842,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const costoNetoInput = document.getElementById('costoNeto');
     const porcentajeUtilidadInput = document.getElementById('porcentajeUtilidad');
     const utilidadPesosInput = document.getElementById('utilidadPesos');
+    const precioInput = document.getElementById('precio');
     
     if (costoBrutoInput) costoBrutoInput.addEventListener('input', () => calcularPrecioConDebounce('costoBruto'));
     if (costoNetoInput) costoNetoInput.addEventListener('input', () => calcularPrecioConDebounce('costoNeto'));
     if (porcentajeUtilidadInput) porcentajeUtilidadInput.addEventListener('input', () => calcularPrecioConDebounce('porcentajeUtilidad'));
     if (utilidadPesosInput) utilidadPesosInput.addEventListener('input', () => calcularPrecioConDebounce('utilidadPesos'));
+    if (precioInput) precioInput.addEventListener('input', () => calcularPrecioConDebounce('precio'));
 });
 
 formInventario.addEventListener('submit', guardarInventario);
@@ -925,9 +902,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     try {
+        const q = new URLSearchParams(window.location.search).get('q');
         await cargarProductos();
         await cargarCategorias();
         await cargarProveedores();
+        if (q) {
+            const inp = document.getElementById('filtroProducto');
+            if (inp) inp.value = q;
+        }
         await cargarInventario();
     } catch (error) {
         console.error('Error al cargar datos del inventario:', error);

@@ -68,6 +68,7 @@ def serialize_producto_inventario(p: ProductoDB) -> ProductoInventario:
             "codigo_interno": p.codigo_interno,
             "imagen_url": p.imagen_url,
             "id_categoria": p.id_categoria,
+            "id_subcategoria": getattr(p, "id_subcategoria"),
             "id_proveedor": p.id_proveedor,
             "marca": p.marca,
             "costo_bruto": _to_pesos_int(p.costo_bruto),
@@ -79,6 +80,7 @@ def serialize_producto_inventario(p: ProductoDB) -> ProductoInventario:
             "stock_minimo": p.stock_minimo if p.stock_minimo else 0,
             "estado": p.estado,
             "categoria": p.categoria.nombre if getattr(p, "categoria", None) else None,
+            "subcategoria": p.subcategoria.nombre if getattr(p, "subcategoria", None) else None,
             "proveedor": p.proveedor.nombre if getattr(p, "proveedor", None) else None,
         },
     )

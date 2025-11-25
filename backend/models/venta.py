@@ -20,6 +20,8 @@ class VentaDB(Base):
     __tablename__ = "ventas"
     __table_args__ = (
         Index('ix_ventas_fecha_venta', 'fecha_venta'),
+        Index('ix_ventas_estado', 'estado'),
+        Index('ix_ventas_usuario', 'id_usuario'),
     )
     
     id_venta = Column(Integer, primary_key=True, index=True)
@@ -47,6 +49,9 @@ class VentaDB(Base):
 class DetalleVentaDB(Base):
     """Modelo de base de datos para detalles de venta"""
     __tablename__ = "detalles_venta"
+    __table_args__ = (
+        Index('ix_detalles_venta_id_venta', 'id_venta'),
+    )
     
     id_detalle = Column(Integer, primary_key=True, index=True)
     id_venta = Column(Integer, ForeignKey("ventas.id_venta"), nullable=False)
@@ -195,3 +200,4 @@ class MovimientoInventario(MovimientoInventarioBase):
 # Actualizar referencias forward
 VentaCreate.update_forward_refs()
 Venta.update_forward_refs()
+VentaGuestCreate.update_forward_refs()

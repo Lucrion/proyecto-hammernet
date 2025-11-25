@@ -9,6 +9,7 @@ const filtroCategoria = document.getElementById('filtroCategoria');
 const btnBuscar = document.getElementById('btnBuscar');
 const tablaSubcategorias = document.getElementById('tablaSubcategorias');
 const paginacion = document.getElementById('paginacion');
+let categoriasCache = [];
 
 const btnNuevaSubcategoria = document.getElementById('btnNuevaSubcategoria');
 const modalSubcategoria = document.getElementById('modalSubcategoria');
@@ -36,11 +37,12 @@ const hideModal = (el) => el.classList.add('hidden');
 // Cargar categorías para filtros y modal
 async function cargarCategorias() {
   const categorias = await getData(`${API_BASE}/categorias`);
+  categoriasCache = Array.isArray(categorias) ? categorias : [];
   // Filtro
   filtroCategoria.innerHTML = '<option value="">Todas las categorías</option>' +
-    categorias.map(c => `<option value="${c.id_categoria}">${c.nombre}</option>`).join('');
+    categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nombre}</option>`).join('');
   // Modal
-  categoriaSelect.innerHTML = categorias.map(c => `<option value="${c.id_categoria}">${c.nombre}</option>`).join('');
+  categoriaSelect.innerHTML = categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nombre}</option>`).join('');
 }
 
 // Cargar subcategorías
@@ -48,7 +50,7 @@ async function cargarSubcategorias() {
   const params = new URLSearchParams();
   const nombre = (filtroNombre.value || '').trim();
   const idCat = (filtroCategoria.value || '').trim();
-  if (idCat) params.set('id_categoria', idCat);
+  if (idCat) params.set('categoria_id', idCat);
   const data = await getData(`${API_BASE}/subcategorias?${params.toString()}`);
   const filtradas = nombre ? data.filter(s => s.nombre.toLowerCase().includes(nombre.toLowerCase())) : data;
   renderTabla(filtradas);
@@ -59,7 +61,7 @@ function renderTabla(items) {
     <tr>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.id_subcategoria}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.nombre}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.categoria?.nombre || '-'}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${(categoriasCache.find(c => c.id_categoria === item.id_categoria)?.nombre) || '-'}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.descripcion || '-'}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
         <button class="btn-editar bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded" data-id="${item.id_subcategoria}">Editar</button>

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List
 from models.categoria import CategoriaDB, CategoriaCreate, CategoriaUpdate, Categoria
+from models.producto import ProductoDB
 
 
 class CategoriaController:
@@ -193,6 +194,13 @@ class CategoriaController:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Categoría no encontrada"
+                )
+            # Bloquear eliminación si hay productos asociados
+            productos_asociados = db.query(ProductoDB).filter(ProductoDB.id_categoria == categoria_id).count()
+            if productos_asociados > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No se puede eliminar la categoría porque tiene productos asociados"
                 )
             
             db.delete(categoria)

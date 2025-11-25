@@ -4,7 +4,7 @@ import dashboardScriptUrl from '../../scripts/admin/dashboard.js?url';
 ---
 
 <AdminLayout title="Panel de Administración">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <!-- Tarjeta de estadísticas: Productos -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center justify-between mb-4">
@@ -20,26 +20,11 @@ import dashboardScriptUrl from '../../scripts/admin/dashboard.js?url';
             <div class="mt-3 text-sm text-gray-600">
                 <p>Bajo stock: <span id="dashboardProductosBajo">0</span></p>
                 <p>Sin stock: <span id="dashboardProductosSin">0</span></p>
+                <p>Valor inventario: <span id="dashboardValorInventarioTotal">$0</span></p>
+                <p>En oferta: <span id="dashboardProductosEnOfertaPct">0%</span></p>
             </div>
         </div>
 
-        <!-- Tarjeta de estadísticas: Usuarios -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-medium text-gray-700">Usuarios</h3>
-                <span class="p-2 bg-green-100 rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                </span>
-            </div>
-            <p class="text-3xl font-bold text-gray-800"><span id="dashboardUsuariosActivos">0</span></p>
-            <p class="text-sm text-gray-500 mt-2">Usuarios activos</p>
-            <div class="mt-3 text-sm text-gray-600">
-                <p>Desactivados: <span id="dashboardUsuariosInactivos">0</span></p>
-                <p>Total: <span id="dashboardUsuariosTotal">0</span></p>
-            </div>
-        </div>
 
         <!-- Tarjeta de estadísticas: Ventas -->
         <div class="bg-white rounded-lg shadow-md p-6">
@@ -56,6 +41,23 @@ import dashboardScriptUrl from '../../scripts/admin/dashboard.js?url';
                 <p class="text-sm text-gray-600">Cantidad de ventas: <span id="dashboardVentasCantidad">0</span></p>
                 <p class="text-sm text-gray-600">Promedio por venta: <span id="dashboardVentasPromedio">$0</span></p>
                 <p class="text-sm text-gray-600">Canceladas: <span id="dashboardVentasCanceladas">0</span></p>
+            </div>
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="p-3 rounded-lg bg-indigo-50 ring-1 ring-indigo-100">
+                    <div class="text-xs text-indigo-700">Hoy</div>
+                    <div class="mt-1 text-sm text-gray-700">Ingresos: <span id="metricVentasDiaIngresos">$0</span></div>
+                    <div class="text-xs text-gray-600">Ventas: <span id="metricVentasDiaCantidad">0</span></div>
+                </div>
+                <div class="p-3 rounded-lg bg-blue-50 ring-1 ring-blue-100">
+                    <div class="text-xs text-blue-700">Semana</div>
+                    <div class="mt-1 text-sm text-gray-700">Ingresos: <span id="metricVentasSemanaIngresos">$0</span></div>
+                    <div class="text-xs text-gray-600">Ventas: <span id="metricVentasSemanaCantidad">0</span></div>
+                </div>
+                <div class="p-3 rounded-lg bg-purple-50 ring-1 ring-purple-100">
+                    <div class="text-xs text-purple-700">Mes</div>
+                    <div class="mt-1 text-sm text-gray-700">Ingresos: <span id="metricVentasMesIngresos">$0</span></div>
+                    <div class="text-xs text-gray-600">Ventas: <span id="metricVentasMesCantidad">0</span></div>
+                </div>
             </div>
         </div>
     </div>
@@ -74,7 +76,7 @@ import dashboardScriptUrl from '../../scripts/admin/dashboard.js?url';
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-600 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                 </svg>
-                <span class="text-gray-700">Añadir usuario</span>
+                <span class="text-gray-700">Añadir trabajador</span>
             </a>
             <a href="/admin/catalogo" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-yellow-600 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -99,19 +101,183 @@ import dashboardScriptUrl from '../../scripts/admin/dashboard.js?url';
         <div id="actividadReciente" class="space-y-4"></div>
     </div>
 
-    <!-- Dashboard analítico -->
+    <!-- Últimas ventas -->
     <div class="bg-white rounded-lg shadow-md p-6 mt-8">
-        <h2 class="text-xl font-semibold mb-6">Dashboard analítico</h2>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div>
-                <h3 class="text-lg font-medium text-gray-700 mb-3">Ventas por día</h3>
-                <canvas id="chartVentasDia" height="120"></canvas>
-            </div>
-            <div>
-                <h3 class="text-lg font-medium text-gray-700 mb-3">Top productos</h3>
-                <canvas id="chartTopProductos" height="120"></canvas>
+        <h2 class="text-xl font-semibold mb-6">Últimas ventas</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="ultimasVentasBody" class="bg-white divide-y divide-gray-200"></tbody>
+            </table>
+        </div>
+    </div>
+
+    
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-8">
+        <!-- Apartado: Ventas -->
+        <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2"/></svg>
+                    </span>
+                    <h2 class="text-lg font-semibold text-gray-900">Ventas</h2>
+                </div>
+            <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
+                    <button id="ventasModeTop" class="px-3 py-1 rounded-full bg-green-600 text-white text-sm">Destacados</button>
+                    <button id="ventasModeBottom" class="px-3 py-1 rounded-full bg-white text-gray-800 text-sm">Últimos</button>
             </div>
         </div>
+            <div class="mb-3 flex items-center gap-2">
+                <span class="text-sm text-gray-600">Ventas por día</span>
+            </div>
+            <div id="apartadoChartVentasPorDia" class="rounded-lg bg-gray-50 mb-6" style="height: 320px; width: 100%"></div>
+            <div class="mb-3 flex items-center gap-2">
+                <span class="text-sm text-gray-600">Top 10 productos más vendidos</span>
+            </div>
+            <div id="apartadoChartVentasTopProductos" class="rounded-lg bg-gray-50 mb-6" style="height: 320px; width: 100%"></div>
+            <div class="mb-3 flex items-center gap-2">
+                <span class="text-sm text-gray-600">Ingresos por categoría</span>
+            </div>
+            <div id="apartadoChartVentasIngresosCategoria" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
+        </div>
+
+        <!-- Apartado: Clientes -->
+        <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="p-2 rounded-lg bg-green-50 text-green-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 14a4 4 0 00-8 0m8 0v1a4 4 0 01-8 0v-1m8 0a4 4 0 00-8 0"/></svg>
+                    </span>
+                    <h2 class="text-lg font-semibold text-gray-900">Clientes</h2>
+                </div>
+                <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
+                    <button id="clientesModeTop" class="px-3 py-1 rounded-full bg-green-600 text-white text-sm">Destacados</button>
+                    <button id="clientesModeBottom" class="px-3 py-1 rounded-full bg-white text-gray-800 text-sm">Últimos</button>
+                </div>
+            </div>
+            <div id="apartadoChartClientes" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
+        </div>
+
+        <!-- Apartado: Inventario -->
+        <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="p-2 rounded-lg bg-purple-50 text-purple-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V7a2 2 0 00-2-2h-4l-2-2H6a2 2 0 00-2 2v6"/></svg>
+                    </span>
+                    <h2 class="text-lg font-semibold text-gray-900">Inventario</h2>
+                </div>
+                <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
+                    <button id="inventarioModeTop" class="px-3 py-1 rounded-full bg-green-600 text-white text-sm">Destacados</button>
+                    <button id="inventarioModeBottom" class="px-3 py-1 rounded-full bg-white text-gray-800 text-sm">Últimos</button>
+                </div>
+            </div>
+            <div id="apartadoChartInventario" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
+        </div>
+
+        <!-- Apartado: Pedidos -->
+        <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="p-2 rounded-lg bg-yellow-50 text-yellow-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18M3 7h18M5 11h14M7 15h10M9 19h6"/></svg>
+                    </span>
+                    <h2 class="text-lg font-semibold text-gray-900">Pedidos</h2>
+                </div>
+                <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
+                    <button id="pedidosModeTop" class="px-3 py-1 rounded-full bg-green-600 text-white text-sm">Destacados</button>
+                    <button id="pedidosModeBottom" class="px-3 py-1 rounded-full bg-white text-gray-800 text-sm">Últimos</button>
+                </div>
+            </div>
+            <div id="apartadoChartPedidos" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
+        </div>
+
+        <!-- Apartado: Pagos -->
+        <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="p-2 rounded-lg bg-red-50 text-red-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.1 0-2 .9-2 2h4a2 2 0 00-2-2zM6 12h12M6 16h12"/></svg>
+                    </span>
+                    <h2 class="text-lg font-semibold text-gray-900">Pagos</h2>
+                </div>
+                <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
+                    <button id="pagosModeTop" class="px-3 py-1 rounded-full bg-green-600 text-white text-sm">Destacados</button>
+                    <button id="pagosModeBottom" class="px-3 py-1 rounded-full bg-white text-gray-800 text-sm">Últimos</button>
+                </div>
+            </div>
+            <div id="apartadoChartPagos" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
+        </div>
+    </div>
+
+    <!-- Actividad de clientes -->
+    <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 mt-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Actividad de clientes</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="p-4 rounded-lg bg-blue-50 ring-1 ring-blue-100">
+                <div class="text-sm text-blue-700">Carritos abandonados</div>
+                <div id="metricCarritosAbandonados" class="mt-2 text-2xl font-bold text-blue-900">0</div>
+            </div>
+            <div class="p-4 rounded-lg bg-emerald-50 ring-1 ring-emerald-100">
+                <div class="text-sm text-emerald-700">Clientes registrados este mes</div>
+                <div id="metricClientesMes" class="mt-2 text-2xl font-bold text-emerald-900">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventario -->
+    <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 mt-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Inventario</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="p-4 rounded-lg bg-indigo-50 ring-1 ring-indigo-100">
+                <div class="text-sm text-indigo-700">Stock actual total</div>
+                <div id="metricStockTotal" class="mt-2 text-2xl font-bold text-indigo-900">0</div>
+            </div>
+            <div class="p-4 rounded-lg bg-rose-50 ring-1 ring-rose-100">
+                <div class="text-sm text-rose-700">Productos agotados</div>
+                <div id="metricAgotados" class="mt-2 text-2xl font-bold text-rose-900">0</div>
+            </div>
+            <div class="p-4 rounded-lg bg-purple-50 ring-1 ring-purple-100">
+                <div class="text-sm text-purple-700">Valor total del inventario</div>
+                <div id="metricValorInventario" class="mt-2 text-2xl font-bold text-purple-900">$0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagos -->
+    <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 mt-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Pagos</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="p-4 rounded-lg bg-amber-50 ring-1 ring-amber-100">
+                <div class="text-sm text-amber-700">Transacciones fallidas</div>
+                <div id="metricTransaccionesFallidas" class="mt-2 text-2xl font-bold text-amber-900">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rendimiento de la plataforma -->
+    <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 mt-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Rendimiento de la plataforma</h2>
+        </div>
+        <div class="mb-2 text-sm text-gray-600">Visitas (últimos 30 días)</div>
+        <div id="chartVisitasMes" class="rounded-lg bg-gray-50" style="height: 280px; width: 100%"></div>
     </div>
 </AdminLayout>
 
@@ -132,7 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<!-- Chart.js para gráficos -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/charts/loader.js"></script>
 
 <script type="module" src={dashboardScriptUrl}></script>

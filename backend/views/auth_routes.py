@@ -79,10 +79,14 @@ async def google_callback(
         result = await google_controller.handle_google_callback(code, db)
         
         # Redirigir al frontend con el token
-        frontend_url = f"http://localhost:4321/login?token={result['access_token']}&success=true"
+        import os
+        frontend_base = os.environ.get("FRONTEND_URL", "http://localhost:4321")
+        frontend_url = f"{frontend_base}/login?token={result['access_token']}&success=true"
         return RedirectResponse(url=frontend_url)
         
     except Exception as e:
         # Redirigir al frontend con error
-        frontend_url = f"http://localhost:4321/login?error={str(e)}"
+        import os
+        frontend_base = os.environ.get("FRONTEND_URL", "http://localhost:4321")
+        frontend_url = f"{frontend_base}/login?error={str(e)}"
         return RedirectResponse(url=frontend_url)

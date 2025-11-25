@@ -5,6 +5,8 @@ import { getData, updateData, deleteData } from '../utils/api.js';
 // Variables globales
 let mensajes = [];
 let token = '';
+let mensPagina = 1;
+const mensTam = 20;
 
 // Variables para el modal de eliminación
 let mensajeAEliminar = null;
@@ -20,12 +22,11 @@ document.addEventListener('DOMContentLoaded', function() {
     emptyState = document.getElementById('emptyState');
     tableContainer = document.getElementById('tableContainer');
     
-    // Obtener token de autenticación
-    token = localStorage.getItem('token');
-    if (!token) {
-        window.location.href = '/login';
-        return;
-    }
+    // Obtener token de autenticación (compatibilidad con login de trabajador en sessionStorage)
+    try {
+        token = sessionStorage.getItem('token') || localStorage.getItem('token') || '';
+    } catch {}
+    // No redirigir automáticamente: los endpoints están protegidos y fetchWithAuth añadirá Authorization si hay token
     
     // Configurar event listeners para el modal de ver mensaje
     const closeModal = document.getElementById('closeModal');
@@ -60,6 +61,15 @@ document.addEventListener('DOMContentLoaded', function() {
         btnCancelarEliminarMensaje.addEventListener('click', cerrarModalEliminarMensaje);
     }
     
+    // Controles de paginación
+    const prevBtn = document.getElementById('mensPrev');
+    const nextBtn = document.getElementById('mensNext');
+    if (prevBtn) prevBtn.addEventListener('click', () => { if (mensPagina > 1) { mensPagina--; cargarMensajes(); } });
+    if (nextBtn) nextBtn.addEventListener('click', () => {
+        const maxPagina = Math.ceil(mensajes.length / mensTam) || 1;
+        if (mensPagina < maxPagina) { mensPagina++; cargarMensajes(); }
+    });
+
     // Cargar mensajes
     obtenerMensajes();
 });
@@ -135,7 +145,11 @@ function cargarMensajes() {
     // Mostrar la tabla con datos
     mostrarEstado('table');
     
-    tablaMensajes.innerHTML = mensajes.map(mensaje => `
+    const total = mensajes.length;
+    const desdeIdx = (mensPagina - 1) * mensTam;
+    const hastaIdx = Math.min(desdeIdx + mensTam, total);
+    const pagina = mensajes.slice(desdeIdx, hastaIdx);
+    tablaMensajes.innerHTML = pagina.map(mensaje => `
         <tr class="hover:bg-gray-50">
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 ${new Date(mensaje.fecha_envio).toLocaleDateString()}
@@ -160,6 +174,27 @@ function cargarMensajes() {
             </td>
         </tr>
     `).join('');
+
+    const desdeEl = document.getElementById('mensDesde');
+    const hastaEl = document.getElementById('mensHasta');
+    const totalEl = document.getElementById('mensTotal');
+    if (desdeEl) desdeEl.textContent = total > 0 ? (desdeIdx + (pagina.length ? 1 : 0)) : 0;
+    if (hastaEl) hastaEl.textContent = total > 0 ? hastaIdx : 0;
+    if (totalEl) totalEl.textContent = total;
+    const prevBtn2 = document.getElementById('mensPrev');
+    const nextBtn2 = document.getElementById('mensNext');
+    const hasPrev = mensPagina > 1;
+    const hasNext = hastaIdx < total;
+    if (prevBtn2) {
+        prevBtn2.disabled = !hasPrev;
+        prevBtn2.classList.toggle('opacity-50', !hasPrev);
+        prevBtn2.classList.toggle('cursor-not-allowed', !hasPrev);
+    }
+    if (nextBtn2) {
+        nextBtn2.disabled = !hasNext;
+        nextBtn2.classList.toggle('opacity-50', !hasNext);
+        nextBtn2.classList.toggle('cursor-not-allowed', !hasNext);
+    }
 }
 
 // Ver mensaje completo

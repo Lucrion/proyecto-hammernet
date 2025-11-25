@@ -17,6 +17,9 @@ from .venta import VentaDB, DetalleVentaDB, MovimientoInventarioDB, Venta, Detal
 from .pago import PagoDB, Pago, PagoCreate
 from .despacho import DespachoDB, Despacho, DespachoCreate, DespachoUpdate
 from .auditoria import AuditoriaDB, Auditoria
+from .rol import RolDB, Rol
+from .permiso import PermisoDB, Permiso
+from .rol_permiso import RolPermisoDB
 
 __all__ = [
     "Base",
@@ -31,5 +34,8 @@ __all__ = [
     "VentaCreate", "DetalleVentaCreate", "MovimientoInventarioCreate",
     "PagoDB", "Pago", "PagoCreate",
     "DespachoDB", "Despacho", "DespachoCreate", "DespachoUpdate",
-    "AuditoriaDB", "Auditoria"
+    "AuditoriaDB", "Auditoria",
+    "RolDB", "Rol",
+    "PermisoDB", "Permiso",
+    "RolPermisoDB",
 ]

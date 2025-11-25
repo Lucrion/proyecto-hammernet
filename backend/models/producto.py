@@ -19,6 +19,9 @@ class ProductoDB(Base):
     __tablename__ = "productos"
     __table_args__ = (
         Index('ix_productos_nombre', 'nombre'),
+        Index('ix_productos_catalogo', 'en_catalogo', 'estado'),
+        Index('ix_productos_categoria', 'id_categoria'),
+        Index('ix_productos_subcategoria', 'id_subcategoria'),
     )
     
     id_producto = Column(Integer, primary_key=True, index=True)

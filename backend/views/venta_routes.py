@@ -13,6 +13,15 @@ from models.venta import (
     DetalleVenta, DetalleVentaCreate,
     MovimientoInventario, VentaGuestCreate
 )
+# Asegurar resolución de forward refs para modelos Pydantic
+try:
+    VentaGuestCreate.update_forward_refs()
+    VentaCreate.update_forward_refs()
+    Venta.update_forward_refs()
+except Exception:
+    pass
+from seed_data import seed_extra_ventas
+from seed_data import seed_client_purchases
 from core.auth import get_current_user, require_admin
 from config.constants import API_PREFIX
 
@@ -85,6 +94,36 @@ async def cancelar_venta(
     return {"message": "Venta cancelada exitosamente", "venta": resultado}
 
 
+@router.put("/{id_venta}/completar")
+async def completar_venta(
+    id_venta: int,
+    metodo: Optional[str] = Query(None, description="Metodo de entrega: retiro|despacho"),
+    usuario_admin_id: Optional[int] = Query(None, description="ID del usuario administrador que confirma"),
+    db: Session = Depends(get_db),
+):
+    """Marcar una venta como completada (entregada)."""
+    resultado = VentaController.completar_venta(db, id_venta, usuario_admin_id, metodo)
+    return {"message": "Venta marcada como completada", "venta": resultado}
+
+
+@router.put("/{id_venta}/envio-estado")
+async def actualizar_estado_envio(
+    id_venta: int,
+    estado: str = Query(..., description="Estado de envío: pendiente|preparando|en camino|entregado"),
+    db: Session = Depends(get_db),
+):
+    resultado = VentaController.set_envio_estado(db, id_venta, estado)
+    return {"message": "Estado de envío actualizado", "venta": resultado}
+
+@router.post("/seed")
+async def seed_ventas_extra(
+    cantidad: int = Query(50, ge=1, le=1000, description="Cantidad de ventas adicionales a generar"),
+    db: Session = Depends(get_db),
+):
+    resumen = seed_extra_ventas(db, cantidad=cantidad)
+    return {"status": "ok", "resumen": resumen}
+
+
 @router.get("/movimientos/inventario", response_model=List[MovimientoInventario])
 async def obtener_movimientos_inventario(
     skip: int = Query(0, ge=0, description="Número de registros a omitir"),
@@ -142,3 +181,24 @@ async def obtener_movimientos_por_producto(
     return VentaController.obtener_movimientos_inventario(
         db, skip, limit, id_producto
     )
+
+
+@router.post("/seed/clientes")
+async def seed_ventas_clientes(
+    cantidad: int = Query(30, ge=1, le=1000, description="Cantidad de compras de clientes a generar"),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """Genera compras reales con distintos clientes y asigna una dirección real única por cliente."""
+    resumen = seed_client_purchases(db, cantidad=cantidad)
+    return {"status": "ok", "resumen": resumen}
+
+
+@router.delete("/cleanup/clientes")
+async def eliminar_compras_clientes(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """Elimina todas las ventas de usuarios con role 'cliente' (admin requerido)."""
+    resumen = VentaController.eliminar_compras_de_clientes(db)
+    return {"status": "ok", **resumen}

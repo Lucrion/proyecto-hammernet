@@ -1,15 +1,16 @@
 // Importar configuración de API
 import { API_URL } from '../utils/config.js';
-import { getData, fetchWithAuth } from '../utils/api.js';
+import { getData, fetchWithAuth, postData, updateData, deleteData } from '../utils/api.js';
 
 // Variables globales
 let paginaActual = 0;
-const productosPorPagina = 10;
+const productosPorPagina = 20;
 let totalProductos = 0;
 let productoEditando = null;
 let productoAEliminar = null;
 let categorias = [];
 let proveedores = [];
+let subcategorias = [];
 
 // Elementos del DOM
 const tablaProductos = document.getElementById('tablaProductos');
@@ -33,11 +34,10 @@ function getAuthToken() {
 // Verificar autenticación
 function verificarAuth() {
     const token = getAuthToken();
-    // VALIDACIÓN TEMPORALMENTE DESACTIVADA: No redirigir por falta de token
-    // if (!token) {
-    //     window.location.href = '/login';
-    //     return false;
-    // }
+    if (!token) {
+        window.location.href = '/login?tipo=trabajador';
+        return false;
+    }
     return true;
 }
 
@@ -58,6 +58,18 @@ async function cargarCategorias() {
                 selectCategoria.add(option1);
                 filtroCategoria.add(option2);
             });
+
+            if (selectCategoria) {
+                selectCategoria.onchange = async (e) => {
+                    const categoriaId = parseInt(e.target.value) || null;
+                    const subEl = document.getElementById('id_subcategoria');
+                    if (subEl) {
+                        subEl.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+                        subEl.disabled = true;
+                    }
+                    await cargarSubcategorias(categoriaId);
+                };
+            }
     } catch (error) {
         console.error('Error al cargar categorías:', error);
     }
@@ -85,6 +97,30 @@ async function cargarProveedores() {
     }
 }
 
+async function cargarSubcategorias(categoriaId) {
+    try {
+        const subEl = document.getElementById('id_subcategoria');
+        if (!subEl) return;
+        subEl.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+        if (!categoriaId) { subEl.disabled = true; subcategorias = []; return; }
+        const data = await getData(`/api/subcategorias?categoria_id=${categoriaId}&_=${Date.now()}`);
+        subcategorias = Array.isArray(data) ? data : [];
+        if (subcategorias.length > 0) {
+            subcategorias.forEach(sub => {
+                const opt = new Option(sub.nombre, sub.id_subcategoria);
+                subEl.add(opt);
+            });
+            subEl.disabled = false;
+        } else {
+            subEl.disabled = true;
+        }
+    } catch (error) {
+        console.error('Error al cargar subcategorías:', error);
+        const subEl = document.getElementById('id_subcategoria');
+        if (subEl) subEl.disabled = true;
+    }
+}
+
 // Cargar productos
 async function cargarProductos() {
     try {
@@ -92,7 +128,7 @@ async function cargarProductos() {
         const filtroCategoria = document.getElementById('filtroCategoria').value;
         const filtroProveedor = document.getElementById('filtroProveedor').value;
         
-        let endpoint = `/api/productos/?skip=${paginaActual * productosPorPagina}&limit=${productosPorPagina}`;
+        let endpoint = `/api/productos/?skip=${paginaActual * productosPorPagina}&limit=${productosPorPagina}&_=${Date.now()}`;
         
         if (filtroCategoria) {
             endpoint += `&categoria_id=${filtroCategoria}`;
@@ -108,6 +144,7 @@ async function cargarProductos() {
         if (filtroCategoria) filtros.push(`categoria_id=${filtroCategoria}`);
         if (filtroProveedor) filtros.push(`proveedor_id=${filtroProveedor}`);
         if (filtros.length > 0) totalEndpoint += `?${filtros.join('&')}`;
+        totalEndpoint += (totalEndpoint.includes('?') ? '&' : '?') + `_=${Date.now()}`;
         try {
             const totalResp = await getData(totalEndpoint);
             totalProductos = (totalResp && typeof totalResp.total === 'number') ? totalResp.total : productos.length;
@@ -182,7 +219,7 @@ function abrirModalNuevo() {
 window.editarProducto = async function(id) {
     console.log('Editando producto con ID:', id);
     try {
-        const producto = await getData(`/api/productos/${id}`);
+        const producto = await getData(`/api/productos/${id}?_=${Date.now()}`);
             console.log('Producto recibido:', producto);
             productoEditando = producto;
             tituloModal.textContent = 'Editar Producto';
@@ -195,7 +232,7 @@ window.editarProducto = async function(id) {
             document.getElementById('costo_neto').value = producto.costo_neto || '';
             document.getElementById('porcentaje_utilidad').value = producto.porcentaje_utilidad || '';
             document.getElementById('utilidad_pesos').value = producto.utilidad_pesos || '';
-            document.getElementById('cantidad_actual').value = producto.cantidad_actual || 0;
+            document.getElementById('cantidad_actual').value = producto.cantidad_disponible || 0;
             document.getElementById('stock_minimo').value = producto.stock_minimo || 5;
             document.getElementById('marca').value = producto.marca || '';
             
@@ -204,6 +241,12 @@ window.editarProducto = async function(id) {
                 const categoriaObj = categorias.find(c => c.nombre === producto.categoria);
                 if (categoriaObj) {
                     document.getElementById('id_categoria').value = categoriaObj.id_categoria;
+                    await cargarSubcategorias(categoriaObj.id_categoria);
+                    const subEl = document.getElementById('id_subcategoria');
+                    if (subEl && producto.id_subcategoria) {
+                        subEl.value = producto.id_subcategoria;
+                        subEl.disabled = false;
+                    }
                 } else {
                     document.getElementById('id_categoria').value = '';
                 }
@@ -229,15 +272,11 @@ window.eliminarProducto = function(id) {
 // Confirmar eliminación
 async function confirmarEliminacion() {
     try {
-        const response = await fetchWithAuth(`/api/productos/${productoAEliminar}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
+        const response = await deleteData(`/api/productos/${productoAEliminar}`);
+        if (response) {
             modalEliminar.classList.add('hidden');
             cargarProductos();
         } else {
-            const error = await response.json();
             alert('Error en conexión del servidor');
         }
     } catch (error) {
@@ -261,6 +300,7 @@ async function guardarProducto(event) {
     console.log('Iniciando guardado de producto...');
     
     const formData = new FormData(formProducto);
+    const subcatRaw = (document.getElementById('id_subcategoria')?.value || '').trim();
     
     // Obtener y validar id_categoria
     const categoriaValue = formData.get('id_categoria');
@@ -276,6 +316,12 @@ async function guardarProducto(event) {
         marca: formData.get('marca'),
         id_categoria: id_categoria,
         id_proveedor: id_proveedor,
+        id_subcategoria: (function(){
+            const val = (subcatRaw || (formData.get('id_subcategoria') || '')).trim();
+            if (val === '' || val.toLowerCase() === 'null') return null;
+            const num = parseInt(val, 10);
+            return isNaN(num) ? null : num;
+        })(),
         costo_bruto: parseFloat(formData.get('costo_bruto')) || 0,
         costo_neto: parseFloat(formData.get('costo_neto')) || 0,
         precio_venta: parseFloat(formData.get('precio_venta')) || 0,
@@ -297,39 +343,33 @@ async function guardarProducto(event) {
         const endpoint = productoEditando ? `/api/productos/${productoEditando.id_producto}` : `/api/productos/`;
         const method = productoEditando ? 'PUT' : 'POST';
         
-        console.log('URL:', url);
+        console.log('Endpoint:', endpoint);
         console.log('Method:', method);
         console.log('Producto editando:', productoEditando);
         
-        const response = await fetchWithAuth(endpoint, {
-            method,
-            body: JSON.stringify(producto)
-        });
-        
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-        
-        if (response.ok) {
-            console.log('Producto guardado exitosamente');
-            modalProducto.classList.add('hidden');
-            cargarProductos();
-        } else {
-            const errorData = await response.json();
-            console.error('Error del servidor:', errorData);
-            alert(`Error del servidor: ${errorData.detail || 'Error desconocido'}`);
-        }
+        const response = method === 'PUT' 
+            ? await updateData(endpoint, producto)
+            : await postData(endpoint, producto);
+
+    if (response) {
+        console.log('Producto guardado exitosamente');
+        modalProducto.classList.add('hidden');
+        cargarProductos();
+    } else {
+        alert(`Error del servidor`);
+    }
     } catch (error) {
         console.error('Error al guardar producto:', error);
-        let errorMessage = 'Error al guardar producto';
-        
-        // Intentar extraer el mensaje de error detallado
-        if (error.message) {
-            errorMessage += ': ' + error.message;
-        } else if (typeof error === 'object') {
-            errorMessage += ': ' + JSON.stringify(error);
-        }
-        
-        alert('Error en conexión del servidor');
+        let msg = 'Error al guardar producto';
+        const text = String(error && error.message ? error.message : '');
+        try {
+            const jsonStr = text.replace(/^Error\s+\d+:\s+/, '');
+            const data = JSON.parse(jsonStr);
+            if (data && data.detail) {
+                msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+            }
+        } catch {}
+        alert(msg);
     }
 }
 

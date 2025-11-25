@@ -3,6 +3,7 @@ import { getData, postData, updateData, deleteData } from '../utils/api.js';
 
 // Variables globales
 let categorias = [];
+let categoriasFiltradas = null;
 let paginaActual = 1;
 const itemsPorPagina = 10;
 let categoriaAEliminar = null;
@@ -37,13 +38,15 @@ document.addEventListener('DOMContentLoaded', function() {
     formCategoria.addEventListener('submit', guardarCategoria);
 
     // Cargar categorías al iniciar
+    if (!verificarAuth()) return;
     cargarCategorias();
 });
 
 // Funciones principales
 async function cargarCategorias() {
     try {
-        categorias = await getData('/api/categorias/');
+        categorias = await getData(`/api/categorias/?_=${Date.now()}`);
+        categoriasFiltradas = null;
         mostrarCategorias();
     } catch (error) {
         console.error('Error al cargar categorías:', error);
@@ -52,9 +55,10 @@ async function cargarCategorias() {
 }
 
 function mostrarCategorias() {
+    const base = categoriasFiltradas ?? categorias;
     const inicio = (paginaActual - 1) * itemsPorPagina;
     const fin = inicio + itemsPorPagina;
-    const categoriasPagina = categorias.slice(inicio, fin);
+    const categoriasPagina = base.slice(inicio, fin);
 
     tablaCategorias.innerHTML = '';
 
@@ -87,11 +91,11 @@ function mostrarCategorias() {
         tablaCategorias.appendChild(fila);
     });
 
-    generarPaginacion();
+    generarPaginacion(base.length);
 }
 
-function generarPaginacion() {
-    const totalPaginas = Math.ceil(categorias.length / itemsPorPagina);
+function generarPaginacion(totalItems) {
+    const totalPaginas = Math.ceil(totalItems / itemsPorPagina);
     const paginacion = document.getElementById('paginacion');
 
     if (totalPaginas <= 1) {
@@ -176,14 +180,14 @@ async function guardarCategoria(e) {
 
     try {
         if (id) {
-            await updateData(`/api/categorias/${id}/`, datos);
+            await updateData(`/api/categorias/${id}`, datos);
             alert('Categoría actualizada exitosamente');
         } else {
             await postData('/api/categorias/', datos);
             alert('Categoría creada exitosamente');
         }
         cerrarModal();
-        cargarCategorias();
+        await cargarCategorias();
     } catch (error) {
         console.error('Error:', error);
         alert('Error en conexión del servidor');
@@ -194,23 +198,50 @@ async function confirmarEliminar() {
     if (!categoriaAEliminar) return;
 
     try {
-        await deleteData(`/api/categorias/${categoriaAEliminar}/`);
+        await deleteData(`/api/categorias/${categoriaAEliminar}`);
         alert('Categoría eliminada exitosamente');
         cerrarModalConfirmar();
-        cargarCategorias();
+        await cargarCategorias();
     } catch (error) {
-        console.error('Error:', error);
-        alert('Error en conexión del servidor');
+        console.error('Error al eliminar categoría:', error);
+        let msg = 'Error al eliminar categoría';
+        const txt = String(error && error.message ? error.message : '');
+        if (/Error\s+401/.test(txt) || /Error\s+403/.test(txt)) {
+            alert('No autorizado. Inicie sesión como administrador.');
+            window.location.href = '/login?tipo=trabajador';
+            return;
+        }
+        try {
+            const jsonStr = txt.replace(/^Error\s+\d+:\s+/, '');
+            const data = JSON.parse(jsonStr);
+            if (data && data.detail) {
+                msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+            }
+        } catch {}
+        alert(msg);
     }
 }
 
 function buscarCategorias() {
     const filtro = filtroNombre.value.toLowerCase();
     if (filtro) {
-        categorias = categorias.filter(categoria => 
-            categoria.nombre.toLowerCase().includes(filtro)
+        const base = categorias;
+        categoriasFiltradas = base.filter(categoria => 
+            String(categoria.nombre || '').toLowerCase().includes(filtro)
         );
+    } else {
+        categoriasFiltradas = null;
     }
     paginaActual = 1;
     mostrarCategorias();
+}
+
+function verificarAuth() {
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('access_token');
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
+    if (!token || isLoggedIn !== 'true') {
+        window.location.href = '/login?tipo=trabajador';
+        return false;
+    }
+    return true;
 }

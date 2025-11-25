@@ -15,7 +15,8 @@ router = APIRouter(prefix=f"{API_PREFIX}/usuarios", tags=["Usuarios"])
 
 @router.get("/", response_model=List[Usuario])
 async def obtener_usuarios(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
 ):
     """Obtener todos los usuarios activos
 
@@ -40,7 +41,8 @@ async def obtener_usuarios(
 
 @router.get("/desactivados", response_model=List[Usuario])
 async def obtener_usuarios_desactivados(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
 ):
     """Obtener todos los usuarios desactivados
 
@@ -63,7 +65,8 @@ async def obtener_usuarios_desactivados(
 @router.get("/{usuario_id}", response_model=Usuario)
 async def obtener_usuario(
     usuario_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
 ):
     """ Obtener un usuario por ID
 
@@ -93,7 +96,8 @@ async def obtener_usuario(
 @router.post("/", response_model=Usuario)
 async def crear_usuario(
     usuario: UsuarioCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
 ):
     """ Crear un nuevo usuario
 
@@ -119,7 +123,8 @@ async def crear_usuario(
 async def actualizar_usuario(
     usuario_id: int,
     usuario: UsuarioUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
 ):
     """ Actualizar un usuario
 
@@ -150,7 +155,8 @@ async def actualizar_usuario(
 @router.put("/{usuario_id}/desactivar")
 async def desactivar_usuario(
     usuario_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
 ):
     """ Desactivar un usuario (eliminación lógica)
 
@@ -174,7 +180,8 @@ async def desactivar_usuario(
 @router.put("/{usuario_id}/activar")
 async def activar_usuario(
     usuario_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
 ):
     """ Activar un usuario (alta lógica)
 
@@ -198,7 +205,8 @@ async def activar_usuario(
 @router.delete("/{usuario_id}/eliminar-permanente")
 async def eliminar_usuario_permanente(
     usuario_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
 ):
     """ Eliminar permanentemente un usuario desactivado
 
@@ -217,3 +225,35 @@ async def eliminar_usuario_permanente(
     except Exception:
         pass
     return result
+
+from seed_data import prune_active_clients_to_n
+
+@router.post("/prune-clientes")
+async def prune_clientes(
+    target: int = 30,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
+):
+    """Deja solo N clientes activos; el resto se desactiva."""
+    resumen = prune_active_clients_to_n(db, target=target)
+    return {"status": "ok", "resumen": resumen}
+
+@router.post("/eliminar-desactivados")
+async def eliminar_desactivados(
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
+):
+    """Elimina permanentemente todos los usuarios desactivados (clientes y trabajadores)."""
+    from controllers.usuario_controller import UsuarioController
+    resumen = await UsuarioController.eliminar_usuarios_desactivados(db)
+    return {"status": "ok", "resumen": resumen}
+
+@router.post("/purge-clientes")
+async def purge_clientes_y_compras(
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin)
+):
+    """Elimina todos los usuarios con role 'cliente' y borra sus compras relacionadas."""
+    from controllers.usuario_controller import UsuarioController
+    resumen = await UsuarioController.eliminar_clientes_y_compras(db)
+    return {"status": "ok", "resumen": resumen}

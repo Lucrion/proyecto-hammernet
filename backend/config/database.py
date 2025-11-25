@@ -80,6 +80,9 @@ def _ensure_usuario_extra_columns_sqlite():
                     conn.execute(text("UPDATE usuarios SET activo = 1 WHERE activo IS NULL"))
                 except Exception:
                     pass
+            # Asegurar columna 'id_rol' para compatibilidad con roles
+            if 'id_rol' not in cols:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN id_rol INTEGER"))
     except Exception as e:
         # No bloquear el arranque si falla; mostrar aviso
         print(f"[DB] Aviso: migración usuarios parcialmente fallida: {e}")

@@ -253,7 +253,9 @@ import EnvLoader from '../components/EnvLoader.astro';
 
   </div>
 
-  <script>
+  <script type="module">
+    import { trackEvent } from '/src/scripts/utils/analytics.js';
+    import { formatRutUI, formatRutFromDigits, cleanRutInput, digitsOnly } from '/src/scripts/utils/rut.js';
     const ENVIO_COSTO = 2000;
     const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
@@ -285,11 +287,12 @@ import EnvLoader from '../components/EnvLoader.astro';
       // La página de detalle acepta ID numérico o slug; usamos ID
       window.location.href = `/productos/${id}`;
     };
-
+9
     const eliminarItem = (id) => {
       const carrito = getCarrito().filter(i => String(i.id) !== String(id));
       setCarrito(carrito);
       render();
+      loadStockForItems();
     };
 
     const mostrarSectionLoginGuest = () => {
@@ -314,6 +317,7 @@ import EnvLoader from '../components/EnvLoader.astro';
     const continuarComoInvitado = () => {
       Steps.mark('step1', true);
       Steps.resetAfter(1);
+      try { trackEvent('checkout_continue_guest'); } catch {}
       mostrarSectionTipoEntrega();
     };
 
@@ -368,6 +372,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       };
 
       if (tipo === 'retiro') {
+        try { trackEvent('checkout_select_delivery', { type: 'retiro' }); } catch {}
         activar(retiroBtn, retiroCheck);
         desactivar(despachoBtn, despachoCheck);
         if (secAddress) secAddress.classList.add('hidden');
@@ -377,6 +382,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         Steps.resetAfter(2);
         if (advance) { mostrarSectionPago(); setTimeout(forceShowPago, 50); }
       } else {
+        try { trackEvent('checkout_select_delivery', { type: 'despacho' }); } catch {}
         activar(despachoBtn, despachoCheck);
         desactivar(retiroBtn, retiroCheck);
         if (secAddress) {
@@ -420,9 +426,10 @@ import EnvLoader from '../components/EnvLoader.astro';
         return;
       }
       const data = { buscar, calle, numero, depto, adicional };
-      // No guardar dirección de despacho en localStorage
+      try { localStorage.setItem('checkoutAddress', JSON.stringify(data)); } catch {}
       const msg = document.getElementById('addressSavedMsg');
       if (msg) msg.classList.remove('hidden');
+      return data;
     };
 
     const validarDireccionDespacho = () => {
@@ -665,20 +672,25 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       list.innerHTML = carrito.map(item => `
         <div class="flex items-center gap-4 border rounded-md p-3">
-          <button aria-label="Ver detalle" onclick="irADetalle('${item.id}')" class="shrink-0">
-            <img src="${item.imagen_url || '/images/logos/logo_bn.webp'}" onerror="this.src='/images/logos/logo_bn.webp';this.onerror=null;" alt="${item.nombre}" class="w-16 h-16 object-cover rounded">
+          <button aria-label="Ver detalle" onclick="irADetalle('${item.id ?? item.id_producto}')" class="shrink-0">
+            <img src="${item.imagen_url || '/images/logos/logo_bn.webp'}" onerror="this.src='/images/logos/logo_bn.webp';this.onerror=null;" alt="${item.nombre}" class="w-16 h-16 object-cover rounded" loading="lazy" decoding="async">
           </button>
           <div class="flex-1">
-            <button class="text-left" aria-label="Ir al detalle" onclick="irADetalle('${item.id}')">
+            <button class="text-left" aria-label="Ir al detalle" onclick="irADetalle('${item.id ?? item.id_producto}')">
               <p class="text-sm font-medium text-gray-900 hover:text-blue-600">${item.nombre}</p>
             </button>
             <p class="text-xs text-gray-600">Precio: $${formatearPrecio(Number(item.precio_venta ?? item.precio))}</p>
-            <p class="text-xs text-gray-600">Cantidad: ${item.cantidad}</p>
+            <p class="text-xs text-gray-600">Stock: <span id="stock-${item.id ?? item.id_producto}">${item.stock_max ?? '-'}</span></p>
           </div>
-          <div class="text-sm font-semibold">$${formatearPrecio(Number(item.precio_venta ?? item.precio) * item.cantidad)}</div>
-          <button aria-label="Eliminar" onclick="eliminarItem('${item.id}')" class="text-red-600 hover:text-red-700 ml-2">
-            &times;
-          </button>
+          <div class="ml-auto flex items-center gap-3">
+            <div class="flex items-center border rounded w-28 overflow-hidden">
+              <button aria-label="Menos" onclick="decQty('${item.id ?? item.id_producto}')" class="w-9 h-8 text-gray-700" ${Number(item.cantidad||1) <= 1 ? 'disabled' : ''}>-</button>
+              <div id="qty-${item.id ?? item.id_producto}" class="flex-1 text-center text-sm">${item.cantidad}</div>
+              <button aria-label="Más" onclick="incQty('${item.id ?? item.id_producto}')" class="w-9 h-8 text-gray-700" ${item.stock_max && Number(item.cantidad||1) >= Number(item.stock_max) ? 'disabled' : ''}>+</button>
+            </div>
+            <div class="text-sm font-semibold min-w-[90px] text-right">$${formatearPrecio(Number(item.precio_venta ?? item.precio) * item.cantidad)}</div>
+            <button aria-label="Eliminar" onclick="eliminarItem('${item.id ?? item.id_producto}')" class="text-red-600 hover:text-red-700 ml-2">&times;</button>
+          </div>
         </div>
       `).join('');
 
@@ -716,6 +728,27 @@ import EnvLoader from '../components/EnvLoader.astro';
         const delBtn = document.getElementById('delivery-continue');
         if (delBtn) delBtn.addEventListener('click', continuarDespacho);
       } catch {}
+      // Formato y validación de RUT y teléfono para invitados
+      try {
+        const rutEl = document.getElementById('dp-rut');
+        if (rutEl) {
+          rutEl.addEventListener('input', () => {
+            const formatted = formatRutUI(rutEl.value || '');
+            rutEl.value = formatted;
+          });
+          rutEl.addEventListener('blur', () => {
+            const re = /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/;
+            rutEl.setCustomValidity(re.test(rutEl.value || '') ? '' : 'Formato: 12.345.678-5');
+          });
+        }
+        const telEl = document.getElementById('dp-telefono');
+        if (telEl) {
+          telEl.addEventListener('input', () => {
+            const digits = (telEl.value || '').replace(/\D/g, '').slice(0, 8);
+            telEl.value = digits;
+          });
+        }
+      } catch {}
     });
 
     // Exponer funciones globales para handlers inline
@@ -730,11 +763,74 @@ import EnvLoader from '../components/EnvLoader.astro';
     window.guardarDireccion = guardarDireccion;
     window.continuarDespacho = continuarDespacho;
     window.irADetalle = irADetalle;
+    const stockCache = {};
+    const getStock = async (id) => {
+      const key = String(id);
+      if (stockCache[key] !== undefined) return stockCache[key];
+      const API = computeApiUrl();
+      try {
+        const r = await fetch(`${API}/productos/${id}`);
+        if (r.ok) {
+          const p = await safeJson(r);
+          const s = Number(p?.cantidad_disponible ?? p?.stock ?? p?.inventario?.cantidad ?? 0);
+          stockCache[key] = s; return s;
+        }
+      } catch {}
+      stockCache[key] = 0; return 0;
+    };
+    const findItem = (id) => {
+      const c = getCarrito();
+      const idx = c.findIndex(i => String(i.id ?? i.id_producto) === String(id));
+      return { c, idx };
+    };
+    window.incQty = async (id) => {
+      const { c, idx } = findItem(id);
+      if (idx < 0) return;
+      const it = c[idx];
+      const max = Number(it.stock_max ?? 0);
+      const qty = Number(it.cantidad || 1);
+      let next = qty + 1;
+      if (max > 0 && next > max) {
+        next = max;
+        alert(`Stock máximo ${max}`);
+      }
+      it.cantidad = next;
+      c[idx] = it; setCarrito(c); render();
+    };
+    window.decQty = (id) => {
+      const { c, idx } = findItem(id);
+      if (idx < 0) return;
+      const it = c[idx]; const qty = Number(it.cantidad || 1);
+      if (qty <= 1) return;
+      it.cantidad = qty - 1;
+      c[idx] = it; setCarrito(c); render();
+    };
+    const loadStockForItems = async () => {
+      const c = getCarrito();
+      const ids = c.map(it => Number(it.id ?? it.id_producto)).filter(Boolean);
+      try {
+        const stocks = await Promise.all(ids.map(id => getStock(id)));
+        for (let i = 0; i < c.length; i++) {
+          const s = Number(stocks[i] ?? 0);
+          c[i].stock_max = s;
+        }
+      } catch {}
+      setCarrito(c);
+      render();
+    };
     window.pagar = async () => {
       const carrito = getCarrito();
       if (!carrito.length) {
         alert('Tu carrito está vacío. Agrega productos antes de comprar.');
         return;
+      }
+      try { trackEvent('checkout_pay_click', { items: carrito.length }); } catch {}
+
+      try {
+        const ok = await verificarStockCarrito(carrito);
+        if (!ok) return;
+      } catch (e) {
+        console.warn('No se pudo verificar stock previo al pago:', e);
       }
 
       // Identificar si es usuario logueado o invitado
@@ -765,11 +861,12 @@ import EnvLoader from '../components/EnvLoader.astro';
       try {
         let resp;
         if (idUsuario) {
+          const entregaTipoAuth = (localStorage.getItem('checkoutEntrega') || 'retiro');
           const bodyAuth = {
             id_usuario: Number(idUsuario),
             total_venta: Number(total),
             estado: 'pendiente',
-            observaciones: envio > 0 ? `Incluye costo de envío ${ENVIO_COSTO}` : undefined,
+            observaciones: `${entregaTipoAuth}${envio > 0 ? ` | envío ${ENVIO_COSTO}` : ''}`,
             detalles
           };
           resp = await fetch(`${API}/ventas/`, { method: 'POST', headers, body: JSON.stringify(bodyAuth) });
@@ -782,6 +879,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           const entregaTipo = (localStorage.getItem('checkoutEntrega') || 'retiro');
           const guestInfo = {
             nombre: getVal('dp-nombre') || 'Invitado',
+            rut: getVal('dp-rut') || '',
             email: getVal('dp-email') || getVal('dp-email2') || '',
             telefono: getVal('dp-telefono') || '',
             entrega: entregaTipo,
@@ -800,6 +898,7 @@ import EnvLoader from '../components/EnvLoader.astro';
             detalles,
             guest_info: guestInfo
           };
+          try { localStorage.setItem('checkoutGuest', JSON.stringify(guestInfo)); } catch {}
           // Para invitado no enviamos Authorization
           const headersGuest = { 'Content-Type': 'application/json' };
           resp = await fetch(`${API}/ventas/guest`, { method: 'POST', headers: headersGuest, body: JSON.stringify(bodyGuest) });
@@ -808,19 +907,46 @@ import EnvLoader from '../components/EnvLoader.astro';
         if (resp.ok) {
           venta = await resp.json();
         } else {
-          // No guardar ventas en localStorage; informar y permitir reintentar
-          console.warn('Fallo al registrar venta en backend. No se guardará localmente.');
-          alert('No se pudo procesar la compra. Inténtalo nuevamente.');
+          try {
+            const txt = await resp.text();
+            let msg = 'No se pudo procesar la compra. Inténtalo nuevamente.';
+            try { const j = JSON.parse(txt); msg = j?.detail || msg; } catch { msg = txt || msg; }
+            alert(String(msg));
+          } catch {
+            alert('No se pudo procesar la compra. Inténtalo nuevamente.');
+          }
           return;
         }
-        // Limpiar carrito y estados de checkout
+        // Vaciar carrito inmediatamente tras registrar la venta
         try {
           localStorage.removeItem('carrito');
           localStorage.removeItem('checkout_items');
           localStorage.removeItem('checkoutEntrega');
         } catch {}
-        // Redirigir a Ver compras
-        window.location.href = '/compras';
+        try { window.dispatchEvent(new Event('carrito:changed')); } catch {}
+        render();
+
+        // Iniciar pago (simulado) y redirigir a retorno
+        try {
+          const initResp = await fetch(`${API}/pagos/iniciar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_venta: Number(venta?.id_venta || venta?.id), monto: Number(total), moneda: 'CLP' })
+          });
+          if (initResp.ok) {
+            const initData = await initResp.json();
+            const redirectUrl = initData?.redirect_url;
+            if (redirectUrl) {
+              window.location.href = redirectUrl;
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('No se pudo iniciar pago simulado:', e);
+        }
+        // Fallback: ir a compras
+        try { trackEvent('purchase_complete', { id: venta?.id_venta || venta?.id, total }); } catch {}
+        window.location.href = '/?paid=1';
       } catch (e) {
         console.error('Error inesperado al procesar pago:', e);
         alert('Error inesperado al procesar pago. Inténtalo nuevamente.');
@@ -1018,6 +1144,38 @@ import EnvLoader from '../components/EnvLoader.astro';
       } catch {}
     };
 
+    const verificarStockCarrito = async (carrito) => {
+      try {
+        const API = computeApiUrl();
+        for (const it of carrito) {
+          const id = Number(it.id ?? it.id_producto);
+          if (!id) continue;
+          const resp = await fetch(`${API}/productos/${id}`);
+          if (!resp.ok) {
+            // Producto eliminado o no disponible
+            alert(`El producto con ID ${id} ya no está disponible. Se quitará del carrito.`);
+            setCarrito(getCarrito().filter(i => Number(i.id ?? i.id_producto) !== id));
+      render();
+      loadStockForItems();
+            continue;
+          }
+          const prod = await safeJson(resp);
+          const cantidadDisponible = Number(
+            prod?.cantidad_disponible ?? prod?.stock ?? prod?.inventario?.cantidad ?? prod?.producto?.cantidad_disponible ?? 0
+          );
+          const requerida = Number(it.cantidad || 1);
+          if (cantidadDisponible < requerida) {
+            alert(`Stock insuficiente para "${it.nombre}". Disponible: ${cantidadDisponible}, solicitado: ${requerida}.`);
+            return false;
+          }
+        }
+        return true;
+      } catch (e) {
+        console.warn('Error verificando stock:', e);
+        return true;
+      }
+    };
+
     const findLatestDespacho = (list) => {
       if (!Array.isArray(list) || !list.length) return null;
       // Ordenar por fecha_creacion si existe, si no por id_despacho descendente
@@ -1197,18 +1355,27 @@ import EnvLoader from '../components/EnvLoader.astro';
           }
         } catch { prefillPersonalData(user || {}); }
 
-        // Bloquear edición de RUT y correo y ocultar confirmar email si hay sesión
+        // Bloquear edición solo si hay sesión reconocida
         try {
           const rutEl = document.getElementById('dp-rut');
           const emailEl = document.getElementById('dp-email');
           const email2El = document.getElementById('dp-email2');
-          if (rutEl) rutEl.readOnly = true;
-          if (emailEl) emailEl.readOnly = true;
-          if (email2El) {
-            try { email2El.required = false; } catch {}
-            if (emailEl && emailEl.value && !email2El.value) email2El.value = emailEl.value;
-            const wrapper = email2El.parentElement;
-            if (wrapper) wrapper.classList.add('hidden');
+          const sessionOk = isLoggedIn || !!token || !!(user && user.id_usuario);
+          if (sessionOk) {
+            if (rutEl) rutEl.readOnly = true;
+            if (emailEl) emailEl.readOnly = true;
+            if (email2El) {
+              try { email2El.required = false; } catch {}
+              if (emailEl && emailEl.value && !email2El.value) email2El.value = emailEl.value;
+              const wrapper = email2El.parentElement;
+              if (wrapper) wrapper.classList.add('hidden');
+            }
+          } else {
+            if (email2El) {
+              try { email2El.required = true; } catch {}
+              const wrapper = email2El.parentElement;
+              if (wrapper) wrapper.classList.remove('hidden');
+            }
           }
         } catch {}
       } catch (e) {

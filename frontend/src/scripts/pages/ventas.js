@@ -1,6 +1,6 @@
 // Funciones para la gestión de ventas
 import { API_URL, handleApiError } from '../utils/config.js';
-import { getData } from '../utils/api.js';
+import { getData, updateData } from '../utils/api.js';
 import { mostrarErrorToast } from '../utils/ui.js';
 
 // Estado global
@@ -14,7 +14,7 @@ const state = {
     },
     paginacion: {
         paginaActual: 1,
-        elementosPorPagina: 10,
+        elementosPorPagina: 20,
         totalElementos: 0
     },
     orden: {
@@ -122,8 +122,8 @@ async function cargarVentas() {
         
         // Asegurar que ventas sea un array
         state.ventas = Array.isArray(ventas) ? ventas : [];
-        // El backend devuelve una lista simple; usamos su longitud como total conocido
-        state.paginacion.totalElementos = state.ventas.length;
+        // Sin total global: estimar acumulado según página actual
+        state.paginacion.totalElementos = ((state.paginacion.paginaActual - 1) * state.paginacion.elementosPorPagina) + state.ventas.length;
         renderizarTablaVentas();
         actualizarPaginacion();
         
@@ -258,6 +258,9 @@ function renderizarTablaVentas() {
                     <button class="inline-flex items-center px-3 py-1 rounded-md text-sm text-indigo-700 bg-indigo-100 hover:bg-indigo-200" data-action="entrega" data-id="${venta.id_venta}">
                         Recibir entrega
                     </button>
+                    <button class="inline-flex items-center px-3 py-1 rounded-md text-sm text-green-700 bg-green-100 hover:bg-green-200" data-action="completar" data-id="${venta.id_venta}">
+                        Marcar completada
+                    </button>
                 </div>
             </td>
         </tr>
@@ -278,6 +281,9 @@ document.getElementById('ventasTableBody')?.addEventListener('click', async (e) 
         } else if (action === 'entrega') {
             await cargarDetalleVenta(id);
             abrirModalDetalleVenta();
+        } else if (action === 'completar') {
+            await completarVenta(id);
+            await cargarVentas();
         }
     } catch (err) {
         console.error('Acción en ventas falló:', err);
@@ -302,15 +308,17 @@ async function cargarDetalleVenta(idVenta) {
     }
 }
 
-function renderDetalleVenta(venta) {
+async function renderDetalleVenta(venta) {
     const header = document.getElementById('detalleVentaHeader');
     const body = document.getElementById('detalleVentaBody');
+    const entregaInfo = parseEntregaInfo(venta);
     if (header) {
         header.innerHTML = `
             <div><span class="text-gray-500">Nº venta:</span> <span class="font-medium">${venta.id_venta}</span></div>
             <div><span class="text-gray-500">Fecha:</span> <span class="font-medium">${formatearFecha(venta.fecha_venta)}</span></div>
             <div><span class="text-gray-500">Usuario:</span> <span class="font-medium">${venta.usuario || 'N/A'}</span></div>
-            <div><span class="text-gray-500">Total:</span> <span class="font-semibold">$${Number(venta.total_venta).toFixed(2)}</span></div>
+            <div><span class="text-gray-500">Total:</span> <span class="font-semibold">${formatearDinero(venta.total_venta)}</span></div>
+            ${entregaInfo ? `<div class="col-span-2"><span class="text-gray-500">Entrega:</span> <span class="font-medium">${entregaInfo.tipo}</span> ${entregaInfo.texto_extra || ''}</div>` : ''}
         `;
     }
     if (body) {
@@ -318,12 +326,95 @@ function renderDetalleVenta(venta) {
             <tr>
                 <td class="px-4 py-2 text-sm">${d.producto_nombre || `Producto #${d.id_producto}`}</td>
                 <td class="px-4 py-2 text-sm">${d.cantidad}</td>
-                <td class="px-4 py-2 text-sm">$${Number(d.precio_unitario).toFixed(2)}</td>
-                <td class="px-4 py-2 text-sm font-medium">$${Number(d.subtotal || (d.precio_unitario * d.cantidad)).toFixed(2)}</td>
+                <td class="px-4 py-2 text-sm">${formatearDinero(d.precio_unitario)}</td>
+                <td class="px-4 py-2 text-sm font-medium">${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td>
             </tr>
         `).join('');
         body.innerHTML = filas || '<tr><td colspan="4" class="px-4 py-3 text-center text-gray-500">Sin detalles</td></tr>';
     }
+
+    // Bloque adicional: Datos del Cliente, Dirección, GPS, Tipo de Despacho, Resumen del Pedido y control estado envío
+    // Evitar duplicados al reabrir el modal
+    let extra = document.getElementById('detalleVentaExtra');
+    if (!extra) {
+      extra = document.createElement('div');
+      extra.id = 'detalleVentaExtra';
+      extra.className = 'mt-4';
+      body.parentElement?.appendChild(extra);
+    }
+    const cliente = construirDatosCliente(venta);
+    const direccion = construirDireccion(venta);
+    const gps = construirGPS(venta);
+    const tipo = entregaInfo?.tipo || detectarTipoEntrega(venta);
+    const resumenPedido = construirResumenPedido(venta);
+    extra.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-1">Datos del Cliente</h4>
+          <div>${cliente}</div>
+        </div>
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-1">Tipo de Despacho</h4>
+          <div>${tipo || 'N/A'}</div>
+        </div>
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-1">Dirección de Despacho</h4>
+          <div id="direccionEntregaText">${direccion || 'N/A'}</div>
+        </div>
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-1">Coordenadas GPS</h4>
+          <div id="gpsText">${gps || 'No disponible'}</div>
+        </div>
+      </div>
+      <div class="mt-3 border-t pt-3">
+        <h4 class="font-semibold text-gray-900 mb-2">Resumen del Pedido</h4>
+        <div class="text-sm text-gray-700">${resumenPedido}</div>
+      </div>
+      <div class="mt-3 border-t pt-3">
+        <h4 class="font-semibold text-gray-900 mb-2">Estado de Envío</h4>
+        <div class="flex items-center gap-3">
+          <select id="envioEstadoSelect" class="border rounded px-2 py-1 text-sm">
+            <option value="pendiente">pendiente</option>
+            <option value="preparando">preparando</option>
+            <option value="en camino">en camino</option>
+            <option value="entregado">entregado</option>
+          </select>
+          <button id="envioEstadoGuardar" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm">Guardar</button>
+        </div>
+      </div>
+    `;
+    // extra ya insertado o reutilizado
+    const guardarBtn = document.getElementById('envioEstadoGuardar');
+    const select = document.getElementById('envioEstadoSelect');
+    // Prefijar estado desde observaciones si existe
+    try {
+      const estadoActual = parseEnvioEstado(venta);
+      if (estadoActual && select) select.value = estadoActual;
+    } catch {}
+    if (guardarBtn && select) {
+      guardarBtn.onclick = async () => {
+        try {
+          const estado = select.value;
+          await updateData(`/api/ventas/${venta.id_venta}/envio-estado?estado=${encodeURIComponent(estado)}`, {});
+          mostrarExito('Estado de envío actualizado');
+        } catch (e) {
+          console.error(e);
+          mostrarError('No se pudo actualizar el estado de envío');
+        }
+      };
+    }
+
+    // Si es despacho y no hay dirección en observaciones (usuario con sesión), buscar última dirección del usuario
+    try {
+      const dirEl = document.getElementById('direccionEntregaText');
+      if (dirEl && (!direccion || direccion === '')) {
+        const tipoEntrega = tipo || detectarTipoEntrega(venta);
+        if (tipoEntrega === 'despacho' && venta.id_usuario) {
+          const dirStr = await obtenerUltimaDireccionUsuario(venta.id_usuario);
+          if (dirStr) dirEl.textContent = dirStr;
+        }
+      }
+    } catch {}
 }
 
 function abrirModalDetalleVenta() {
@@ -372,9 +463,9 @@ function imprimirOrdenEntrega() {
             <h1>Guía de Entrega - Venta #${venta.id_venta}</h1>
             <p><strong>Fecha:</strong> ${formatearFecha(venta.fecha_venta)}<br/>
             <strong>Usuario:</strong> ${venta.usuario || 'N/A'}<br/>
-            <strong>Total:</strong> $${Number(venta.total_venta).toFixed(2)}</p>
+            <strong>Total:</strong> ${formatearDinero(venta.total_venta)}</p>
             <table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>
-            ${(venta.detalles_venta || []).map(d => `<tr><td>${d.producto_nombre || `Producto #${d.id_producto}`}</td><td>${d.cantidad}</td><td>$${Number(d.precio_unitario).toFixed(2)}</td><td>$${Number(d.subtotal || (d.precio_unitario * d.cantidad)).toFixed(2)}</td></tr>`).join('')}
+            ${(venta.detalles_venta || []).map(d => `<tr><td>${d.producto_nombre || `Producto #${d.id_producto}`}</td><td>${d.cantidad}</td><td>${formatearDinero(d.precio_unitario)}</td><td>${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td></tr>`).join('')}
             </tbody></table>
             </body></html>`;
         popup.document.write(contenido);
@@ -392,10 +483,10 @@ function generarTextoEntrega(venta) {
     lineas.push(`Orden de Entrega - Venta #${venta.id_venta}`);
     lineas.push(`Fecha: ${formatearFecha(venta.fecha_venta)}`);
     lineas.push(`Usuario: ${venta.usuario || 'N/A'}`);
-    lineas.push(`Total: $${Number(venta.total_venta).toFixed(2)}`);
+    lineas.push(`Total: ${formatearDinero(venta.total_venta)}`);
     lineas.push('Detalles:');
     (venta.detalles_venta || []).forEach(d => {
-        lineas.push(`- ${d.producto_nombre || `Producto #${d.id_producto}`} x${d.cantidad} ($${Number(d.precio_unitario).toFixed(2)} c/u)`);
+        lineas.push(`- ${d.producto_nombre || `Producto #${d.id_producto}`} x${d.cantidad} (${formatearDinero(d.precio_unitario)} c/u)`);
     });
     return lineas.join('\n');
 }
@@ -504,8 +595,7 @@ function actualizarPaginacion() {
     
     if (mostrandoDesde) {
         const desde = (state.paginacion.paginaActual - 1) * state.paginacion.elementosPorPagina + 1;
-        const hasta = Math.min(state.paginacion.paginaActual * state.paginacion.elementosPorPagina, state.paginacion.totalElementos);
-        
+        const hasta = (state.paginacion.paginaActual - 1) * state.paginacion.elementosPorPagina + state.ventas.length;
         mostrandoDesde.textContent = state.ventas.length > 0 ? desde : 0;
         mostrandoHasta.textContent = state.ventas.length > 0 ? hasta : 0;
     }
@@ -517,39 +607,23 @@ function actualizarPaginacion() {
     // Actualizar botones de paginación
     const btnPrevPage = document.getElementById('btnPrevPage');
     const btnNextPage = document.getElementById('btnNextPage');
-    const btnPrevPageMobile = document.getElementById('btnPrevPageMobile');
-    const btnNextPageMobile = document.getElementById('btnNextPageMobile');
     
     const hasPrevPage = state.paginacion.paginaActual > 1;
-    const hasNextPage = state.paginacion.paginaActual * state.paginacion.elementosPorPagina < state.paginacion.totalElementos;
+    const hasNextPage = state.ventas.length === state.paginacion.elementosPorPagina;
     
     if (btnPrevPage) {
         btnPrevPage.disabled = !hasPrevPage;
-        btnPrevPage.className = `relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-            hasPrevPage ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed'
-        }`;
+        btnPrevPage.classList.toggle('opacity-50', !hasPrevPage);
+        btnPrevPage.classList.toggle('cursor-not-allowed', !hasPrevPage);
     }
     
     if (btnNextPage) {
         btnNextPage.disabled = !hasNextPage;
-        btnNextPage.className = `relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-            hasNextPage ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed'
-        }`;
+        btnNextPage.classList.toggle('opacity-50', !hasNextPage);
+        btnNextPage.classList.toggle('cursor-not-allowed', !hasNextPage);
     }
     
-    if (btnPrevPageMobile) {
-        btnPrevPageMobile.disabled = !hasPrevPage;
-        btnPrevPageMobile.className = `relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-            hasPrevPage ? 'text-gray-700 bg-white hover:bg-gray-50' : 'text-gray-300 bg-gray-100 cursor-not-allowed'
-        }`;
-    }
-    
-    if (btnNextPageMobile) {
-        btnNextPageMobile.disabled = !hasNextPage;
-        btnNextPageMobile.className = `ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-            hasNextPage ? 'text-gray-700 bg-white hover:bg-gray-50' : 'text-gray-300 bg-gray-100 cursor-not-allowed'
-        }`;
-    }
+    // Controles mobile eliminados en diseño unificado
     
     // Actualizar número de página
     const pageNumbers = document.getElementById('pageNumbers');
@@ -633,5 +707,114 @@ function exportarVentasCSV() {
     } catch (e) {
         console.error('Error al exportar CSV:', e);
         mostrarError('No se pudo exportar el CSV');
+    }
+}
+
+function parseEntregaInfo(venta) {
+    try {
+        const obs = String(venta.observaciones || '');
+        const tag = 'VENTA_INVITADO:';
+        const idx = obs.indexOf(tag);
+        if (idx >= 0) {
+            const jsonStr = obs.slice(idx + tag.length).trim();
+            const info = JSON.parse(jsonStr);
+            const tipo = info?.entrega || 'retiro';
+            let texto = '';
+            if (tipo === 'despacho' && info?.direccion) {
+                const d = info.direccion;
+                texto = `- ${d.calle || ''} ${d.numero || ''} ${d.depto ? ('(' + d.depto + ')') : ''}`;
+            }
+            return { tipo, texto_extra: texto, raw: info };
+        }
+        // Simple observaciones para usuarios con sesión: 'retiro | envío ...'
+        const lower = obs.toLowerCase();
+        if (lower.includes('retiro')) return { tipo: 'retiro', texto_extra: '' };
+        if (lower.includes('despacho')) return { tipo: 'despacho', texto_extra: '' };
+        return null;
+    } catch {
+        return null;
+    }
+}
+function parseEnvioEstado(venta) {
+  try {
+    const obs = String(venta.observaciones || '');
+    const tag = 'ENVIO_ESTADO:';
+    const idx = obs.indexOf(tag);
+    if (idx >= 0) {
+      const rest = obs.slice(idx + tag.length).trim();
+      const linea = rest.split('\n')[0].trim();
+      const val = linea.toLowerCase();
+      if (['pendiente','preparando','en camino','entregado'].includes(val)) return val;
+    }
+    return null;
+  } catch { return null; }
+}
+
+function detectarTipoEntrega(venta) {
+  const e = parseEntregaInfo(venta);
+  return e?.tipo || null;
+}
+
+function construirDatosCliente(venta) {
+  try {
+    const e = parseEntregaInfo(venta);
+    if (e?.raw) {
+      const g = e.raw;
+      return `Nombre: ${g.nombre || 'N/A'}<br/>RUT: ${g.rut || 'N/A'}<br/>Email: ${g.email || 'N/A'}<br/>Teléfono: ${g.telefono || 'N/A'}`;
+    }
+    return `Usuario: ${venta.usuario || 'N/A'}`;
+  } catch { return 'N/A'; }
+}
+
+function construirDireccion(venta) {
+  try {
+    const e = parseEntregaInfo(venta);
+    if (e?.raw?.direccion) {
+      const d = e.raw.direccion;
+      return `${d.calle || ''} ${d.numero || ''} ${d.depto ? ('(' + d.depto + ')') : ''} ${d.adicional || ''}`.trim();
+    }
+    return '';
+  } catch { return ''; }
+}
+
+function construirGPS(venta) {
+  try {
+    // No almacenamos aún coordenadas; mostrar no disponible
+    return '';
+  } catch { return ''; }
+}
+
+function construirResumenPedido(venta) {
+  try {
+    const dets = Array.isArray(venta.detalles_venta) ? venta.detalles_venta : [];
+    const items = dets.reduce((acc, d) => acc + Number(d.cantidad || 0), 0);
+    const filas = dets.slice(0, 5).map(d => `${d.producto_nombre || `Producto #${d.id_producto}`} x${d.cantidad}`).join(', ');
+    return `Items: ${items}. ${filas}${dets.length > 5 ? '…' : ''}`;
+  } catch { return ''; }
+}
+
+async function obtenerUltimaDireccionUsuario(idUsuario) {
+  try {
+    const dirs = await getData(`/api/despachos/usuario/${idUsuario}`);
+    const arr = Array.isArray(dirs) ? dirs : [];
+    const last = arr[arr.length - 1];
+    if (!last) return '';
+    const d = last;
+    return `${d.calle || ''} ${d.numero || ''} ${d.depto ? ('(' + d.depto + ')') : ''} ${d.adicional || ''}`.trim();
+  } catch { return ''; }
+}
+
+async function completarVenta(idVenta) {
+    try {
+        const venta = state.ventaDetalleActual || await getData(`/api/ventas/${idVenta}`);
+        const entrega = parseEntregaInfo(venta);
+        const metodo = entrega?.tipo || null;
+        const url = `/api/ventas/${idVenta}/completar${metodo ? (`?metodo=${encodeURIComponent(metodo)}`) : ''}`;
+        await updateData(url, {});
+        mostrarExito('Venta marcada como completada');
+        cerrarModalDetalleVenta();
+    } catch (e) {
+        console.error(e);
+        mostrarError('No se pudo marcar como completada');
     }
 }

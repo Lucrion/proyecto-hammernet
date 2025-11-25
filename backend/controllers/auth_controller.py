@@ -24,7 +24,16 @@ def _rut_a_int(rut) -> int:
         return rut
     s = str(rut).strip()
     digits = ''.join(ch for ch in s if ch.isdigit())
-    return int(digits) if digits else None
+    if not digits:
+        return None
+    # Si el string original contiene separadores/formato (guion, puntos, K/k), asumir DV presente y descartar último dígito
+    has_format = ('-' in s) or ('.' in s) or ('k' in s.lower())
+    if has_format and len(digits) >= 2:
+        body = digits[:-1]
+    else:
+        # Si no hay formato, usar todos los dígitos tal cual (no asumir DV)
+        body = digits
+    return int(body) if body else None
 
 
 class AuthController:
@@ -46,9 +55,20 @@ class AuthController:
             HTTPException: Si las credenciales son incorrectas
         """
         try:
-            # Buscar usuario por RUT entero (OAuth2 'username' trae el RUT formateado)
-            rut_int = _rut_a_int(form_data.username)
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut_int).first()
+            s = str(form_data.username).strip()
+            usuario = None
+            if '@' in s:
+                usuario = db.query(UsuarioDB).filter(UsuarioDB.email == s).first()
+            else:
+                digits = ''.join(ch for ch in s if ch.isdigit())
+                rut_body = digits[:-1] if len(digits) >= 2 else digits
+                if rut_body:
+                    usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == int(rut_body)).first()
+                if not usuario and digits:
+                    try:
+                        usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == int(digits)).first()
+                    except Exception:
+                        usuario = None
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,7 +90,9 @@ class AuthController:
                 )
             
             # Crear token con el RUT como 'sub' (como string)
-            token = crear_token(data={"sub": str(usuario.rut)})
+            # Crear token usando el RUT si existe, de lo contrario el email
+            subject = str(usuario.rut) if usuario.rut is not None else str(usuario.email)
+            token = crear_token(data={"sub": subject})
             
             # Auditoría: login exitoso
             try:

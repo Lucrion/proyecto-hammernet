@@ -6,7 +6,7 @@ Controlador para gestión de ventas
 """
 
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, and_, func
+from sqlalchemy import desc, and_, func, or_
 from fastapi import HTTPException
 from typing import List, Optional
 from datetime import datetime, date
@@ -18,7 +18,9 @@ from models.venta import (
     Venta, DetalleVenta, MovimientoInventario, VentaCreate, DetalleVentaCreate, VentaGuestCreate
 )
 from models.producto import ProductoDB
+from models.pago import PagoDB
 from models.usuario import UsuarioDB
+from models.categoria import CategoriaDB
 from controllers.auditoria_controller import registrar_evento
 import json
 
@@ -396,6 +398,127 @@ class VentaController:
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Error al cancelar venta: {str(e)}")
+
+    @staticmethod
+    def completar_venta(db: Session, id_venta: int, usuario_admin_id: int = None, metodo: str = None) -> Venta:
+        """
+        Marcar una venta como completada (entregada). No modifica inventario.
+        Registra auditoría con el usuario administrador y método de entrega.
+        """
+        try:
+            venta = db.query(VentaDB).options(
+                joinedload(VentaDB.usuario),
+                joinedload(VentaDB.detalles_venta).joinedload(DetalleVentaDB.producto)
+            ).filter(VentaDB.id_venta == id_venta).first()
+
+            if not venta:
+                raise HTTPException(status_code=404, detail="Venta no encontrada")
+
+            if venta.estado == "completada":
+                return VentaController._construir_venta_response(venta)
+
+            venta.estado = "completada"
+            venta.fecha_actualizacion = datetime.now()
+            db.commit()
+
+            try:
+                detalle = f"Entrega completada"
+                if metodo:
+                    detalle += f" | metodo={metodo}"
+                if usuario_admin_id:
+                    detalle += f" | admin={usuario_admin_id}"
+                registrar_evento(
+                    db,
+                    entidad_tipo="venta",
+                    entidad_id=id_venta,
+                    accion="venta_completada",
+                    usuario_actor_id=usuario_admin_id,
+                    detalle=detalle
+                )
+            except Exception:
+                pass
+            return VentaController._construir_venta_response(venta)
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al completar venta: {str(e)}")
+    @staticmethod
+    def eliminar_compras_de_clientes(db: Session) -> dict:
+        """
+        Elimina todas las ventas asociadas a usuarios con role 'cliente'.
+        Incluye eliminación de pagos y movimientos de inventario vinculados a esas ventas.
+        """
+        try:
+            clientes = db.query(UsuarioDB.id_usuario).filter(UsuarioDB.role == 'cliente').all()
+            cliente_ids = [row.id_usuario for row in clientes]
+            if not cliente_ids:
+                return {"ventas_eliminadas": 0, "pagos_eliminados": 0, "movimientos_eliminados": 0, "detalles_eliminados": 0}
+
+            ventas = db.query(VentaDB.id_venta).filter(
+                or_(VentaDB.cliente_id.in_(cliente_ids), VentaDB.id_usuario.in_(cliente_ids))
+            ).all()
+            venta_ids = [row.id_venta for row in ventas]
+            if not venta_ids:
+                return {"ventas_eliminadas": 0, "pagos_eliminados": 0, "movimientos_eliminados": 0, "detalles_eliminados": 0}
+
+            movimientos_eliminados = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_venta.in_(venta_ids)).delete(synchronize_session=False)
+            pagos_eliminados = db.query(PagoDB).filter(PagoDB.id_venta.in_(venta_ids)).delete(synchronize_session=False)
+            detalles_eliminados = db.query(DetalleVentaDB).filter(DetalleVentaDB.id_venta.in_(venta_ids)).delete(synchronize_session=False)
+            ventas_eliminadas = db.query(VentaDB).filter(VentaDB.id_venta.in_(venta_ids)).delete(synchronize_session=False)
+            db.commit()
+
+            # Auditoría sencilla
+            try:
+                registrar_evento(
+                    db,
+                    entidad_tipo="venta",
+                    entidad_id=None,
+                    accion="elim_compras_clientes",
+                    usuario_actor_id=None,
+                    detalle=f"ventas={ventas_eliminadas}, pagos={pagos_eliminados}, movimientos={movimientos_eliminados}, detalles={detalles_eliminados}"
+                )
+            except Exception:
+                pass
+
+            return {
+                "ventas_eliminadas": int(ventas_eliminadas or 0),
+                "pagos_eliminados": int(pagos_eliminados or 0),
+                "movimientos_eliminados": int(movimientos_eliminados or 0),
+                "detalles_eliminados": int(detalles_eliminados or 0),
+            }
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al eliminar compras de clientes: {str(e)}")
+
+    @staticmethod
+    def set_envio_estado(db: Session, id_venta: int, estado_envio: str) -> Venta:
+        try:
+            venta = db.query(VentaDB).filter(VentaDB.id_venta == id_venta).first()
+            if not venta:
+                raise HTTPException(status_code=404, detail="Venta no encontrada")
+            estado_envio = (estado_envio or '').strip().lower()
+            if estado_envio not in { 'pendiente', 'preparando', 'en camino', 'entregado' }:
+                raise HTTPException(status_code=400, detail="Estado de envío inválido")
+            obs = (venta.observaciones or '')
+            tag = 'ENVIO_ESTADO:'
+            # Reemplazar o agregar
+            if tag in obs:
+                parts = obs.split('\n')
+                parts = [p for p in parts if not p.startswith(tag)]
+                parts.append(f"{tag}{estado_envio}")
+                obs = '\n'.join(parts)
+            else:
+                obs = (obs + '\n' if obs else '') + f"{tag}{estado_envio}"
+            venta.observaciones = obs
+            venta.fecha_actualizacion = datetime.now()
+            db.commit()
+            return VentaController._construir_venta_response(venta)
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al actualizar estado de envío: {str(e)}")
     
     @staticmethod
     def obtener_movimientos_inventario(db: Session, skip: int = 0, limit: int = 100, id_producto: Optional[int] = None) -> List[MovimientoInventario]:
@@ -553,6 +676,50 @@ class VentaController:
             ]
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error al obtener top productos: {str(e)}")
+
+    @staticmethod
+    def obtener_ventas_por_categoria(
+        db: Session,
+        fecha_inicio: Optional[date] = None,
+        fecha_fin: Optional[date] = None,
+    ) -> list:
+        try:
+            query = (
+                db.query(
+                    ProductoDB.id_categoria.label("id_categoria"),
+                    func.coalesce(func.sum(DetalleVentaDB.subtotal), 0).label("ingresos"),
+                    func.coalesce(func.sum(DetalleVentaDB.cantidad), 0).label("cantidad"),
+                )
+                .join(VentaDB, DetalleVentaDB.id_venta == VentaDB.id_venta)
+                .join(ProductoDB, DetalleVentaDB.id_producto == ProductoDB.id_producto)
+                .filter(VentaDB.estado == "completada")
+            )
+
+            if fecha_inicio:
+                query = query.filter(func.date(VentaDB.fecha_venta) >= fecha_inicio)
+            if fecha_fin:
+                query = query.filter(func.date(VentaDB.fecha_venta) <= fecha_fin)
+
+            query = query.group_by(ProductoDB.id_categoria)
+            resultados = query.all()
+
+            ids = [int(r[0]) for r in resultados if r[0] is not None]
+            nombres = {}
+            if ids:
+                for c in db.query(CategoriaDB.id_categoria, CategoriaDB.nombre).filter(CategoriaDB.id_categoria.in_(ids)).all():
+                    nombres[c[0]] = c[1]
+
+            return [
+                {
+                    "id_categoria": int(r[0]) if r[0] is not None else None,
+                    "categoria": nombres.get(int(r[0]), "Sin categoría") if r[0] is not None else "Sin categoría",
+                    "ingresos": float(r[1] or 0),
+                    "cantidad": int(r[2] or 0),
+                }
+                for r in resultados
+            ]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error al agrupar ventas por categoría: {str(e)}")
     
     @staticmethod
     def _construir_venta_response(venta: VentaDB) -> Venta:

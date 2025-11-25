@@ -11,6 +11,77 @@ let productosInventario = [];
 let categorias = [];
 let inventario = [];
 let tabActiva = 'completos'; // 'completos' o 'basicos'
+let catPagCompletos = 1;
+let catPagBasicos = 1;
+const catTam = 20;
+
+// Utilidades del editor de especificaciones
+const parseSpecsInput = (str) => {
+    if (!str) return {};
+    str = String(str).trim();
+    try {
+        const obj = JSON.parse(str);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) return obj;
+    } catch (_) {}
+    const specs = {};
+    const parts = str.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
+    for (const part of parts) {
+        const idx = part.indexOf(':');
+        if (idx > -1) {
+            const key = part.slice(0, idx).trim();
+            const val = part.slice(idx + 1).trim();
+            if (key) specs[key] = val;
+        }
+    }
+    return specs;
+};
+
+const renderEditorRows = (container, specsObj) => {
+    container.innerHTML = '';
+    const keys = Object.keys(specsObj);
+    if (keys.length === 0) {
+        addRow(container, '', '');
+        return;
+    }
+    for (const k of keys) {
+        addRow(container, k, specsObj[k]);
+    }
+};
+
+const addRow = (container, key = '', value = '') => {
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-2 gap-2 items-center';
+    row.innerHTML = `
+            <input type="text" placeholder="Ej: peso" value="${key}" class="px-2 py-1 text-sm border rounded" />
+            <div class="flex gap-2 items-center">
+                <input type="text" placeholder="Ej: 12 kilos" value="${value}" class="px-2 py-1 text-sm border rounded flex-1" />
+                <button type="button" class="px-2 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 border rounded">Eliminar</button>
+            </div>
+        `;
+    const removeBtn = row.querySelector('button');
+    removeBtn.addEventListener('click', () => {
+        container.removeChild(row);
+    });
+    container.appendChild(row);
+};
+
+const collectSpecsFromEditor = (container) => {
+    const result = {};
+    const rows = Array.from(container.children);
+    for (const row of rows) {
+        const inputs = row.querySelectorAll('input');
+        const key = inputs[0]?.value?.trim();
+        const value = inputs[1]?.value?.trim();
+        if (key) result[key] = value ?? '';
+    }
+    return result;
+};
+
+const applyToTextarea = (container, textarea) => {
+    const obj = collectSpecsFromEditor(container);
+    textarea.value = JSON.stringify(obj, null, 2);
+    textarea.focus();
+};
 
 // Elementos del DOM
 let btnNuevoProducto, formProducto, formTitle, productoForm, btnCancelar;
@@ -67,6 +138,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnBuscar) {
         btnBuscar.addEventListener('click', buscarProductos);
     }
+
+    const prevBtn = document.getElementById('catPrev');
+    const nextBtn = document.getElementById('catNext');
+    if (prevBtn) prevBtn.addEventListener('click', () => {
+        if (tabActiva === 'completos') {
+            if (catPagCompletos > 1) { catPagCompletos--; cargarProductosCompletos(productosCatalogados); }
+        } else {
+            if (catPagBasicos > 1) { catPagBasicos--; cargarProductosBasicos(productosInventario); }
+        }
+    });
+    if (nextBtn) nextBtn.addEventListener('click', () => {
+        if (tabActiva === 'completos') {
+            const max = Math.ceil(productosCatalogados.length / catTam) || 1;
+            if (catPagCompletos < max) { catPagCompletos++; cargarProductosCompletos(productosCatalogados); }
+        } else {
+            const max = Math.ceil(productosInventario.length / catTam) || 1;
+            if (catPagBasicos < max) { catPagBasicos++; cargarProductosBasicos(productosInventario); }
+        }
+    });
 
     // Configurar drag and drop para imágenes
     if (imagePreviewContainer) {
@@ -165,178 +255,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Botones de ejemplo para características (catalogar)
-    const btnEjemploCatalogarJSON = document.getElementById('btnEjemploCatalogarJSON');
-    const btnEjemploCatalogarTexto = document.getElementById('btnEjemploCatalogarTexto');
-    const catalogarCaracteristicas = document.getElementById('catalogarCaracteristicas');
-    const btnEditorCatalogar = document.getElementById('btnEditorCatalogar');
-    const editorCatalogar = document.getElementById('editorCatalogar');
-    const editorCatalogarRows = document.getElementById('editorCatalogarRows');
-    const btnAgregarFilaCatalogar = document.getElementById('btnAgregarFilaCatalogar');
-    const btnAplicarCatalogar = document.getElementById('btnAplicarCatalogar');
-    const btnCerrarEditorCatalogar = document.getElementById('btnCerrarEditorCatalogar');
+    const editorCatalogarRowsEl = document.getElementById('editorCatalogarRows');
+    const btnAgregarFilaCatalogarEl = document.getElementById('btnAgregarFilaCatalogar');
+    const editorEditarRowsEl = document.getElementById('editorEditarRows');
+    const btnAgregarFilaEditarEl = document.getElementById('btnAgregarFilaEditar');
 
-    // Botones de ejemplo para características (editar)
-    const btnEjemploEditarJSON = document.getElementById('btnEjemploEditarJSON');
-    const btnEjemploEditarTexto = document.getElementById('btnEjemploEditarTexto');
-    const editarCaracteristicas = document.getElementById('editarCaracteristicas');
-    const btnEditorEditar = document.getElementById('btnEditorEditar');
-    const editorEditar = document.getElementById('editorEditar');
-    const editorEditarRows = document.getElementById('editorEditarRows');
-    const btnAgregarFilaEditar = document.getElementById('btnAgregarFilaEditar');
-    const btnAplicarEditar = document.getElementById('btnAplicarEditar');
-    const btnCerrarEditorEditar = document.getElementById('btnCerrarEditorEditar');
-
-    const ejemploJSON = () => JSON.stringify({
-        Material: 'Acero forjado',
-        Peso: '450 g',
-        Golpe: '16 oz',
-        Mango: 'Fibra de vidrio con grip',
-        Garantia_meses: 12
-    }, null, 2);
-
-    const ejemploTexto = () => (
-        'Material: Acero forjado; Peso: 450 g; Golpe: 16 oz; Mango: Fibra de vidrio con grip; Garantía: 12 meses'
-    );
-
-    if (btnEjemploCatalogarJSON && catalogarCaracteristicas) {
-        btnEjemploCatalogarJSON.addEventListener('click', () => {
-            catalogarCaracteristicas.value = ejemploJSON();
-            catalogarCaracteristicas.focus();
-        });
+    if (btnAgregarFilaCatalogarEl && editorCatalogarRowsEl) {
+        btnAgregarFilaCatalogarEl.addEventListener('click', () => addRow(editorCatalogarRowsEl, '', ''));
     }
 
-    if (btnEjemploCatalogarTexto && catalogarCaracteristicas) {
-        btnEjemploCatalogarTexto.addEventListener('click', () => {
-            catalogarCaracteristicas.value = ejemploTexto();
-            catalogarCaracteristicas.focus();
-        });
+    if (btnAgregarFilaEditarEl && editorEditarRowsEl) {
+        btnAgregarFilaEditarEl.addEventListener('click', () => addRow(editorEditarRowsEl, '', ''));
     }
 
-    if (btnEjemploEditarJSON && editarCaracteristicas) {
-        btnEjemploEditarJSON.addEventListener('click', () => {
-            editarCaracteristicas.value = ejemploJSON();
-            editarCaracteristicas.focus();
-        });
-    }
+    // Se eliminaron botones abrir/cerrar/aplicar; el editor está siempre visible
 
-    if (btnEjemploEditarTexto && editarCaracteristicas) {
-        btnEjemploEditarTexto.addEventListener('click', () => {
-            editarCaracteristicas.value = ejemploTexto();
-            editarCaracteristicas.focus();
-        });
-    }
-
-    // ===== Editor de especificaciones (utilidades) =====
-    const parseSpecsInput = (str) => {
-        if (!str) return {};
-        str = String(str).trim();
-        // Intentar JSON primero
-        try {
-            const obj = JSON.parse(str);
-            if (obj && typeof obj === 'object' && !Array.isArray(obj)) return obj;
-        } catch (_) {}
-        // Intentar texto: pares separados por \n o ; con ':'
-        const specs = {};
-        const parts = str.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
-        for (const part of parts) {
-            const idx = part.indexOf(':');
-            if (idx > -1) {
-                const key = part.slice(0, idx).trim();
-                const val = part.slice(idx + 1).trim();
-                if (key) specs[key] = val;
-            }
-        }
-        return specs;
-    };
-
-    const renderEditorRows = (container, specsObj) => {
-        container.innerHTML = '';
-        const keys = Object.keys(specsObj);
-        if (keys.length === 0) {
-            // una fila vacía por defecto
-            addRow(container, '', '');
-            return;
-        }
-        for (const k of keys) {
-            addRow(container, k, specsObj[k]);
-        }
-    };
-
-    const addRow = (container, key = '', value = '') => {
-        const row = document.createElement('div');
-        row.className = 'grid grid-cols-2 gap-2 items-center';
-        row.innerHTML = `
-            <input type="text" placeholder="Clave" value="${key}" class="px-2 py-1 text-sm border rounded" />
-            <div class="flex gap-2 items-center">
-                <input type="text" placeholder="Valor" value="${value}" class="px-2 py-1 text-sm border rounded flex-1" />
-                <button type="button" class="px-2 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 border rounded">Eliminar</button>
-            </div>
-        `;
-        const removeBtn = row.querySelector('button');
-        removeBtn.addEventListener('click', () => {
-            container.removeChild(row);
-        });
-        container.appendChild(row);
-    };
-
-    const collectSpecsFromEditor = (container) => {
-        const result = {};
-        const rows = Array.from(container.children);
-        for (const row of rows) {
-            const inputs = row.querySelectorAll('input');
-            const key = inputs[0]?.value?.trim();
-            const value = inputs[1]?.value?.trim();
-            if (key) result[key] = value ?? '';
-        }
-        return result;
-    };
-
-    const applyToTextarea = (container, textarea) => {
-        const obj = collectSpecsFromEditor(container);
-        textarea.value = JSON.stringify(obj, null, 2);
-        textarea.focus();
-    };
-
-    // ===== Catálogo: wiring =====
-    if (btnEditorCatalogar && editorCatalogar && editorCatalogarRows && catalogarCaracteristicas) {
-        btnEditorCatalogar.addEventListener('click', () => {
-            const specs = parseSpecsInput(catalogarCaracteristicas.value);
-            renderEditorRows(editorCatalogarRows, specs);
-            editorCatalogar.classList.remove('hidden');
-        });
-    }
-    if (btnCerrarEditorCatalogar && editorCatalogar) {
-        btnCerrarEditorCatalogar.addEventListener('click', () => {
-            editorCatalogar.classList.add('hidden');
-        });
-    }
-    if (btnAgregarFilaCatalogar && editorCatalogarRows) {
-        btnAgregarFilaCatalogar.addEventListener('click', () => addRow(editorCatalogarRows));
-    }
-    if (btnAplicarCatalogar && editorCatalogarRows && catalogarCaracteristicas) {
-        btnAplicarCatalogar.addEventListener('click', () => applyToTextarea(editorCatalogarRows, catalogarCaracteristicas));
-    }
-
-    // ===== Editar: wiring =====
-    if (btnEditorEditar && editorEditar && editorEditarRows && editarCaracteristicas) {
-        btnEditorEditar.addEventListener('click', () => {
-            const specs = parseSpecsInput(editarCaracteristicas.value);
-            renderEditorRows(editorEditarRows, specs);
-            editorEditar.classList.remove('hidden');
-        });
-    }
-    if (btnCerrarEditorEditar && editorEditar) {
-        btnCerrarEditorEditar.addEventListener('click', () => {
-            editorEditar.classList.add('hidden');
-        });
-    }
-    if (btnAgregarFilaEditar && editorEditarRows) {
-        btnAgregarFilaEditar.addEventListener('click', () => addRow(editorEditarRows));
-    }
-    if (btnAplicarEditar && editorEditarRows && editarCaracteristicas) {
-        btnAplicarEditar.addEventListener('click', () => applyToTextarea(editorEditarRows, editarCaracteristicas));
-    }
+    // Editor edición siempre visible; solo agregar filas
 });
 
 // Función para obtener productos desde la API
@@ -526,8 +460,27 @@ function mostrarTablaSegunPestana() {
 // Cargar productos completos en la tabla
 function cargarProductosCompletos(productosAMostrar) {
     tablaProductos.innerHTML = '';
-    
-    productosAMostrar.forEach(producto => {
+    const total = productosAMostrar.length;
+    const desdeIdx = (catPagCompletos - 1) * catTam;
+    const hastaIdx = Math.min(desdeIdx + catTam, total);
+    const pagina = productosAMostrar.slice(desdeIdx, hastaIdx);
+    pagina.forEach(producto => {
+        const id = (producto && (
+            producto.id_producto ??
+            (producto.producto ? producto.producto.id_producto : undefined) ??
+            producto.id ??
+            (producto.producto ? producto.producto.id : undefined)
+        ));
+        const idxGlobal = (function(){
+            const targetId = id;
+            if (targetId != null) {
+                const found = productosCatalogados.findIndex(p => (
+                    (p.id_producto ?? (p.producto ? p.producto.id_producto : undefined) ?? p.id ?? (p.producto ? p.producto.id : undefined)) === targetId
+                ));
+                return found;
+            }
+            return -1;
+        })();
         const imagen = producto.imagen_url || '/herramientas.webp';
         
         const tr = document.createElement('tr');
@@ -539,13 +492,13 @@ function cargarProductosCompletos(productosAMostrar) {
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.marca || 'Sin marca'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.descripcion || 'Sin descripción'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button data-id="${producto.id_producto}" class="btn-editar-catalogado text-blue-600 hover:text-blue-900 mr-3" title="Editar producto catalogado">
+                <button type="button" data-id="${id ?? ''}" data-index="${idxGlobal}" class="btn-editar-catalogado text-blue-600 hover:text-blue-900 mr-3" title="Editar producto catalogado" onclick="editarProductoCatalogado(this)">
                     <svg class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     Editar
                 </button>
-                <button data-id="${producto.id_producto}" class="btn-eliminar-catalogado text-red-600 hover:text-red-900" title="Quitar del catálogo">
+                <button type="button" data-id="${id ?? ''}" data-index="${idxGlobal}" class="btn-eliminar-catalogado text-red-600 hover:text-red-900" title="Quitar del catálogo" onclick="eliminarProductoCatalogado(this)">
                     <svg class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
@@ -557,13 +510,43 @@ function cargarProductosCompletos(productosAMostrar) {
     });
 
     // Agregar eventos a los botones de editar y eliminar catalogados
-    document.querySelectorAll('.btn-editar-catalogado').forEach(btn => {
-        btn.addEventListener('click', editarProductoCatalogado);
-    });
-
-    document.querySelectorAll('.btn-eliminar-catalogado').forEach(btn => {
-        btn.addEventListener('click', eliminarProductoCatalogado);
-    });
+    if (!tablaProductos.__delegadoCatalogo) {
+        tablaProductos.addEventListener('click', (e) => {
+            const editarBtn = e.target.closest('.btn-editar-catalogado');
+            if (editarBtn) {
+                editarProductoCatalogado({ currentTarget: editarBtn, target: e.target });
+                return;
+            }
+            const eliminarBtn = e.target.closest('.btn-eliminar-catalogado');
+            if (eliminarBtn) {
+                eliminarProductoCatalogado({ currentTarget: eliminarBtn, target: e.target });
+                return;
+            }
+            const catalogarBtn = e.target.closest('.btn-catalogar');
+            if (catalogarBtn) {
+                const id = catalogarBtn.dataset && catalogarBtn.dataset.id ? Number(catalogarBtn.dataset.id) : NaN;
+                if (!Number.isNaN(id)) {
+                    catalogarProducto(id);
+                } else {
+                    // Fallback: intentar leer del onclick inline si existe dentro del HTML
+                    try {
+                        const text = catalogarBtn.getAttribute('onclick') || '';
+                        const m = text.match(/catalogarProducto\((\d+)\)/);
+                        if (m) catalogarProducto(Number(m[1]));
+                    } catch {}
+                }
+                return;
+            }
+        });
+        tablaProductos.__delegadoCatalogo = true;
+    }
+    const desdeEl = document.getElementById('catDesde');
+    const hastaEl = document.getElementById('catHasta');
+    const totalEl = document.getElementById('catTotal');
+    if (desdeEl) desdeEl.textContent = total > 0 ? (desdeIdx + (pagina.length ? 1 : 0)) : 0;
+    if (hastaEl) hastaEl.textContent = total > 0 ? hastaIdx : 0;
+    if (totalEl) totalEl.textContent = total;
+    actualizarBotonesCatalogo(total, desdeIdx, hastaIdx);
 }
 
 // Cargar productos básicos (inventario) en la tabla
@@ -581,7 +564,11 @@ function cargarProductosBasicos(productosAMostrar) {
         return;
     }
     
-    productosAMostrar.forEach(producto => {
+    const total = productosAMostrar.length;
+    const desdeIdx = (catPagBasicos - 1) * catTam;
+    const hastaIdx = Math.min(desdeIdx + catTam, total);
+    const pagina = productosAMostrar.slice(desdeIdx, hastaIdx);
+    pagina.forEach(producto => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.codigo_interno || 'N/A'}</td>
@@ -592,12 +579,12 @@ function cargarProductosBasicos(productosAMostrar) {
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.categoria || 'Sin categoría'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div class="flex justify-end space-x-2">
-                    <button onclick="editarInventario(${producto.id_producto})" class="text-blue-600 hover:text-blue-900" title="Editar inventario">
+                    <button type="button" onclick="editarInventario(${producto.id_producto})" class="text-blue-600 hover:text-blue-900" title="Editar inventario">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                     </button>
-                    <button onclick="catalogarProducto(${producto.id_producto})" class="btn-catalogar" title="Catalogar producto">
+                    <button type="button" data-id="${producto.id_producto}" onclick="catalogarProducto(${producto.id_producto})" class="btn-catalogar" title="Catalogar producto">
                         <svg class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
@@ -608,6 +595,30 @@ function cargarProductosBasicos(productosAMostrar) {
         `;
         tablaProductos.appendChild(tr);
     });
+    const desdeEl = document.getElementById('catDesde');
+    const hastaEl = document.getElementById('catHasta');
+    const totalEl = document.getElementById('catTotal');
+    if (desdeEl) desdeEl.textContent = total > 0 ? (desdeIdx + (pagina.length ? 1 : 0)) : 0;
+    if (hastaEl) hastaEl.textContent = total > 0 ? hastaIdx : 0;
+    if (totalEl) totalEl.textContent = total;
+    actualizarBotonesCatalogo(total, desdeIdx, hastaIdx);
+}
+
+function actualizarBotonesCatalogo(total, desdeIdx, hastaIdx) {
+    const prevBtn = document.getElementById('catPrev');
+    const nextBtn = document.getElementById('catNext');
+    const hasPrev = (tabActiva === 'completos' ? catPagCompletos : catPagBasicos) > 1;
+    const hasNext = hastaIdx < total;
+    if (prevBtn) {
+        prevBtn.disabled = !hasPrev;
+        prevBtn.classList.toggle('opacity-50', !hasPrev);
+        prevBtn.classList.toggle('cursor-not-allowed', !hasPrev);
+    }
+    if (nextBtn) {
+        nextBtn.disabled = !hasNext;
+        nextBtn.classList.toggle('opacity-50', !hasNext);
+        nextBtn.classList.toggle('cursor-not-allowed', !hasNext);
+    }
 }
 
 // Función para buscar productos
@@ -802,7 +813,11 @@ function catalogarProducto(idProducto) {
         document.getElementById('catalogarProductoId').value = producto.id_producto;
         document.getElementById('catalogarNombre').value = producto.nombre;
         document.getElementById('catalogarDescripcion').value = producto.descripcion || '';
-        document.getElementById('catalogarCaracteristicas').value = producto.caracteristicas || '';
+        const editorEl = document.getElementById('editorCatalogarRows');
+        if (editorEl) {
+            const obj = parseSpecsInput(producto.caracteristicas || '');
+            renderEditorRows(editorEl, obj);
+        }
         document.getElementById('catalogarMarca').value = producto.marca || '';
         // Detalles
         const cGar = document.getElementById('catalogarGarantiaMeses');
@@ -815,6 +830,8 @@ function catalogarProducto(idProducto) {
         if (cMat) cMat.value = producto.material ?? '';
         
         modal.classList.remove('hidden');
+        modal.style.display = 'block';
+        modal.setAttribute('aria-hidden', 'false');
     }
 }
 
@@ -823,6 +840,8 @@ function cerrarCatalogarModal() {
     const modal = document.getElementById('modalCatalogar');
     if (modal) {
         modal.classList.add('hidden');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
         // Resetear imagen
         catalogarBase64Image = null;
         const catalogarImagenPreview = document.getElementById('catalogarImagenPreview');
@@ -835,15 +854,31 @@ function cerrarCatalogarModal() {
 }
 
 // Función para editar producto catalogado
-function editarProductoCatalogado(e) {
-    const idProducto = parseInt(e.target.closest('button').dataset.id);
-    const producto = productosCatalogados.find(p => p.id_producto === idProducto);
+function editarProductoCatalogado(arg) {
+    const btn = (arg && arg.nodeType === 1) ? arg : (arg && (arg.currentTarget || (arg.target && arg.target.closest && arg.target.closest('button')))) || this;
+    const idAttr = btn && btn.dataset ? btn.dataset.id : null;
+    const idxAttr = btn && btn.dataset ? btn.dataset.index : null;
+    const idProducto = idAttr && idAttr !== '' ? Number(idAttr) : NaN;
+    console.log('Editar click detectado', { idAttr, idxAttr, idProducto });
+    if (Number.isNaN(idProducto)) {
+        const idx = typeof idxAttr !== 'undefined' && idxAttr !== null ? Number(idxAttr) : NaN;
+        if (!Number.isNaN(idx) && productosCatalogados[idx]) {
+            abrirModalEditarConProducto(productosCatalogados[idx]);
+            return;
+        }
+        console.warn('ID de producto inválido en botón editar y sin índice');
+        return;
+    }
+    const producto = productosCatalogados.find(p => Number(p.id_producto ?? (p.producto ? p.producto.id_producto : p.id)) === idProducto);
     
     if (!producto) {
         alert('Producto no encontrado');
         return;
     }
-    
+    abrirModalEditarConProducto(producto);
+}
+
+function abrirModalEditarConProducto(producto) {
     // Debug: Verificar estructura de datos del producto
     console.log('Producto seleccionado para editar:', producto);
     console.log('imagen_url del producto:', producto.imagen_url);
@@ -856,7 +891,10 @@ function editarProductoCatalogado(e) {
         document.getElementById('editarNombre').value = producto.nombre;
         document.getElementById('editarMarca').value = producto.marca || '';
         document.getElementById('editarDescripcion').value = producto.descripcion || '';
-        document.getElementById('editarCaracteristicas').value = producto.caracteristicas || '';
+        const container = document.getElementById('editorEditarRows');
+        if (container) {
+            renderEditorRows(container, parseSpecsInput(producto.caracteristicas || ''));
+        }
         // Detalles
         const editarGarantiaEl = document.getElementById('editarGarantiaMeses');
         const editarModeloEl = document.getElementById('editarModelo');
@@ -917,6 +955,10 @@ function editarProductoCatalogado(e) {
         editarBase64Image = null;
         
         modal.classList.remove('hidden');
+        modal.style.display = 'block';
+        modal.setAttribute('aria-hidden', 'false');
+        const foco = document.getElementById('editarMarca') || document.getElementById('editarDescripcion');
+        if (foco) foco.focus();
     }
 }
 
@@ -925,6 +967,8 @@ function cerrarEditarModal() {
     const modal = document.getElementById('modalEditarCatalogado');
     if (modal) {
         modal.classList.add('hidden');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
         // Resetear imagen
         editarBase64Image = null;
         const editarImagenPreview = document.getElementById('editarImagenPreview');
@@ -943,8 +987,9 @@ function editarInventario(idProducto) {
 }
 
 // Función para eliminar producto catalogado
-function eliminarProductoCatalogado(e) {
-    const idProducto = parseInt(e.target.closest('button').dataset.id);
+function eliminarProductoCatalogado(arg) {
+    const btn = (arg && arg.nodeType === 1) ? arg : (arg && (arg.currentTarget || (arg.target && arg.target.closest && arg.target.closest('button')))) || this;
+    const idProducto = btn && btn.dataset && btn.dataset.id ? parseInt(btn.dataset.id, 10) : NaN;
     const producto = productosCatalogados.find(p => p.id_producto === idProducto);
     
     if (!producto) {
@@ -958,7 +1003,7 @@ function eliminarProductoCatalogado(e) {
     
     if (modal && mensaje) {
         mensaje.textContent = `¿Está seguro que desea quitar "${producto.nombre}" del catálogo?`;
-        modal.dataset.productoId = idProducto;
+        modal.dataset.productoId = String(idProducto);
         modal.classList.remove('hidden');
     }
 }
@@ -1002,7 +1047,14 @@ async function guardarCatalogacion() {
     
     const data = {
         descripcion: document.getElementById('catalogarDescripcion').value || null,
-        caracteristicas: document.getElementById('catalogarCaracteristicas').value || null,
+        caracteristicas: (function(){
+            try {
+                const editorEl = document.getElementById('editorCatalogarRows');
+                if (!editorEl) return null;
+                const obj = collectSpecsFromEditor(editorEl);
+                return JSON.stringify(obj, null, 2);
+            } catch { return null; }
+        })(),
         marca: document.getElementById('catalogarMarca').value || null,
         imagen_base64: null, // Se actualizará si hay imagen
         // Detalles
@@ -1030,11 +1082,26 @@ async function guardarCatalogacion() {
         })()
     };
 
-    // Agregar imagen si existe
-    if (catalogarBase64Image) {
-        data.imagen_base64 = catalogarBase64Image;
+    // Validaciones
+    const marcaVal = (data.marca || '').trim();
+    if (!marcaVal) { alert('La marca es obligatoria'); return; }
+    // Exigir imagen al catalogar
+    if (!catalogarBase64Image) { alert('Debes seleccionar una imagen para el producto'); return; }
+    // Normalizar oferta
+    if (data.tipo_oferta === 'porcentaje' && typeof data.valor_oferta === 'number') {
+        data.valor_oferta = Math.min(100, Math.max(0, data.valor_oferta));
     }
+    if (data.tipo_oferta === 'fijo' && typeof data.valor_oferta === 'number') {
+        data.valor_oferta = Math.max(0, data.valor_oferta);
+    }
+    // Normalizar color/material vacío a null
+    data.color = (data.color || '').trim() || null;
+    data.material = (data.material || '').trim() || null;
+    // Agregar imagen
+    data.imagen_base64 = catalogarBase64Image;
 
+    const submitBtn = document.querySelector('#catalogarProductoForm button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
     try {
         const response = await postData(`/api/productos/${productoId}/agregar-catalogo`, data);
         if (response) {
@@ -1045,6 +1112,8 @@ async function guardarCatalogacion() {
     } catch (error) {
         console.error('Error al catalogar producto:', error);
         alert('Error al catalogar producto');
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
     }
 }
 
@@ -1057,15 +1126,22 @@ async function guardarEdicionCatalogado() {
         nombre: document.getElementById('editarNombre').value,
         marca: document.getElementById('editarMarca').value || null,
         descripcion: document.getElementById('editarDescripcion').value || null,
-        caracteristicas: document.getElementById('editarCaracteristicas').value || null,
+        caracteristicas: (function(){
+            try {
+                const editorEl = document.getElementById('editorEditarRows');
+                if (!editorEl) return null;
+                const obj = collectSpecsFromEditor(editorEl);
+                return JSON.stringify(obj, null, 2);
+            } catch { return null; }
+        })(),
         // Detalles
         garantia_meses: (function(){
             const v = document.getElementById('editarGarantiaMeses')?.value;
             return v !== '' ? parseInt(v, 10) : null;
         })(),
         modelo: document.getElementById('editarModelo')?.value || null,
-        color: document.getElementById('editarColor')?.value || null,
-        material: document.getElementById('editarMaterial')?.value || null,
+        color: (document.getElementById('editarColor')?.value || '').trim() || null,
+        material: (document.getElementById('editarMaterial')?.value || '').trim() || null,
         // Ofertas
         oferta_activa: document.getElementById('editarOfertaActiva')?.checked || false,
         tipo_oferta: document.getElementById('editarTipoOferta')?.value || null,
@@ -1083,6 +1159,15 @@ async function guardarEdicionCatalogado() {
         })()
     };
 
+    // Validaciones
+    const nombreVal = (data.nombre || '').trim();
+    if (!nombreVal) { alert('El nombre es obligatorio'); return; }
+    if (data.tipo_oferta === 'porcentaje' && typeof data.valor_oferta === 'number') {
+        data.valor_oferta = Math.min(100, Math.max(0, data.valor_oferta));
+    }
+    if (data.tipo_oferta === 'fijo' && typeof data.valor_oferta === 'number') {
+        data.valor_oferta = Math.max(0, data.valor_oferta);
+    }
     // Agregar imagen si se seleccionó una nueva
     if (editarBase64Image) {
         console.log('Imagen base64 detectada, agregando al payload');
@@ -1099,6 +1184,8 @@ async function guardarEdicionCatalogado() {
         hasImage: !!editarBase64Image
     });
 
+    const submitEditarBtn = document.querySelector('#editarProductoForm button[type="submit"]');
+    if (submitEditarBtn) submitEditarBtn.disabled = true;
     try {
         console.log('Enviando petición PUT a:', `/api/productos/catalogo/${idProducto}`);
         const response = await updateData(`/api/productos/catalogo/${idProducto}`, data);
@@ -1112,6 +1199,8 @@ async function guardarEdicionCatalogado() {
     } catch (error) {
         console.error('Error al actualizar producto:', error);
         alert('Error al actualizar producto');
+    } finally {
+        if (submitEditarBtn) submitEditarBtn.disabled = false;
     }
 }
 

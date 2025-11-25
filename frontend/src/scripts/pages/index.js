@@ -145,6 +145,8 @@ function mostrarProductosGenerales(productos) {
         const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
         const precio = Number(producto.precio_final ?? precioBase);
         const tieneOferta = Boolean(producto.oferta_activa) || (precioBase > 0 && precio < precioBase);
+        const percCalc = tieneOferta ? Math.round((1 - precio / precioBase) * 100) : 0;
+        const perc = Number(producto.tipo_oferta === 'porcentaje' ? (producto.valor_oferta ?? percCalc) : percCalc) || 0;
         const id = producto.id_producto ?? producto.id;
         const descripcionCorta = (() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc; })();
         const productoHTML = `
@@ -159,7 +161,7 @@ function mostrarProductosGenerales(productos) {
                     <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${producto.nombre}</h3>
                     ${descripcionCorta ? `<p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${descripcionCorta}</p>` : ''}
                     <div class="mt-auto flex items-center justify-center gap-2">
-                        ${tieneOferta ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(precioBase) + '</span>' : ''}
+                        ${perc > 0 ? '<span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-' + perc + '%</span>' : ''}
                         <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
                     </div>
                 </div>
@@ -180,6 +182,8 @@ function mostrarProductosDestacados(productos) {
         const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
         const precio = Number(producto.precio_final ?? precioBase);
         const tieneOferta = Boolean(producto.oferta_activa) || (precioBase > 0 && precio < precioBase);
+        const percCalc = tieneOferta ? Math.round((1 - precio / precioBase) * 100) : 0;
+        const perc = Number(producto.tipo_oferta === 'porcentaje' ? (producto.valor_oferta ?? percCalc) : percCalc) || 0;
         const id = producto.id_producto ?? producto.id;
         const descripcionCorta = (() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc; })();
         const productoHTML = `
@@ -194,7 +198,7 @@ function mostrarProductosDestacados(productos) {
                     <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${producto.nombre}</h3>
                     ${descripcionCorta ? `<p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${descripcionCorta}</p>` : ''}
                     <div class="mt-auto flex items-center justify-center gap-2">
-                        ${tieneOferta ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(precioBase) + '</span>' : ''}
+                        ${perc > 0 ? '<span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-' + perc + '%</span>' : ''}
                         <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
                     </div>
                 </div>
@@ -277,7 +281,8 @@ export async function login(event) {
     try {
         // Aceptar tanto 'rut' como 'email' (compatibilidad), pero convertir a dígitos
         const rutInput = formData.get('rut') || formData.get('email') || '';
-        const username = digitsOnly(rutInput);
+        const baseRut = rutInput.toString().split('-')[0];
+        const username = digitsOnly(baseRut);
         const password = formData.get('password') || '';
 
         const formEncoded = new URLSearchParams();
@@ -297,7 +302,12 @@ export async function login(event) {
         if (!response.ok) {
             const text = await response.text();
             console.error('Fallo login:', response.status, text);
-            throw new Error('Credenciales inválidas');
+            if (response.status === 401) {
+                mostrarNotificacion('Credenciales incorrectas', 'error');
+                return;
+            }
+            mostrarNotificacion('Error en el login', 'error');
+            return;
         }
 
         const data = await response.json();
@@ -344,13 +354,10 @@ export async function login(event) {
         mostrarNotificacion('Login exitoso', 'success');
         actualizarUI();
         
-        // Redirigir según el rol del usuario
-        const isAdmin = (state.user && (state.user.rol === 'administrador' || state.user.role === 'administrador' || state.user.rol === 'admin' || state.user.role === 'admin'));
-        if (isAdmin) {
-            window.location.href = '/admin';
-        } else {
-            window.location.href = '/';
-        }
+        const roleStr = String(state.user?.rol || state.user?.role || '').toLowerCase();
+        const workerRolesArr = ['administrador','admin','trabajador','vendedor','bodeguero'];
+        const allowWorker = workerRolesArr.includes(roleStr);
+        window.location.href = allowWorker ? '/admin' : '/';
     } catch (error) {
         console.error('Error en login:', error);
         mostrarNotificacion('Error en el login', 'error');

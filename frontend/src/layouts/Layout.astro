@@ -14,6 +14,10 @@ import Footer from '../components/Footer.astro';
 		<meta charset="UTF-8" />
 		<meta name="description" content="Ferretería Patricio - Herramientas y materiales de construcción">
 		<meta name="viewport" content="width=device-width" />
+		<link rel="preconnect" href="http://127.0.0.1:8000" crossorigin>
+		<link rel="dns-prefetch" href="http://127.0.0.1:8000">
+		<link rel="preconnect" href="https://picsum.photos" crossorigin>
+		<link rel="dns-prefetch" href="https://picsum.photos">
 		<link rel="icon" type="image/svg+xml" href="/images/logos/logo_bn.webp" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
@@ -119,8 +123,40 @@ import Footer from '../components/Footer.astro';
 		</div>
 
 		<script>
-		document.addEventListener('DOMContentLoaded', () => {
-		  const loginLink = document.getElementById('login-link');
+            document.addEventListener('DOMContentLoaded', () => {
+                try {
+                    const u = new URL(window.location.href);
+                    const err = u.searchParams.get('error');
+                    if (err === 'unauthorized_admin') {
+                        const toast = document.createElement('div');
+                        toast.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded shadow z-50';
+                        toast.textContent = 'Acceso denegado: tu cuenta no tiene permisos de administración';
+                        document.body.appendChild(toast);
+                        setTimeout(() => { try { document.body.removeChild(toast); } catch {} }, 4000);
+                        u.searchParams.delete('error');
+                        const qs = u.searchParams.toString();
+                        history.replaceState({}, '', u.pathname + (qs ? ('?' + qs) : '') + u.hash);
+                    }
+                } catch {}
+                try {
+                    const url = new URL(window.location.href);
+                    const paid = url.searchParams.get('paid');
+                    const clear = url.searchParams.get('clear') || url.searchParams.get('clearCart');
+                    if (paid === '1' || clear === '1') {
+                        try {
+                            localStorage.removeItem('carrito');
+                            localStorage.removeItem('checkout_items');
+                            localStorage.removeItem('checkoutEntrega');
+                        } catch {}
+                        try { window.dispatchEvent(new Event('carrito:changed')); } catch {}
+                        url.searchParams.delete('paid');
+                        url.searchParams.delete('clear');
+                        url.searchParams.delete('clearCart');
+                        const qs = url.searchParams.toString();
+                        history.replaceState({}, '', url.pathname + (qs ? ('?' + qs) : '') + url.hash);
+                    }
+                } catch {}
+			  const loginLink = document.getElementById('login-link');
 		  const modal = document.getElementById('login-role-modal');
 		  const btnCliente = document.getElementById('btnLoginCliente');
 		  const btnTrabajador = document.getElementById('btnLoginTrabajador');

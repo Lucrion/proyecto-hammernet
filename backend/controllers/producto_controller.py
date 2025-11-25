@@ -8,6 +8,7 @@ Maneja todas las operaciones CRUD de productos con inventario integrado
 
 from fastapi import HTTPException, status, UploadFile
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
 from typing import List, Optional
@@ -721,6 +722,12 @@ class ProductoController:
                     "id_proveedor": p.id_proveedor,
                     "id_subcategoria": p.id_subcategoria,
                     "marca": p.marca,
+                    "en_catalogo": bool(getattr(p, 'en_catalogo', False)),
+                    "caracteristicas": getattr(p, 'caracteristicas', None),
+                    "garantia_meses": getattr(p, 'garantia_meses', None),
+                    "modelo": getattr(p, 'modelo', None),
+                    "color": getattr(p, 'color', None),
+                    "material": getattr(p, 'material', None),
                     "costo_bruto": float(p.costo_bruto) if p.costo_bruto else 0,
                     "costo_neto": float(p.costo_neto) if p.costo_neto else 0,
                     "precio_venta": float(p.precio_venta) if p.precio_venta else 0,
@@ -733,6 +740,12 @@ class ProductoController:
                     "fecha_actualizacion": p.fecha_actualizacion,
                     "fecha_ultima_venta": p.fecha_ultima_venta,
                     "fecha_ultimo_ingreso": p.fecha_ultimo_ingreso,
+                    # Ofertas
+                    "oferta_activa": bool(getattr(p, 'oferta_activa', False)),
+                    "tipo_oferta": getattr(p, 'tipo_oferta', None),
+                    "valor_oferta": float(getattr(p, 'valor_oferta', 0) or 0),
+                    "fecha_inicio_oferta": getattr(p, 'fecha_inicio_oferta', None),
+                    "fecha_fin_oferta": getattr(p, 'fecha_fin_oferta', None),
                     "categoria": p.categoria.nombre if p.categoria else None,
                     "proveedor": p.proveedor.nombre if p.proveedor else None,
                     "subcategoria": p.subcategoria.nombre if p.subcategoria else None
@@ -833,6 +846,13 @@ class ProductoController:
                 "fecha_actualizacion": producto.fecha_actualizacion,
                 "fecha_ultima_venta": producto.fecha_ultima_venta,
                 "fecha_ultimo_ingreso": producto.fecha_ultimo_ingreso,
+                # Ofertas
+                "oferta_activa": bool(getattr(producto, 'oferta_activa', False)),
+                "tipo_oferta": getattr(producto, 'tipo_oferta', None),
+                "valor_oferta": float(getattr(producto, 'valor_oferta', 0) or 0),
+                "fecha_inicio_oferta": getattr(producto, 'fecha_inicio_oferta', None),
+                "fecha_fin_oferta": getattr(producto, 'fecha_fin_oferta', None),
+                "en_catalogo": bool(getattr(producto, 'en_catalogo', False)),
                 "categoria": categoria_nombre,
                 "proveedor": proveedor_nombre,
                 "subcategoria": subcategoria_nombre
@@ -882,15 +902,44 @@ class ProductoController:
 
             similares = query.order_by(ProductoDB.fecha_actualizacion.desc()).limit(limit).all()
 
-            return [
-                {
+            resultado = []
+            for p in similares:
+                # Calcular oferta vigente y precio final
+                now = datetime.utcnow()
+                inicio = getattr(p, 'fecha_inicio_oferta', None)
+                fin = getattr(p, 'fecha_fin_oferta', None)
+                oferta_vigente = bool(getattr(p, 'oferta_activa', False)) and (not inicio or now >= inicio) and (not fin or now <= fin)
+                precio_original = float(p.precio_venta or 0)
+                precio_final = precio_original
+                descuento_pct = 0
+                valor = float(getattr(p, 'valor_oferta', 0) or 0)
+                tipo = getattr(p, 'tipo_oferta', None)
+                if oferta_vigente and valor > 0 and tipo:
+                    if tipo == 'porcentaje':
+                        desc = max(0.0, min(100.0, float(valor)))
+                        precio_final = max(0.0, precio_original * (1 - desc / 100.0))
+                        descuento_pct = int(round(desc))
+                    elif tipo == 'fijo':
+                        precio_final = max(0.0, precio_original - float(valor))
+                        if precio_original > 0:
+                            descuento_pct = int(round(((precio_original - precio_final) / precio_original) * 100))
+
+                resultado.append({
                     "id": p.id_producto,
                     "nombre": p.nombre,
                     "imagen": p.imagen_url,
-                    "precio": float(p.precio_venta or 0),
-                }
-                for p in similares
-            ]
+                    "precio": precio_final,
+                    "precio_original": precio_original if precio_final < precio_original else None,
+                    "tiene_oferta": precio_final < precio_original,
+                    "descuento_pct": descuento_pct,
+                    "oferta_activa": bool(getattr(p, 'oferta_activa', False)),
+                    "tipo_oferta": getattr(p, 'tipo_oferta', None),
+                    "valor_oferta": valor,
+                    "fecha_inicio_oferta": inicio,
+                    "fecha_fin_oferta": fin,
+                })
+
+            return resultado
         except HTTPException:
             raise
         except Exception as e:
@@ -1411,6 +1460,74 @@ class ProductoController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error al obtener resumen de inventario: {str(e)}"
             )
+
+    @staticmethod
+    async def obtener_inventario_por_categoria(db: Session) -> list:
+        try:
+            rows = db.query(
+                ProductoDB.id_categoria.label("id_categoria"),
+                func.coalesce(func.sum(ProductoDB.cantidad_disponible), 0).label("unidades"),
+                func.coalesce(
+                    func.sum(
+                        func.coalesce(ProductoDB.precio_venta, 0) * func.coalesce(ProductoDB.cantidad_disponible, 0)
+                    ), 0
+                ).label("valor")
+            ).group_by(ProductoDB.id_categoria).all()
+            nombres = {}
+            from models.categoria import CategoriaDB
+            ids = [int(r[0]) for r in rows if r[0] is not None]
+            if ids:
+                for c in db.query(CategoriaDB.id_categoria, CategoriaDB.nombre).filter(CategoriaDB.id_categoria.in_(ids)).all():
+                    nombres[c[0]] = c[1]
+            return [
+                {
+                    "id_categoria": int(r[0]) if r[0] is not None else None,
+                    "categoria": nombres.get(int(r[0]), "Sin categoría") if r[0] is not None else "Sin categoría",
+                    "unidades": int(r[1] or 0),
+                    "valor": float(r[2] or 0),
+                }
+                for r in rows
+            ]
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al agrupar inventario por categoría: {str(e)}"
+            )
+
+    @staticmethod
+    def purge_products_without_color(db: Session) -> dict:
+        try:
+            from models.producto import ProductoDB
+            from models.venta import DetalleVentaDB, VentaDB, MovimientoInventarioDB
+            # Tratar color nulo, vacío y cadenas como 'null'/'none'
+            targets = db.query(ProductoDB).filter(
+                (ProductoDB.color.is_(None)) |
+                (func.lower(func.trim(func.coalesce(ProductoDB.color, ''))) == '') |
+                (func.lower(func.trim(func.coalesce(ProductoDB.color, ''))) == 'null') |
+                (func.lower(func.trim(func.coalesce(ProductoDB.color, ''))) == 'none')
+            ).all()
+            if not targets:
+                return {"eliminados": 0}
+            venta_ids = set()
+            for p in targets:
+                dets = db.query(DetalleVentaDB).filter(DetalleVentaDB.id_producto == p.id_producto).all()
+                for d in dets:
+                    venta_ids.add(d.id_venta)
+                    db.delete(d)
+                movs = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_producto == p.id_producto).all()
+                for m in movs:
+                    db.delete(m)
+                db.delete(p)
+            for vid in venta_ids:
+                total = db.query(func.coalesce(func.sum(DetalleVentaDB.subtotal), 0)).filter(DetalleVentaDB.id_venta == vid).scalar() or 0
+                v = db.query(VentaDB).filter(VentaDB.id_venta == vid).first()
+                if v:
+                    v.total_venta = total
+            db.commit()
+            return {"eliminados": len(targets), "ventas_ajustadas": len(venta_ids)}
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al purgar productos sin color: {str(e)}")
     
     @staticmethod
     async def crear_producto_nuevo(producto: ProductoCreate, db: Session) -> Producto:

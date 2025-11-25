@@ -114,7 +114,8 @@ async function handleLogin(e) {
 
     // Obtener los valores del formulario
     const usernameInput = document.getElementById('username').value.trim();
-    const username = digitsOnly(usernameInput);
+    const baseRut = usernameInput.includes('-') ? usernameInput.split('-')[0] : usernameInput;
+    const username = digitsOnly(baseRut);
     const password = document.getElementById('password').value;
     
     if (!username || !password) {
@@ -214,7 +215,8 @@ async function handleLogin(e) {
                 errorMessage = `Error 422: Datos no procesables. ${errorMessage}. Verifique la consola para más detalles.`;
             }
             
-            showStatus(`Error: ${errorMessage}`, 'error');
+            if (response.status === 401) { errorMessage = 'Credenciales incorrectas'; }
+            showStatus(errorMessage, 'error');
             showLoading(false);
             return; // Detener la ejecución en lugar de lanzar un error
         }
@@ -229,6 +231,13 @@ async function handleLogin(e) {
             rut: data.rut ?? digitsOnly(usernameInput),
             rol: data.role || data.rol || 'cliente'
         };
+        const workerRoles = ['administrador','admin','trabajador','vendedor','bodeguero'];
+        const isWorkerRole = workerRoles.includes(String(user.rol).toLowerCase());
+        if ((tipoSeleccionado === 'trabajador') && !isWorkerRole) {
+            showStatus('Acceso denegado: tu cuenta es de cliente y no corresponde el inicio como trabajador. Por favor usa el modo Cliente.', 'error');
+            showLoading(false);
+            return;
+        }
         
         // Guardar estado de autenticación y token usando el nombre real
         const storage = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
@@ -238,6 +247,9 @@ async function handleLogin(e) {
         storage.setItem('role', user.rol);
         // Preferir el nombre real para mostrar en el header; si no viene, usar lo ingresado
         storage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
+        document.cookie = `isLoggedIn=true; path=/; SameSite=Lax`;
+        document.cookie = `role=${encodeURIComponent(user.rol)}; path=/; SameSite=Lax`;
+        document.cookie = `loginTipo=${encodeURIComponent(tipoSeleccionado || '')}; path=/; SameSite=Lax`;
         console.log('Token guardado:', data.access_token ? 'Token presente' : 'Token ausente');
         console.log('Autenticación exitosa');
 
@@ -264,9 +276,11 @@ async function handleLogin(e) {
         // Mostrar mensaje de éxito
         showStatus('Autenticación exitosa. Redirigiendo...', 'success');
         
-        // Redirigir según tipo seleccionado (cliente/trabajador)
-        const tipoFinal = tipoSeleccionado || (user.rol === 'administrador' ? 'trabajador' : 'cliente');
-        const destino = tipoFinal === 'cliente' ? '/' : '/admin';
+        const roleStr = String(user.rol || user.role || '').toLowerCase();
+        const workerRolesArr = ['administrador','admin','trabajador','vendedor','bodeguero'];
+        const allowWorker = workerRolesArr.includes(roleStr);
+        const tipoFinal = tipoSeleccionado ? tipoSeleccionado : (allowWorker ? 'trabajador' : 'cliente');
+        const destino = tipoFinal === 'trabajador' ? '/admin' : '/';
         setTimeout(() => {
             window.location.href = destino;
         }, 800);
@@ -286,7 +300,7 @@ async function handleLogin(e) {
         
         // Mostrar mensaje de error específico
         if (error.message && (error.message.includes('credenciales') || error.message.includes('credentials'))) {
-            showStatus('Las credenciales son incorrectas. Por favor verifique su usuario y contraseña.', 'error');
+            showStatus('Credenciales incorrectas', 'error');
         } else {
             showStatus('Error de autenticación: ' + errorInfo.message, 'error');
         }

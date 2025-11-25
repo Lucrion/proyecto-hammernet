@@ -38,7 +38,7 @@ async def obtener_categoria(
 async def crear_categoria(
     categoria: CategoriaCreate,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
+    current_user: dict = Depends(require_admin)
 ):
     """ Crear una nueva categoría (solo administradores) """
     return await CategoriaController.crear_categoria(categoria, db)
@@ -49,7 +49,7 @@ async def actualizar_categoria(
     categoria_id: int,
     categoria: CategoriaUpdate,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
+    current_user: dict = Depends(require_admin)
 ):
     """ Actualizar una categoría (solo administradores) """
     return await CategoriaController.actualizar_categoria(categoria_id, categoria, db)
@@ -59,7 +59,7 @@ async def actualizar_categoria(
 async def eliminar_categoria(
     categoria_id: int,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
+    current_user: dict = Depends(require_admin)
 ):
     """ Eliminar una categoría (solo administradores) """
     return await CategoriaController.eliminar_categoria(categoria_id, db)

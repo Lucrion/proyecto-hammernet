@@ -40,7 +40,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 
 
 # Configuración del esquema OAuth2 para FastAPI
 # Esto permite usar el endpoint 'login' para obtener tokens
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 def verificar_contraseña(plain_password, hashed_password):
     """Verifica si la contraseña en texto plano coincide con el hash almacenado.
@@ -185,6 +185,11 @@ def verificar_permisos_admin(current_user, accion: str = "realizar esta acción"
     #         status_code=403,
     #         detail=f"No tienes permisos para {accion}"
     #     )
+    if getattr(current_user, "role", None) != "administrador":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"No tienes permisos para {accion}"
+        )
     return True
 
 def es_administrador(current_user) -> bool:
@@ -196,7 +201,14 @@ def es_administrador(current_user) -> bool:
     Returns:
         bool: True si el usuario es administrador, False en caso contrario
     """
-    return current_user.role == "administrador"
+    try:
+        if getattr(current_user, "role", None) == "administrador":
+            return True
+        if getattr(current_user, "rol_ref", None) and getattr(current_user.rol_ref, "nombre", None) == "administrador":
+            return True
+    except Exception:
+        pass
+    return False
 
 
 async def require_admin(current_user = Depends(get_current_user)):
@@ -211,4 +223,11 @@ async def require_admin(current_user = Depends(get_current_user)):
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="No tienes permisos de administrador para realizar esta acción"
     #     )
+    if not es_administrador(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permisos de administrador para realizar esta acción")
     return current_user
+
+# Validación estricta de clave JWT en producción
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")
+if ENVIRONMENT == "production" and SECRET_KEY == "clave_por_defecto_desarrollo_no_usar_en_produccion":
+    raise RuntimeError("JWT_SECRET_KEY no configurado en producción")

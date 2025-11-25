@@ -9,6 +9,9 @@ const PUBLIC_CORS_CREDENTIALS = import.meta.env.PUBLIC_CORS_CREDENTIALS;
 const PUBLIC_CORS_MODE = import.meta.env.PUBLIC_CORS_MODE;
 const PUBLIC_API_TIMEOUT = import.meta.env.PUBLIC_API_TIMEOUT;
 const PUBLIC_ENVIRONMENT = import.meta.env.PUBLIC_ENVIRONMENT;
+const PUBLIC_ANALYTICS_ENABLED = import.meta.env.PUBLIC_ANALYTICS_ENABLED;
+const FRONTEND_URL = import.meta.env.FRONTEND_URL;
+const GOOGLE_MAPS_API_KEY = import.meta.env.GOOGLE_MAPS_API_KEY;
 
 // Detectar si estamos en desarrollo
 const isDevelopment = PUBLIC_ENVIRONMENT === 'development';
@@ -21,6 +24,9 @@ const isDevelopment = PUBLIC_ENVIRONMENT === 'development';
   PUBLIC_CORS_MODE, 
   PUBLIC_API_TIMEOUT, 
   PUBLIC_ENVIRONMENT,
+  PUBLIC_ANALYTICS_ENABLED,
+  FRONTEND_URL,
+  GOOGLE_MAPS_API_KEY,
   isDevelopment 
 }}>
   // Script para cargar variables de entorno en el navegador
@@ -48,12 +54,16 @@ const isDevelopment = PUBLIC_ENVIRONMENT === 'development';
       PUBLIC_API_TIMEOUT: PUBLIC_API_TIMEOUT,
       
       // Entorno
-      PUBLIC_ENVIRONMENT: isDevEnvironment ? 'development' : 'production'
+      PUBLIC_ENVIRONMENT: isDevEnvironment ? 'development' : 'production',
+      PUBLIC_ANALYTICS_ENABLED: PUBLIC_ANALYTICS_ENABLED,
+      FRONTEND_URL: FRONTEND_URL,
+      GOOGLE_MAPS_API_KEY: GOOGLE_MAPS_API_KEY
     };
     
     // Hacer las variables disponibles globalmente
     if (typeof window !== 'undefined') {
       window.__ENV__ = envConfig;
+      try { window.GOOGLE_MAPS_API_KEY = GOOGLE_MAPS_API_KEY; } catch {}
       
       // También crear una función helper para acceder a las variables
       window.getEnvVar = function(name, defaultValue = undefined) {

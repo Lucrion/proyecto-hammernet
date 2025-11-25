@@ -2,11 +2,7 @@
 import { getData, postData, updateData, deleteData } from '../utils/api.js';
 import { formatRutUI } from '../utils/rut.js';
 
-// Verificar autenticación
-const token = localStorage.getItem('token');
-if (!token) {
-    window.location.href = '/login';
-}
+// Autenticación manejada por AdminLayout; no forzar redirección aquí
 
 // Variables globales
 let proveedores = [];

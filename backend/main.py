@@ -3,6 +3,7 @@
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 import uvicorn
 import os
 from dotenv import load_dotenv
@@ -27,6 +28,7 @@ from views.despacho_routes import router as despacho_router
 from views.auditoria_routes import router as auditoria_router
 from views.dashboard_routes import router as dashboard_router
 from views.pago_routes import router as pago_router
+from views.analytics_routes import router as analytics_router
 
 # Verificar que las variables de entorno de Cloudinary estén configuradas
 cloudinary_vars = {
@@ -49,6 +51,8 @@ app = FastAPI(
     version="1.0.0",
     root_path=os.environ.get("ROOT_PATH", "")
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Crear las tablas en la base de datos (solo si no existen)
 try:
@@ -74,6 +78,23 @@ app.add_middleware(
     expose_headers=["Authorization"],
     max_age=3600
 )
+
+@app.middleware("http")
+async def cache_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    try:
+        path = request.url.path or ""
+        method = request.method.upper()
+        if method == "GET":
+            if path.startswith("/api/productos"):
+                response.headers["Cache-Control"] = "public, max-age=60"
+            elif path.startswith("/api/dashboard"):
+                response.headers["Cache-Control"] = "public, max-age=30"
+            elif path.startswith("/api/ventas"):
+                response.headers["Cache-Control"] = "no-cache"
+        return response
+    except Exception:
+        return response
 
 # Endpoint de salud del sistema
 @app.get("/health", tags=["Sistema"])
@@ -101,6 +122,7 @@ app.include_router(producto_router)
 app.include_router(mensaje_router)
 app.include_router(venta_router)
 app.include_router(pago_router)
+app.include_router(analytics_router)
 app.include_router(despacho_router)
 app.include_router(auditoria_router)
 app.include_router(dashboard_router)

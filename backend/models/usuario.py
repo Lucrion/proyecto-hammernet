@@ -5,7 +5,7 @@
 Modelos relacionados con usuarios
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
@@ -19,6 +19,7 @@ class UsuarioDB(Base):
     __tablename__ = "usuarios"
     
     id_usuario = Column(Integer, primary_key=True, index=True)
+    id_rol = Column(Integer, ForeignKey("roles.id_rol"), nullable=True)
     nombre = Column(String(50), nullable=False)
     apellido = Column(String(50), nullable=True)
     # RUT numérico (solo dígitos), identificador único
@@ -44,6 +45,7 @@ class UsuarioDB(Base):
     )
     movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="usuario")
     direcciones_despacho = relationship("DespachoDB", back_populates="usuario", cascade="all, delete-orphan")
+    rol_ref = relationship("RolDB", back_populates="usuarios")
 
 
 # Modelos Pydantic para validación y serialización

@@ -145,45 +145,48 @@ import indexScriptUrl from '../scripts/pages/index.js?url';
 						return api.replace(/\/api$/, '');
 					} catch { return ''; }
 				}
-				function normalizeImageUrl(u) {
-					if (!u) return null;
-					const s = String(u);
-					if (/^(https?:\/\/|data:)/i.test(s)) return s;
-					const host = getApiHost();
-					if (s.startsWith('/')) return host + s;
-					return host + '/' + s;
-				}
+                function normalizeImageUrl(u) {
+                    if (!u) return null;
+                    const s = String(u);
+                    if (/^(https?:\/\/|data:)/i.test(s)) return s;
+                    const host = getApiHost();
+                    const base = host || (typeof location !== 'undefined' ? location.origin : '');
+                    if (s.startsWith('/')) return base ? (base + s) : s;
+                    return base ? (base + '/' + s) : s;
+                }
 
-				function render(items) {
-					cont.innerHTML = items.map(p => {
-						const id = p.id_producto ?? p.id;
-						const imagen = normalizeImageUrl(p.imagen_url) || '/images/logos/herramientas.webp';
-						const precioBase = Number(p.precio_venta ?? p.precio ?? 0);
-						const precio = Number(p.precio_final ?? precioBase);
-						const tieneOferta = precioBase > 0 && precio < precioBase;
-						const nombre = p.nombre || 'Producto';
-						const desc = (p.descripcion || '').trim();
-						const short = desc.length > 100 ? desc.slice(0, 100) + '...' : desc;
-						return `
-							<div class="flex-none bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden snap-start inicio-card" style="flex:0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));" onclick="if(!window.__homeDragGuard){ window.location.href='/productos/${id}'; }">
-								<div class="relative w-full aspect-square bg-white">
-									${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
-									<div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
-										<img src="${imagen}" alt="${nombre}" class="w-full h-full object-cover pointer-events-none select-none" loading="lazy" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
-									</div>
-								</div>
-								<div class="p-4 flex-1 flex flex-col">
-									<h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${nombre}</h3>
-									${short ? `<p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${short}</p>` : ''}
-									<div class="mt-auto flex items-center justify-center gap-2">
-										${tieneOferta ? '<span class="text-xs line-through text-gray-500">$' + formatearPrecio(precioBase) + '</span>' : ''}
-										<span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
-									</div>
-								</div>
-							</div>
-						`;
-					}).join('');
-				}
+                function render(items) {
+                    cont.innerHTML = items.map(p => {
+                        const id = p.id_producto ?? p.id;
+                        const imagen = normalizeImageUrl(p.imagen_url) || '/images/logos/herramientas.webp';
+                        const precioBase = Number(p.precio_venta ?? p.precio ?? 0);
+                        const precio = Number(p.precio_final ?? precioBase);
+                        const tieneOferta = Boolean(p.oferta_activa) || (precioBase > 0 && precio < precioBase);
+                        const percCalc = tieneOferta ? Math.round((1 - precio / precioBase) * 100) : 0;
+                        const perc = Number(p.tipo_oferta === 'porcentaje' ? (p.valor_oferta ?? percCalc) : percCalc) || 0;
+                        const nombre = p.nombre || 'Producto';
+                        const desc = (p.descripcion || '').trim();
+                        const short = desc.length > 100 ? desc.slice(0, 100) + '...' : desc;
+                        return `
+                            <div class="flex-none bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden snap-start inicio-card" style="flex:0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));" onclick="if(!window.__homeDragGuard){ window.location.href='/productos/${id}'; }">
+                                <div class="relative w-full aspect-square bg-white">
+                                    ${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
+                                    <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
+                                        <img src="${imagen}" alt="${nombre}" class="w-full h-full object-cover pointer-events-none select-none" loading="lazy" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
+                                    </div>
+                                </div>
+                                <div class="p-4 flex-1 flex flex-col">
+                                    <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${nombre}</h3>
+                                    ${short ? `<p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${short}</p>` : ''}
+                                    <div class="mt-auto flex items-center justify-center gap-2">
+                                        ${perc > 0 ? '<span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-' + perc + '%</span>' : ''}
+                                        <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(precio)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
 
 				const getGapPx = () => {
 					const g = window.getComputedStyle(cont).gap || '24px';

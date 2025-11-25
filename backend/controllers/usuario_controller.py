@@ -415,27 +415,45 @@ class UsuarioController:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Usuario no encontrado"
                 )
+            # Solo permitir si está desactivado
+            if usuario.activo:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El usuario debe estar desactivado antes de eliminar permanentemente")
+            # No permitir eliminar clientes vía permanente (solo trabajadores)
+            if (usuario.role or '').lower() == 'cliente':
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se permite eliminar clientes permanentemente")
             
             # Borrado en cascada manual de datos relacionados al usuario
-            from models.venta import VentaDB, MovimientoInventarioDB
+            from models.venta import VentaDB, MovimientoInventarioDB, DetalleVentaDB
             from models.despacho import DespachoDB
+            from models.pago import PagoDB
+            from models.auditoria import AuditoriaDB
 
             # 1) Eliminar movimientos de inventario asociados al usuario (sin venta)
             movimientos_usuario = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_usuario == usuario_id).all()
             for m in movimientos_usuario:
                 db.delete(m)
 
-            # 2) Obtener ventas del usuario
+            # 2) Obtener ventas del usuario (como vendedor) y como cliente
             ventas_usuario = db.query(VentaDB).filter(VentaDB.id_usuario == usuario_id).all()
+            ventas_cliente = db.query(VentaDB).filter(VentaDB.cliente_id == usuario_id).all()
+            ventas_todas = ventas_usuario + ventas_cliente
 
             # 2a) Eliminar movimientos de inventario asociados a cada venta (id_venta)
-            for v in ventas_usuario:
+            for v in ventas_todas:
                 movimientos_por_venta = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_venta == v.id_venta).all()
                 for mv in movimientos_por_venta:
                     db.delete(mv)
+                # Eliminar pagos asociados a la venta
+                pagos = db.query(PagoDB).filter(PagoDB.id_venta == v.id_venta).all()
+                for p in pagos:
+                    db.delete(p)
+                # Eliminar detalles de venta
+                detalles = db.query(DetalleVentaDB).filter(DetalleVentaDB.id_venta == v.id_venta).all()
+                for d in detalles:
+                    db.delete(d)
 
             # 2b) Eliminar ventas (cascade elimina detalles_venta)
-            for v in ventas_usuario:
+            for v in ventas_todas:
                 db.delete(v)
 
             # 3) Eliminar direcciones de despacho asociadas
@@ -457,3 +475,123 @@ class UsuarioController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error al eliminar usuario permanentemente: {str(e)}"
             )
+
+    @staticmethod
+    async def eliminar_usuarios_desactivados(db: Session) -> dict:
+        """
+        Elimina permanentemente todos los usuarios desactivados (clientes y trabajadores)
+        realizando borrado en cascada seguro de datos relacionados.
+        """
+        try:
+            usuarios = db.query(UsuarioDB).filter(UsuarioDB.activo == False).all()
+            eliminados = 0
+            for usuario in usuarios:
+                uid = usuario.id_usuario
+                from models.venta import VentaDB, MovimientoInventarioDB, DetalleVentaDB
+                from models.despacho import DespachoDB
+                from models.pago import PagoDB
+                from models.auditoria import AuditoriaDB
+
+                mov_sin_venta = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_usuario == uid, MovimientoInventarioDB.id_venta == None).all()
+                for m in mov_sin_venta:
+                    db.delete(m)
+
+                ventas_usuario = db.query(VentaDB).filter((VentaDB.id_usuario == uid) | (VentaDB.cliente_id == uid)).all()
+                for v in ventas_usuario:
+                    movs = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_venta == v.id_venta).all()
+                    for mv in movs:
+                        db.delete(mv)
+                    pays = db.query(PagoDB).filter(PagoDB.id_venta == v.id_venta).all()
+                    for p in pays:
+                        db.delete(p)
+                    dets = db.query(DetalleVentaDB).filter(DetalleVentaDB.id_venta == v.id_venta).all()
+                    for d in dets:
+                        db.delete(d)
+                    db.delete(v)
+
+                despachos = db.query(DespachoDB).filter(DespachoDB.id_usuario == uid).all()
+                for d in despachos:
+                    db.delete(d)
+
+                auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_id == uid).all()
+                for a in auds:
+                    db.delete(a)
+
+                db.delete(usuario)
+                eliminados += 1
+
+            db.commit()
+            return {"eliminados": eliminados}
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al eliminar usuarios desactivados: {str(e)}")
+            # 3b) Eliminar auditoría asociada al usuario
+            auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_id == usuario_id).all()
+            for a in auds:
+                db.delete(a)
+
+    @staticmethod
+    async def eliminar_clientes_y_compras(db: Session) -> dict:
+        """
+        Elimina de la base de datos todos los usuarios con role "cliente" y
+        borra en cascada sus compras (ventas), pagos, detalles, movimientos de inventario,
+        direcciones de despacho y auditoría.
+        """
+        try:
+            from models.venta import VentaDB, MovimientoInventarioDB, DetalleVentaDB
+            from models.despacho import DespachoDB
+            from models.pago import PagoDB
+            from models.auditoria import AuditoriaDB
+
+            from sqlalchemy import func
+            clientes = db.query(UsuarioDB).filter(func.lower(UsuarioDB.role) == 'cliente').all()
+            eliminados = 0
+
+            for cliente in clientes:
+                uid = cliente.id_usuario
+
+                # Ventas donde el usuario es cliente
+                ventas_cliente = db.query(VentaDB).filter(VentaDB.cliente_id == uid).all()
+                # Ventas donde el usuario aparece como vendedor (por si acaso en datos de prueba)
+                ventas_usuario = db.query(VentaDB).filter(VentaDB.id_usuario == uid).all()
+                ventas_todas = ventas_cliente + ventas_usuario
+                for v in ventas_todas:
+                    # Eliminar movimientos generados por la venta
+                    movs = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_venta == v.id_venta).all()
+                    for mv in movs:
+                        db.delete(mv)
+                    # Eliminar pagos de la venta
+                    pays = db.query(PagoDB).filter(PagoDB.id_venta == v.id_venta).all()
+                    for p in pays:
+                        db.delete(p)
+                    # Eliminar detalles de la venta
+                    dets = db.query(DetalleVentaDB).filter(DetalleVentaDB.id_venta == v.id_venta).all()
+                    for d in dets:
+                        db.delete(d)
+                    # Eliminar la venta
+                    db.delete(v)
+
+                # También eliminar movimientos de inventario sueltos del cliente (si existieran)
+                mov_sin_venta = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_usuario == uid, MovimientoInventarioDB.id_venta == None).all()
+                for m in mov_sin_venta:
+                    db.delete(m)
+
+                # Eliminar direcciones de despacho
+                despachos = db.query(DespachoDB).filter(DespachoDB.id_usuario == uid).all()
+                for d in despachos:
+                    db.delete(d)
+
+                # Eliminar auditoría asociada al usuario
+                auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_id == uid).all()
+                for a in auds:
+                    db.delete(a)
+
+                # Finalmente eliminar el usuario cliente
+                db.delete(cliente)
+                eliminados += 1
+
+            db.commit()
+            return {"clientes_eliminados": eliminados}
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al eliminar clientes y compras: {str(e)}")

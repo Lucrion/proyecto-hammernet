@@ -81,81 +81,84 @@ import EnvLoader from '../components/EnvLoader.astro';
 				</ul>
 			</nav>
 			
-			<div class="mt-auto">
-			<button id="btnLogout" class="w-full flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-				</svg>
-				Cerrar Sesión
-			</button>
-		</div>
+
 		</aside>
 
 		<!-- Contenido principal -->
 		<main class="flex-1 p-8">
 			<div class="flex justify-between items-center mb-8">
 				<h1 class="text-2xl font-bold text-gray-900" id="pageTitle">{title}</h1>
-				<div class="flex items-center space-x-4">
-					<button class="text-gray-500 hover:text-gray-700">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-						</svg>
-					</button>
-					<div class="flex items-center space-x-2">
-						<img src="/images/logos/logo_bn.webp" alt="Usuario" class="h-8 w-8 rounded-full bg-gray-200">
-						<span class="text-gray-700" id="nombreUsuario">Administrador</span>
-					</div>
-				</div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <button id="btnNotificaciones" class="text-gray-500 hover:text-gray-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                        </button>
+                        <span id="notifBadge" class="hidden absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">0</span>
+                        <div id="notifPanel" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg ring-1 ring-gray-200 z-50">
+                            <div class="px-4 py-2 border-b border-gray-100 text-sm font-medium text-gray-700">Notificaciones</div>
+                            <div id="notifList" class="max-h-80 overflow-auto">
+                                <div class="px-4 py-3 text-sm text-gray-500">Sin notificaciones</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <img src="/images/logos/logo_bn.webp" alt="Usuario" class="h-8 w-8 rounded-full bg-gray-200">
+                        <span class="text-gray-700" id="nombreUsuario">Administrador</span>
+                    </div>
+                </div>
 			</div>
 			
 			<slot />
 		</main>
+
+		<!-- Botón flotante de cerrar sesión (solo escritorio) -->
+        <button id="btnLogoutFloating" class="hidden lg:flex fixed left-6 bottom-6 items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span>Cerrar sesión</span>
+        </button>
 	</body>
 </html>
 
 <script>
-// Script para obtener el nombre del usuario desde localStorage y manejar el logout
 document.addEventListener('DOMContentLoaded', () => {
     const nombreUsuarioElement = document.getElementById('nombreUsuario');
     const nombreUsuario = (sessionStorage.getItem('nombreUsuario') || localStorage.getItem('nombreUsuario'));
     const btnLogout = document.getElementById('btnLogout');
-    
-    // Verificar si el usuario está autenticado (priorizar sessionStorage para trabajador)
-    const isLoggedIn = sessionStorage.getItem('isLoggedIn') || localStorage.getItem('isLoggedIn');
+    const btnLogoutFloating = document.getElementById('btnLogoutFloating');
+    const btnNotificaciones = document.getElementById('btnNotificaciones');
+    const notifPanel = document.getElementById('notifPanel');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifList = document.getElementById('notifList');
+
+    const isLoggedIn = (sessionStorage.getItem('isLoggedIn') === 'true') || (localStorage.getItem('isLoggedIn') === 'true');
     const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     const storedRole = sessionStorage.getItem('role') || localStorage.getItem('role');
+    const loginTipo = localStorage.getItem('loginTipo') || '';
     const storedUserRaw = sessionStorage.getItem('user') || localStorage.getItem('user');
     let storedUserRole = null;
     try {
         const u = storedUserRaw ? JSON.parse(storedUserRaw) : null;
         storedUserRole = u && (u.rol || u.role) ? (u.rol || u.role) : null;
     } catch {}
-    console.log('AdminLayout - Estado de autenticación:', isLoggedIn);
-    console.log('AdminLayout - Token:', token ? 'Token presente' : 'Token ausente');
-    
-    // VALIDACIÓN TEMPORALMENTE DESACTIVADA: No bloquear por token ni rol
-    // if (!isLoggedIn || isLoggedIn !== 'true' || !token) {
-    //     console.warn('Usuario no autenticado o token ausente, redirigiendo al login');
-    //     window.location.href = '/login';
-    //     return;
-    // }
-    // const effectiveRole = storedUserRole || storedRole || 'cliente';
-    // if (effectiveRole !== 'administrador') {
-    //     console.warn('Acceso denegado: rol no administrador, redirigiendo al inicio');
-    //     window.location.href = '/';
-    //     return;
-    // }
-    
-    // Mostrar el nombre del usuario
+    const role = String(storedUserRole || storedRole || loginTipo || '').toLowerCase();
+    const allowedRoles = ['administrador','admin','trabajador','vendedor','bodeguero'];
+
+    if (!isLoggedIn) {
+        window.location.href = '/login?tipo=trabajador';
+        return;
+    }
+    if (!allowedRoles.includes(role)) {
+        window.location.href = '/';
+        return;
+    }
+
     if (nombreUsuario && nombreUsuarioElement) {
         nombreUsuarioElement.textContent = nombreUsuario;
     }
-	
-	// El título ya está en negrita con la clase font-bold, no necesita JavaScript adicional
-	
-    // Manejar el evento de logout: limpiar ambos storages
-    if (btnLogout) {
-        btnLogout.addEventListener('click', () => {
+
+    function doLogout() {
             try {
                 sessionStorage.removeItem('isLoggedIn');
                 sessionStorage.removeItem('nombreUsuario');
@@ -170,10 +173,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('user');
                 localStorage.removeItem('role');
             } catch {}
-            
-            // Redirigir al inicio
+            try {
+                document.cookie = 'isLoggedIn=; Max-Age=0; path=/; SameSite=Lax';
+                document.cookie = 'role=; Max-Age=0; path=/; SameSite=Lax';
+                document.cookie = 'loginTipo=; Max-Age=0; path=/; SameSite=Lax';
+            } catch {}
             window.location.href = '/';
+    }
+    if (btnLogout) btnLogout.addEventListener('click', doLogout);
+    if (btnLogoutFloating) btnLogoutFloating.addEventListener('click', doLogout);
+
+    async function fetchJSON(url) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+    }
+
+    function renderNotifs(items) {
+        const count = items.length;
+        if (count > 0) {
+            notifBadge.textContent = String(count);
+            notifBadge.classList.remove('hidden');
+            notifList.innerHTML = items.map(p => `
+                <button data-name="${encodeURIComponent(p.nombre)}" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-red-600 mt-1"></span>
+                    <span class="text-sm text-gray-800">${p.nombre} — Stock: ${p.cantidad_disponible}</span>
+                </button>
+            `).join('');
+            Array.from(notifList.querySelectorAll('button')).forEach(b => {
+                b.onclick = () => {
+                    const n = decodeURIComponent(b.getAttribute('data-name'));
+                    window.location.href = '/admin/inventario?q=' + encodeURIComponent(n);
+                };
+            });
+        } else {
+            notifBadge.classList.add('hidden');
+            notifList.innerHTML = '<div class="px-4 py-3 text-sm text-gray-500">Sin notificaciones</div>';
+        }
+    }
+
+    async function loadLowStock() {
+        try {
+            const productos = await fetchJSON('/api/productos/');
+            const low = Array.isArray(productos) ? productos.filter(p => {
+                const c = Number(p.cantidad_disponible || 0);
+                const min = Number(p.stock_minimo || 0);
+                const thr = min > 0 ? min : 5;
+                return c >= 0 && c <= thr;
+            }) : [];
+            renderNotifs(low.slice(0, 50));
+        } catch(e) {
+            renderNotifs([]);
+        }
+    }
+
+    if (btnNotificaciones && notifPanel) {
+        btnNotificaciones.onclick = () => {
+            notifPanel.classList.toggle('hidden');
+        };
+        document.addEventListener('click', (ev) => {
+            const t = ev.target;
+            if (!notifPanel.contains(t) && !btnNotificaciones.contains(t)) {
+                notifPanel.classList.add('hidden');
+            }
         });
+        loadLowStock();
     }
 });
 </script>
