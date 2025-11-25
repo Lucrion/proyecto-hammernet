@@ -108,17 +108,31 @@ def crear_usuario_admin():
             role_val = 'administrador'
             activo_val = True
             username_val = os.getenv('ADMIN_USERNAME', 'admin')
+            username_required_row = conn.execute(text("SELECT is_nullable FROM information_schema.columns WHERE table_name='usuarios' AND column_name='username'")).fetchone()
+            username_required = bool(username_required_row and (str(username_required_row[0]).upper() == 'NO'))
 
             # Verificar existencia por rut como texto (compatible con varchar/int)
             exists_sql = "SELECT 1 FROM usuarios WHERE CAST(rut AS TEXT) = :rut_txt LIMIT 1"
             exists_row = conn.execute(text(exists_sql), {"rut_txt": admin_rut_str}).fetchone()
+            exists_username_row = None
+            if 'username' in cols_set:
+                exists_username_row = conn.execute(text("SELECT 1 FROM usuarios WHERE username = :u LIMIT 1"), {"u": username_val}).fetchone()
 
-            if exists_row:
+            if exists_username_row:
+                set_parts = ["nombre=:nombre", "password=:password", "role=:role", "activo=:activo"]
+                params = {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "username": username_val}
+                up_sql = "UPDATE usuarios SET nombre=:nombre, password=:password, role=:role, activo=:activo WHERE username=:username"
+                conn.execute(text(up_sql), params)
+                db.commit()
+                print("✅ Usuario administrador actualizado exitosamente")
+                print(f"   RUT: {admin_rut_str}")
+                print(f"   Contraseña: {admin_password}")
+                print(f"   Rol: administrador")
+                print(f"   Email: {admin_email}")
+                return True
+            elif exists_row:
                 set_parts = ["nombre=:nombre", "password=:password", "role=:role", "activo=:activo"]
                 params = {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "rut_txt": admin_rut_str}
-                if 'username' in cols_set:
-                    set_parts.append("username=:username")
-                    params["username"] = username_val
                 up_sql = f"UPDATE usuarios SET {', '.join(set_parts)} WHERE CAST(rut AS TEXT) = :rut_txt"
                 conn.execute(text(up_sql), params)
                 db.commit()
@@ -132,6 +146,13 @@ def crear_usuario_admin():
                 insert_cols = ["nombre", "rut", "email", "password", "role", "activo"]
                 insert_cols = [c for c in insert_cols if c in cols_set]
                 if 'username' in cols_set:
+                    candidate = username_val
+                    if username_required:
+                        i = 0
+                        while conn.execute(text("SELECT 1 FROM usuarios WHERE username=:u LIMIT 1"), {"u": candidate}).fetchone():
+                            i += 1
+                            candidate = f"{username_val}{i}"
+                    username_val = candidate
                     insert_cols.append('username')
                 placeholders = ",".join([f":{c}" for c in insert_cols])
                 cols_str = ",".join(insert_cols)
