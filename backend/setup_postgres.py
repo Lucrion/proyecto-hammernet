@@ -91,55 +91,49 @@ def crear_tablas():
         return False
 
 def crear_usuario_admin():
-    """Crea el usuario administrador inicial"""
     try:
         db = next(get_db())
 
-        # Verificar si el usuario admin ya existe (por RUT)
         admin_rut_str = os.getenv('ADMIN_RUT', '0')
-        # Convertir a entero (remover cualquier no dígito por si viene con puntos/guion)
         admin_rut_digits = re.sub(r"\D", "", admin_rut_str)
         admin_rut = int(admin_rut_digits) if admin_rut_digits else None
         admin_existente = db.query(UsuarioDB).filter(UsuarioDB.rut == admin_rut).first()
-        if admin_existente:
-            print("ℹ️  El usuario administrador ya existe")
-            return True
 
-        # Crear usuario administrador
         admin_password = os.getenv('ADMIN_PASSWORD', '123')
         admin_email = os.getenv('ADMIN_EMAIL', 'admin@localhost')
-        if admin_existente:
-            # Actualizar contraseña y asegurar rol/activo
-            admin_existente.password = hash_contraseña(admin_password)
-            admin_existente.role = 'administrador'
-            admin_existente.activo = True
-            db.commit()
-            print("✅ Usuario administrador actualizado exitosamente")
-            print(f"   RUT: {admin_rut}")
-            print(f"   Contraseña: {admin_password}")
-            print(f"   Rol: administrador")
-            print(f"   Email: {admin_email}")
-            return True
-        else:
-            admin_user = UsuarioDB(
-                nombre='Administrador',
-                apellido=None,
-                rut=admin_rut,
-                email=admin_email,
-                telefono=None,
-                password=hash_contraseña(admin_password),
-                role='administrador',
-                activo=True
-            )
+        with engine.connect() as conn:
+            cols = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='usuarios'"))
+            cols_set = {r[0] for r in cols.fetchall()}
+            nombre_val = 'Administrador'
+            password_hash = hash_contraseña(admin_password)
+            role_val = 'administrador'
+            activo_val = True
 
-            db.add(admin_user)
-            db.commit()
-            print("✅ Usuario administrador creado exitosamente")
-            print(f"   RUT: {admin_rut}")
-            print(f"   Contraseña: {admin_password}")
-            print(f"   Rol: administrador")
-            print(f"   Email: {admin_email}")
-            return True
+            if admin_existente:
+                up_sql = "UPDATE usuarios SET nombre=:nombre, password=:password, role=:role, activo=:activo WHERE rut=:rut"
+                conn.execute(text(up_sql), {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "rut": admin_rut})
+                db.commit()
+                print("✅ Usuario administrador actualizado exitosamente")
+                print(f"   RUT: {admin_rut}")
+                print(f"   Contraseña: {admin_password}")
+                print(f"   Rol: administrador")
+                print(f"   Email: {admin_email}")
+                return True
+            else:
+                insert_cols = ["nombre", "rut", "email", "password", "role", "activo"]
+                insert_cols = [c for c in insert_cols if c in cols_set]
+                placeholders = ",".join([f":{c}" for c in insert_cols])
+                cols_str = ",".join(insert_cols)
+                ins_sql = f"INSERT INTO usuarios ({cols_str}) VALUES ({placeholders})"
+                params = {"nombre": nombre_val, "rut": admin_rut, "email": admin_email, "password": password_hash, "role": role_val, "activo": activo_val}
+                conn.execute(text(ins_sql), params)
+                db.commit()
+                print("✅ Usuario administrador creado exitosamente")
+                print(f"   RUT: {admin_rut}")
+                print(f"   Contraseña: {admin_password}")
+                print(f"   Rol: administrador")
+                print(f"   Email: {admin_email}")
+                return True
     except Exception as e:
         print(f"❌ Error al crear usuario administrador: {str(e)}")
         return False
