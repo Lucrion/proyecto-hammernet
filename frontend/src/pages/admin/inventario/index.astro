@@ -32,26 +32,6 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         </div>
     </div>
 
-    <!-- Secciones internas tipo tabs -->
-    <div class="p-4">
-        <div id="sectionProveedores" class="section-content hidden">
-            <h2 class="text-lg font-semibold mb-3">Gestión de Proveedores</h2>
-            <p class="text-sm text-gray-600 mb-2">Aquí puedes administrar proveedores desde esta vista o abrir la página completa.</p>
-            <a href="/admin/proveedores" class="text-blue-600 hover:text-blue-800 underline">Abrir página completa de Proveedores</a>
-        </div>
-
-        <div id="sectionCategorias" class="section-content hidden">
-            <h2 class="text-lg font-semibold mb-3">Gestión de Categorías</h2>
-            <p class="text-sm text-gray-600 mb-2">Administra categorías desde aquí o abre la página completa.</p>
-            <a href="/admin/categorias" class="text-blue-600 hover:text-blue-800 underline">Abrir página completa de Categorías</a>
-        </div>
-
-        <div id="sectionSubcategorias" class="section-content hidden">
-            <h2 class="text-lg font-semibold mb-3">Gestión de Subcategorías</h2>
-            <p class="text-sm text-gray-600 mb-2">Administra subcategorías desde aquí o abre la página completa.</p>
-            <a href="/admin/subcategorias" class="text-blue-600 hover:text-blue-800 underline">Abrir página completa de Subcategorías</a>
-        </div>
-    </div>
 
     <!-- Filtros -->
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4 items-end">
@@ -558,15 +538,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     function cargarDatosIniciales() { cargarCategorias(); cargarProveedores(); }
     window.editarInventario = editarInventario; window.eliminarInventario = eliminarInventario;
     btnNuevoInventario.addEventListener('click', abrirModalNuevo);
-    function showSection(sectionId) {
-        document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
-        const active = document.getElementById(sectionId);
-        if (active) active.classList.remove('hidden');
-    }
-
-    btnProveedores.addEventListener('click', () => { showSection('sectionProveedores'); });
-    btnCategorias.addEventListener('click', () => { showSection('sectionCategorias'); });
-    if (btnSubcategorias) { btnSubcategorias.addEventListener('click', () => { showSection('sectionSubcategorias'); }); }
+    if (btnProveedores) btnProveedores.addEventListener('click', () => { window.location.href = '/admin/proveedores'; });
+    if (btnCategorias) btnCategorias.addEventListener('click', () => { window.location.href = '/admin/categorias'; });
+    if (btnSubcategorias) btnSubcategorias.addEventListener('click', () => { window.location.href = '/admin/subcategorias'; });
     btnCancelar.addEventListener('click', () => modalInventario.classList.add('hidden'));
     btnCancelarEliminar.addEventListener('click', () => modalEliminar.classList.add('hidden'));
     btnConfirmarEliminar.addEventListener('click', confirmarEliminacion);
