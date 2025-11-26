@@ -1,8 +1,27 @@
 import type { APIContext } from 'astro';
 
+const env = import.meta.env.PUBLIC_ENVIRONMENT;
+const devApiDefault = 'http://localhost:8000/api';
+const apiBase = env === 'development'
+  ? (String(import.meta.env.PUBLIC_API_URL || '').startsWith('http') ? import.meta.env.PUBLIC_API_URL : devApiDefault)
+  : import.meta.env.PUBLIC_API_URL_PRODUCTION;
+let didHealthPing = false;
+async function pingHealthOnce() {
+  if (didHealthPing) return;
+  didHealthPing = true;
+  try {
+    const url = String(apiBase || devApiDefault).replace(/\/$/, '') + '/health';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => { try { controller.abort(); } catch {} }, 5000);
+    await fetch(url, { method: 'GET', signal: controller.signal }).catch(() => {});
+    clearTimeout(timeoutId);
+  } catch {}
+}
+
 export async function onRequest(context: APIContext, next: Function) {
   const url = new URL(context.request.url);
   const path = url.pathname;
+  pingHealthOnce();
 
   if (path.startsWith('/admin')) {
     const raw = context.request.headers.get('cookie') || '';
