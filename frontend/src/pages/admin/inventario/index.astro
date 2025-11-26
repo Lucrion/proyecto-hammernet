@@ -236,7 +236,333 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         </div>
     </div>
 
-    <script type="module">import '../../scripts/admin/inventario.js';</script>
+    <script type="module">
+    import { getData, fetchWithAuth, deleteData, updateData } from '../../scripts/utils/api.js';
+
+    let inventarios = [];
+    let productos = [];
+    let categorias = [];
+    let proveedores = [];
+    let subcategorias = [];
+    let paginaActual = 0;
+    const registrosPorPagina = 20;
+    let totalRegistros = 0;
+    let inventarioEditando = null;
+    let inventarioAEliminar = null;
+
+    const tablaInventario = document.getElementById('tablaInventario');
+    const modalInventario = document.getElementById('modalInventario');
+    const modalEliminar = document.getElementById('modalEliminar');
+    const formInventario = document.getElementById('formInventario');
+    const tituloModal = document.getElementById('tituloModal');
+    const btnNuevoInventario = document.getElementById('btnNuevoInventario');
+    const btnProveedores = document.getElementById('btnProveedores');
+    const btnCategorias = document.getElementById('btnCategorias');
+    const btnSubcategorias = document.getElementById('btnSubcategorias');
+    const btnCancelar = document.getElementById('btnCancelar');
+    const btnCancelarEliminar = document.getElementById('btnCancelarEliminar');
+    const btnConfirmarEliminar = document.getElementById('btnConfirmarEliminar');
+    const btnAnterior = document.getElementById('btnAnterior');
+    const btnSiguiente = document.getElementById('btnSiguiente');
+    const btnAnteriorMobile = document.getElementById('btnAnteriorMobile');
+    const btnSiguienteMobile = document.getElementById('btnSiguienteMobile');
+    const btnFiltrar = document.getElementById('btnFiltrar');
+
+    function getAuthToken() {
+        const token = (sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('access_token'));
+        return token;
+    }
+    function verificarAuth() { const token = getAuthToken(); if (!token) { window.location.href = '/login?tipo=trabajador'; return false; } return true; }
+
+    async function cargarProductos() { try { const data = await getData(`/api/productos/?_=${Date.now()}`); productos = data; } catch (error) { console.error('Error al cargar productos:', error); } }
+    async function cargarCategorias() {
+        try {
+            const data = await getData('/api/categorias/');
+            categorias = data;
+            const filtroCategoria = document.getElementById('filtroCategoria');
+            const categoriaProducto = document.getElementById('categoriaProducto');
+            if (filtroCategoria) filtroCategoria.innerHTML = '<option value="">Todas las categorías</option>';
+            if (categoriaProducto) categoriaProducto.innerHTML = '<option value="">Seleccionar categoría</option>';
+            categorias.forEach(categoria => {
+                if (filtroCategoria) { const option1 = new Option(categoria.nombre, categoria.id_categoria); filtroCategoria.add(option1); }
+                if (categoriaProducto) { const option2 = new Option(categoria.nombre, categoria.id_categoria); categoriaProducto.add(option2); }
+            });
+            if (categoriaProducto) {
+                categoriaProducto.onchange = async (e) => {
+                    const categoriaId = parseInt(e.target.value) || null;
+                    const subEl = document.getElementById('subcategoriaProducto');
+                    if (subEl) { subEl.value = ''; subEl.disabled = true; subEl.innerHTML = '<option value="">Seleccionar subcategoría</option>'; }
+                    await cargarSubcategorias(categoriaId);
+                };
+            }
+        } catch (error) { console.error('Error al cargar categorías:', error); }
+    }
+    async function cargarProveedores() {
+        try {
+            const data = await getData('/api/proveedores/');
+            proveedores = data;
+            const proveedorProducto = document.getElementById('proveedorProducto');
+            if (proveedorProducto) {
+                proveedorProducto.innerHTML = '<option value="">Seleccionar proveedor</option>';
+                proveedores.forEach(proveedor => { const option = new Option(proveedor.nombre, proveedor.id_proveedor); proveedorProducto.add(option); });
+            }
+            const filtroProveedor = document.getElementById('filtroProveedor');
+            if (filtroProveedor) {
+                filtroProveedor.innerHTML = '<option value="">Todos los proveedores</option>';
+                proveedores.forEach(proveedor => { const option = new Option(proveedor.nombre, proveedor.id_proveedor); filtroProveedor.add(option); });
+            }
+        } catch (error) { console.error('Error al cargar proveedores:', error); }
+    }
+    async function cargarSubcategorias(categoriaId) {
+        try {
+            const subcategoriaProducto = document.getElementById('subcategoriaProducto');
+            if (!subcategoriaProducto) return;
+            subcategoriaProducto.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+            if (!categoriaId) { subcategoriaProducto.disabled = true; subcategorias = []; return; }
+            const data = await getData(`/api/subcategorias?categoria_id=${categoriaId}`);
+            subcategorias = data;
+            if (Array.isArray(subcategorias) && subcategorias.length > 0) {
+                subcategorias.forEach(sub => { const option = new Option(sub.nombre, sub.id_subcategoria); subcategoriaProducto.add(option); });
+                subcategoriaProducto.disabled = false;
+            } else { subcategoriaProducto.disabled = true; }
+        } catch (error) { console.error('Error al cargar subcategorías:', error); const subcategoriaProducto = document.getElementById('subcategoriaProducto'); if (subcategoriaProducto) { subcategoriaProducto.disabled = true; } }
+    }
+    async function cargarInventario() {
+        try {
+            const filtroProducto = document.getElementById('filtroProducto').value;
+            const filtroProveedor = document.getElementById('filtroProveedor').value;
+            const filtroCategoria = document.getElementById('filtroCategoria').value;
+            try { const totalData = await getData(`/api/productos/inventario/total?_=${Date.now()}`); totalRegistros = totalData.total; } catch (e) { console.warn('No se pudo obtener el total de inventario:', e); }
+            const urlEndpoint = `/api/productos/inventario?skip=${paginaActual * registrosPorPagina}&limit=${registrosPorPagina}&_=${Date.now()}`;
+            let inventario = await getData(urlEndpoint);
+            if (filtroProducto) {
+                inventario = inventario.filter(item => {
+                    const producto = productos.find(p => (p.id && p.id === item.id_producto) || (p.id_producto && p.id_producto === item.id_producto));
+                    return producto && producto.nombre.toLowerCase().includes(filtroProducto.toLowerCase());
+                });
+            }
+            if (filtroProveedor) {
+                inventario = inventario.filter(item => {
+                    const producto = productos.find(p => (p.id && p.id === item.id_producto) || (p.id_producto && p.id_producto === item.id_producto));
+                    return producto && producto.id_proveedor == filtroProveedor;
+                });
+            }
+            if (filtroCategoria) {
+                inventario = inventario.filter(item => {
+                    const producto = productos.find(p => (p.id && p.id === item.id_producto) || (p.id_producto && p.id_producto === item.id_producto));
+                    return producto && ((producto.id_categoria && producto.id_categoria == filtroCategoria) || (producto.categoria && categorias.find(c => c.nombre === producto.categoria && c.id_categoria == filtroCategoria)));
+                });
+            }
+            mostrarInventario(inventario);
+            actualizarPaginacion(inventario.length);
+        } catch (error) { console.error('Error al cargar inventario:', error); }
+    }
+    function mostrarInventario(inventario) {
+        tablaInventario.innerHTML = '';
+        inventario.forEach(item => {
+            const producto = productos.find(p => (p.id && p.id === item.id_producto) || (p.id_producto && p.id_producto === item.id_producto));
+            const nombreProducto = producto ? producto.nombre : 'Producto no encontrado';
+            const codigoInterno = producto ? producto.codigo_interno : 'N/A';
+            const proveedor = proveedores.find(p => p.id_proveedor === (producto ? producto.id_proveedor : null));
+            const nombreProveedor = proveedor ? proveedor.nombre : 'N/A';
+            const categoria = categorias.find(c => c.id_categoria === (producto ? producto.id_categoria : null));
+            const nombreCategoria = categoria ? categoria.nombre : 'N/A';
+            const fila = document.createElement('tr');
+            fila.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${codigoInterno}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreProducto}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto ? (producto.cantidad_disponible || 0).toLocaleString() : '0'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${(item?.precio || 0).toLocaleString()}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreProveedor}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreCategoria}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button onclick="editarInventario(${item.id_inventario})" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
+                    <button onclick="eliminarInventario(${item.id_inventario})" class="text-red-600 hover:text-red-900">Eliminar</button>
+                </td>`;
+            tablaInventario.appendChild(fila);
+        });
+    }
+    function actualizarPaginacion(cantidadMostrada) {
+        const desde = paginaActual * registrosPorPagina + 1;
+        const hasta = Math.min(desde + cantidadMostrada - 1, totalRegistros);
+        document.getElementById('mostrandoDesde').textContent = cantidadMostrada > 0 ? desde : 0;
+        document.getElementById('mostrandoHasta').textContent = hasta;
+        document.getElementById('totalRegistros').textContent = totalRegistros;
+        btnAnterior.disabled = paginaActual === 0;
+        btnSiguiente.disabled = hasta >= totalRegistros;
+        if (btnAnteriorMobile) { btnAnteriorMobile.disabled = paginaActual === 0; }
+        if (btnSiguienteMobile) { btnSiguienteMobile.disabled = hasta >= totalRegistros; }
+    }
+    function redondearADecena(valor) { const valorTruncado = Math.trunc(valor); const ultimoDigito = valorTruncado % 10; if (ultimoDigito === 0) { return valorTruncado; } return valorTruncado + (10 - ultimoDigito); }
+    function calcularPrecio() {
+        const brutoEl = document.getElementById('costoBruto');
+        const netoEl = document.getElementById('costoNeto');
+        const utilPctEl = document.getElementById('porcentajeUtilidad');
+        const utilPesEl = document.getElementById('utilidadPesos');
+        const precioEl = document.getElementById('precio');
+        const brutoVal = parseFloat(brutoEl.value) || 0;
+        const netoVal = parseFloat(netoEl.value) || 0;
+        const utilPct = parseFloat(utilPctEl.value) || 0;
+        const utilPes = parseFloat(utilPesEl.value) || 0;
+        const precioVal = parseFloat(precioEl.value) || 0;
+        const calcPrecioDesdeNeto = (neto) => { let p = neto; if (utilPct > 0) p = p * (1 + utilPct / 100); if (utilPes > 0) p = p + utilPes; return redondearADecena(p); };
+        const calcNetoDesdePrecio = (precio) => { let base = precio; if (utilPes > 0) base = base - utilPes; if (utilPct > 0) base = base / (1 + utilPct / 100); if (base < 0) base = 0; return redondearADecena(base); };
+        if (campoEnEdicion === 'costoNeto') { const bruto = redondearADecena(netoVal * 1.19); brutoEl.value = bruto; precioEl.value = calcPrecioDesdeNeto(netoVal); return; }
+        if (campoEnEdicion === 'costoBruto') { const neto = redondearADecena(brutoVal / 1.19); netoEl.value = neto; precioEl.value = calcPrecioDesdeNeto(neto); return; }
+        if (campoEnEdicion === 'precio') { const neto = calcNetoDesdePrecio(precioVal); netoEl.value = neto; brutoEl.value = redondearADecena(neto * 1.19); return; }
+        if (campoEnEdicion === 'porcentajeUtilidad' || campoEnEdicion === 'utilidadPesos') { if (netoVal > 0) { precioEl.value = calcPrecioDesdeNeto(netoVal); brutoEl.value = redondearADecena(netoVal * 1.19); return; } if (precioVal > 0) { const neto = calcNetoDesdePrecio(precioVal); netoEl.value = neto; brutoEl.value = redondearADecena(neto * 1.19); return; } }
+        if (netoVal > 0) { precioEl.value = calcPrecioDesdeNeto(netoVal); brutoEl.value = redondearADecena(netoVal * 1.19); return; }
+        if (brutoVal > 0) { const neto = redondearADecena(brutoVal / 1.19); netoEl.value = neto; precioEl.value = calcPrecioDesdeNeto(neto); return; }
+    }
+    function abrirModalNuevo() {
+        inventarioEditando = null; tituloModal.textContent = 'Nuevo Registro de Inventario'; formInventario.reset();
+        document.getElementById('costoBruto').value = '0'; document.getElementById('costoNeto').value = '0'; document.getElementById('porcentajeUtilidad').value = '0'; document.getElementById('utilidadPesos').value = '0'; document.getElementById('stockMinimo').value = '0';
+        document.getElementById('nombreProducto').setAttribute('required', 'required'); document.getElementById('categoriaProducto').setAttribute('required', 'required'); document.getElementById('proveedorProducto').setAttribute('required', 'required');
+        cargarCategorias(); cargarProveedores(); const subcategoriaProducto = document.getElementById('subcategoriaProducto'); if (subcategoriaProducto) { subcategoriaProducto.innerHTML = '<option value="">Seleccionar subcategoría</option>'; subcategoriaProducto.disabled = true; }
+        modalInventario.classList.remove('hidden');
+    }
+    async function editarInventario(id) {
+        try {
+            const response = await fetchWithAuth(`/api/productos/inventario/${id}`);
+            if (response.ok) {
+                const inventario = await response.json(); inventarioEditando = inventario; tituloModal.textContent = 'Editar Inventario';
+                await cargarCategorias(); await cargarProveedores();
+                const producto = inventario.producto;
+                document.getElementById('precio').value = producto ? (producto.precio_venta || '') : '';
+                document.getElementById('cantidad').value = (inventario.cantidad ?? (producto ? producto.cantidad_disponible : '')) || '';
+                if (producto) {
+                    document.getElementById('nombreProducto').value = producto.nombre || '';
+                    document.getElementById('codigoInterno').value = producto.codigo_interno || '';
+                    document.getElementById('costoBruto').value = producto.costo_bruto || '0';
+                    document.getElementById('costoNeto').value = producto.costo_neto || '0';
+                    document.getElementById('porcentajeUtilidad').value = producto.porcentaje_utilidad || '0';
+                    document.getElementById('utilidadPesos').value = producto.utilidad_pesos || '0';
+                    document.getElementById('stockMinimo').value = producto.stock_minimo || '0';
+                    if (producto.id_categoria) { document.getElementById('categoriaProducto').value = producto.id_categoria; await cargarSubcategorias(producto.id_categoria); }
+                    if (producto.id_subcategoria) { const subEl = document.getElementById('subcategoriaProducto'); if (subEl) { subEl.value = producto.id_subcategoria; } }
+                    if (producto.id_proveedor) { document.getElementById('proveedorProducto').value = producto.id_proveedor; }
+                }
+                modalInventario.classList.remove('hidden');
+            } else if (response.status === 401) {
+                alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); localStorage.removeItem('token'); window.location.href = '/login'; return;
+            } else {
+                const error = await response.json(); let errorMsg = 'Error al cargar inventario'; if (error.detail) { errorMsg += ': ' + error.detail; } alert(errorMsg);
+            }
+        } catch (error) { console.error('Error al cargar inventario:', error); alert('Error de conexión con el servidor'); }
+    }
+    function eliminarInventario(id) { inventarioAEliminar = id; modalEliminar.classList.remove('hidden'); }
+    async function confirmarEliminacion() {
+        try {
+            const responseData = await deleteData(`/api/productos/inventario/${inventarioAEliminar}`);
+            if (responseData) { modalEliminar.classList.add('hidden'); inventarioAEliminar = null; await cargarInventario(); alert('Registro de inventario eliminado exitosamente'); }
+            else { throw new Error('Error desconocido al eliminar inventario'); }
+        } catch (error) {
+            if (error && (error.message || '').includes('401')) { alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); localStorage.removeItem('token'); window.location.href = '/login'; return; }
+            console.error('Error al eliminar inventario:', error); let errorMessage = 'Error al eliminar registro'; if (error.message) { errorMessage += ': ' + error.message; } else if (typeof error === 'object') { errorMessage += ': ' + JSON.stringify(error); } alert(errorMessage);
+        }
+    }
+    async function guardarInventario(event) {
+        event.preventDefault();
+        const formData = new FormData(formInventario);
+        const camposRequeridos = ['nombreProducto', 'categoriaProducto', 'precio', 'cantidad'];
+        const camposFaltantes = [];
+        for (const campo of camposRequeridos) { const valor = formData.get(campo); if (!valor || String(valor).trim() === '') { camposFaltantes.push(campo); } }
+        if (camposFaltantes.length > 0) { alert(`Error: Los siguientes campos son requeridos: ${camposFaltantes.join(', ')}`); return; }
+        try {
+            if (inventarioEditando) {
+                const inventarioActualizado = { precio: parseFloat(formData.get('precio')), cantidad_disponible: parseInt(formData.get('cantidad')) };
+                const urlInv = `/api/productos/inventario/${inventarioEditando.id_inventario}?cantidad=${inventarioActualizado.cantidad_disponible}` + (isNaN(inventarioActualizado.precio) ? '' : `&precio=${inventarioActualizado.precio}`);
+                const invResponse = await fetchWithAuth(urlInv, { method: 'PUT' });
+                let inventarioResp = null; if (invResponse.ok) { inventarioResp = await invResponse.json(); } else { const errText = await invResponse.text(); throw new Error(`Error ${invResponse.status}: ${errText}`); }
+                const producto = inventarioEditando.producto;
+                if (producto) {
+                    const productoActualizado = {
+                        nombre: formData.get('nombreProducto'),
+                        id_categoria: parseInt(formData.get('categoriaProducto')) || producto.id_categoria,
+                        id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
+                        id_subcategoria: (function(){ const val = (formData.get('subcategoriaProducto') || '').trim(); if (val === '' || val.toLowerCase() === 'null') return null; const num = parseInt(val, 10); return isNaN(num) ? null : num; })(),
+                        codigo_interno: formData.get('codigoInterno') || producto.codigo_interno,
+                        costo_bruto: parseFloat(formData.get('costoBruto')) || producto.costo_bruto || 0,
+                        costo_neto: parseFloat(formData.get('costoNeto')) || producto.costo_neto || 0,
+                        porcentaje_utilidad: parseFloat(formData.get('porcentajeUtilidad')) || producto.porcentaje_utilidad || 0,
+                        utilidad_pesos: parseFloat(formData.get('utilidadPesos')) || producto.utilidad_pesos || 0,
+                        stock_minimo: parseInt(formData.get('stockMinimo')) || producto.stock_minimo || 0
+                    };
+                    if (!productoActualizado.id_categoria || isNaN(productoActualizado.id_categoria)) { productoActualizado.id_categoria = producto.id_categoria; }
+                    if (!productoActualizado.id_proveedor || isNaN(productoActualizado.id_proveedor)) { productoActualizado.id_proveedor = null; }
+                    if (productoActualizado.id_subcategoria !== null && isNaN(productoActualizado.id_subcategoria)) { productoActualizado.id_subcategoria = null; }
+                    await updateData(`/api/productos/${producto.id_producto}`, productoActualizado);
+                }
+                modalInventario.classList.add('hidden'); inventarioEditando = null;
+                await cargarProductos(); await cargarCategorias(); await cargarProveedores(); await cargarInventario();
+                alert('Inventario actualizado exitosamente.');
+            } else {
+                const nuevoProducto = {
+                    nombre: formData.get('nombreProducto'),
+                    id_categoria: parseInt(formData.get('categoriaProducto')) || null,
+                    id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
+                    id_subcategoria: (function(){ const val = (formData.get('subcategoriaProducto') || '').trim(); if (val === '' || val.toLowerCase() === 'null') return null; const num = parseInt(val, 10); return isNaN(num) ? null : num; })(),
+                    codigo_interno: formData.get('codigoInterno') || null,
+                    costo_bruto: parseFloat(formData.get('costoBruto')) || 0,
+                    costo_neto: parseFloat(formData.get('costoNeto')) || 0,
+                    precio_venta: parseFloat(formData.get('precio')) || 0,
+                    porcentaje_utilidad: parseFloat(formData.get('porcentajeUtilidad')) || 0,
+                    utilidad_pesos: parseFloat(formData.get('utilidadPesos')) || 0,
+                    cantidad_disponible: parseInt(formData.get('cantidad')) || 0,
+                    stock_minimo: parseInt(formData.get('stockMinimo')) || 0
+                };
+                if (!nuevoProducto.id_categoria || isNaN(nuevoProducto.id_categoria)) { alert('Por favor selecciona una categoría válida'); return; }
+                if (!nuevoProducto.id_proveedor || isNaN(nuevoProducto.id_proveedor)) { nuevoProducto.id_proveedor = null; }
+                if (nuevoProducto.id_subcategoria !== null && isNaN(nuevoProducto.id_subcategoria)) { nuevoProducto.id_subcategoria = null; }
+                const productoResponse = await fetchWithAuth(`/api/productos/`, { method: 'POST', body: JSON.stringify(nuevoProducto) });
+                if (!productoResponse.ok) {
+                    const error = await productoResponse.json(); let errorMsg = 'Error al crear producto';
+                    if (productoResponse.status === 401) { alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); localStorage.removeItem('token'); window.location.href = '/login'; return; }
+                    if (error.detail) { if (typeof error.detail === 'string') { errorMsg += ': ' + error.detail; } else if (Array.isArray(error.detail)) { errorMsg += ': ' + error.detail.map(err => err.msg).join(', '); } else { errorMsg += ': ' + JSON.stringify(error.detail); } }
+                    else { errorMsg += ': ' + JSON.stringify(error); }
+                    alert(errorMsg); return;
+                }
+                const productoCreado = await productoResponse.json();
+                modalInventario.classList.add('hidden');
+                await cargarProductos(); await cargarCategorias(); await cargarProveedores(); await cargarInventario();
+                alert('Producto creado exitosamente.');
+            }
+        } catch (error) { console.error('Error al guardar inventario:', error); let errorMessage = 'Error al guardar'; if (error.message) { errorMessage += ': ' + error.message; } else if (typeof error === 'object') { errorMessage += ': ' + JSON.stringify(error); } alert(errorMessage); }
+    }
+    function cargarDatosIniciales() { cargarCategorias(); cargarProveedores(); }
+    window.editarInventario = editarInventario; window.eliminarInventario = eliminarInventario;
+    btnNuevoInventario.addEventListener('click', abrirModalNuevo);
+    btnProveedores.addEventListener('click', () => { window.location.href = '/admin/proveedores'; });
+    btnCategorias.addEventListener('click', () => { window.location.href = '/admin/categorias'; });
+    if (btnSubcategorias) { btnSubcategorias.addEventListener('click', () => { window.location.href = '/admin/subcategorias'; }); }
+    btnCancelar.addEventListener('click', () => modalInventario.classList.add('hidden'));
+    btnCancelarEliminar.addEventListener('click', () => modalEliminar.classList.add('hidden'));
+    btnConfirmarEliminar.addEventListener('click', confirmarEliminacion);
+
+    let debounceTimer = null; let campoEnEdicion = null;
+    function calcularPrecioConDebounce(campoActual) { if (debounceTimer) { clearTimeout(debounceTimer); } campoEnEdicion = campoActual; debounceTimer = setTimeout(() => { calcularPrecio(); campoEnEdicion = null; }, 5); }
+    document.addEventListener('DOMContentLoaded', function() {
+        const costoBrutoInput = document.getElementById('costoBruto');
+        const costoNetoInput = document.getElementById('costoNeto');
+        const porcentajeUtilidadInput = document.getElementById('porcentajeUtilidad');
+        const utilidadPesosInput = document.getElementById('utilidadPesos');
+        const precioInput = document.getElementById('precio');
+        if (costoBrutoInput) costoBrutoInput.addEventListener('input', () => calcularPrecioConDebounce('costoBruto'));
+        if (costoNetoInput) costoNetoInput.addEventListener('input', () => calcularPrecioConDebounce('costoNeto'));
+        if (porcentajeUtilidadInput) porcentajeUtilidadInput.addEventListener('input', () => calcularPrecioConDebounce('porcentajeUtilidad'));
+        if (utilidadPesosInput) utilidadPesosInput.addEventListener('input', () => calcularPrecioConDebounce('utilidadPesos'));
+        if (precioInput) precioInput.addEventListener('input', () => calcularPrecioConDebounce('precio'));
+    });
+    formInventario.addEventListener('submit', guardarInventario);
+    btnFiltrar.addEventListener('click', () => { paginaActual = 0; cargarInventario(); });
+    btnAnterior.addEventListener('click', () => { if (paginaActual > 0) { paginaActual--; cargarInventario(); } });
+    btnSiguiente.addEventListener('click', () => { paginaActual++; cargarInventario(); });
+    if (btnAnteriorMobile) { btnAnteriorMobile.addEventListener('click', () => { if (paginaActual > 0) { paginaActual--; cargarInventario(); } }); }
+    if (btnSiguienteMobile) { btnSiguienteMobile.addEventListener('click', () => { paginaActual++; cargarInventario(); }); }
+    modalInventario.addEventListener('click', (e) => { if (e.target === modalInventario) { modalInventario.classList.add('hidden'); } });
+    modalEliminar.addEventListener('click', (e) => { if (e.target === modalEliminar) { modalEliminar.classList.add('hidden'); } });
+    document.addEventListener('DOMContentLoaded', async () => { if (!verificarAuth()) { return; } try { const q = new URLSearchParams(window.location.search).get('q'); await cargarProductos(); await cargarCategorias(); await cargarProveedores(); if (q) { const inp = document.getElementById('filtroProducto'); if (inp) inp.value = q; } await cargarInventario(); } catch (error) { console.error('Error al cargar datos del inventario:', error); alert('Error en conexión del servidor'); } });
+    </script>
 </AdminLayout>
 <script>
 (function(){
