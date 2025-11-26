@@ -56,6 +56,14 @@ import EnvLoader from '../components/EnvLoader.astro';
         const usernameInput = document.getElementById('username');
         const passwordInput = document.getElementById('password');
         const digitsOnly = (s) => String(s||'').replace(/\D/g,'');
+        const formatRutUI = (v) => { const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase(); if(!s) return ''; if(s.length===1) return s; const body=s.slice(0,-1); const dv=s.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return `${withDots}-${dv}`; };
+        if (usernameInput) {
+          usernameInput.addEventListener('input', (e) => {
+            const formatted = formatRutUI(e.target.value);
+            e.target.value = formatted;
+            e.target.selectionStart = e.target.selectionEnd = formatted.length;
+          });
+        }
         if (form) {
           form.addEventListener('submit', async (e) => {
             e.preventDefault();
