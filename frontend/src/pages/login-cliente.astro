@@ -48,15 +48,45 @@ import EnvLoader from '../components/EnvLoader.astro';
         </div>
       </div>
     </div>
-    <script type="module">import '../scripts/pages/login-cliente.js';</script>
     <script>
       (function(){
-        try {
-          const env = window.__ENV__ || {};
-          const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
-          if (!window.API_BASE) window.API_BASE = api;
-          if (!window.__API_BASE_LOGGED__) { console.log('Cargando script de login...'); console.log('API URL es:', window.API_BASE); window.__API_BASE_LOGGED__ = true; }
-        } catch {}
+        const env = window.__ENV__ || {};
+        const API_BASE = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+        const form = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const digitsOnly = (s) => String(s||'').replace(/\D/g,'');
+        if (form) {
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const raw = (usernameInput?.value||'').trim();
+            const baseRut = raw.includes('-') ? raw.split('-')[0] : raw;
+            const username = digitsOnly(baseRut);
+            const password = passwordInput?.value||'';
+            const formData = new URLSearchParams({ username, password, grant_type:'password' });
+            try {
+              let response = await fetch(`${API_BASE}/auth/login`, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json' }, body: formData });
+              if (!response || !response.ok) {
+                response = await fetch(`${API_BASE}/auth/login-cliente`, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json' }, body: formData });
+              }
+              if (response && response.ok) {
+                const result = await response.json();
+                const token = result.access_token || result.token;
+                const user = { id_usuario: result.id_usuario, nombre: result.nombre, rut: result.rut || username, rol: (result.role||result.rol||'cliente') };
+                localStorage.setItem('isLoggedIn','true');
+                localStorage.setItem('token', token);
+                localStorage.setItem('user', JSON.stringify(user));
+                localStorage.setItem('role', user.rol);
+                localStorage.setItem('nombreUsuario', user.nombre || user.rut);
+                window.location.href = '/';
+              } else {
+                alert('Error en las credenciales');
+              }
+            } catch (error) {
+              console.error('Error de conexión:', error);
+            }
+          });
+        }
       })();
     </script>
   </body>
