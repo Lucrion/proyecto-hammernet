@@ -254,8 +254,11 @@ import EnvLoader from '../components/EnvLoader.astro';
   </div>
 
   <script type="module">
-    import { trackEvent } from '../scripts/utils/analytics.js';
-    import { formatRutUI, formatRutFromDigits, cleanRutInput, digitsOnly } from '../scripts/utils/rut.js';
+    function trackEvent(name, payload){ try { console.debug('[trackEvent]', name, payload||{}); } catch {} }
+    function digitsOnly(v){ return String(v||'').replace(/\D/g,''); }
+    function computeRutDV(digits){ const body = digitsOnly(digits); if(!body) return ''; let sum=0,f=2; for(let i=body.length-1;i>=0;i--){ sum += Number(body[i])*f; f = f===7?2:f+1; } const rest=11-(sum%11); if(rest===11) return '0'; if(rest===10) return 'K'; return String(rest); }
+    function formatRutFromDigits(val){ const body = digitsOnly(val); if(!body) return ''; const dv = computeRutDV(body); let res=''; let tmp=body; while(tmp.length>3){ res='.'+tmp.slice(-3)+res; tmp=tmp.slice(0,-3); } return tmp+res+'-'+dv; }
+    function formatRutUI(v){ const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase(); if(!s) return ''; if(s.length===1) return s; const body=s.slice(0,-1); const dv=s.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return `${withDots}-${dv}`; }
     const ENVIO_COSTO = 2000;
     const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 

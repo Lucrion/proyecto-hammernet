@@ -14,11 +14,11 @@ import EnvLoader from '../components/EnvLoader.astro';
   <body class="min-h-screen bg-gray-100">
     <div class="min-h-screen flex">
       <!-- Botón de retorno -->
-      <a href="/login" class="absolute top-6 left-6 text-gray-600 hover:text-gray-900 transition-colors duration-200" aria-label="Volver al inicio de sesión">
+      <button type="button" class="absolute top-6 left-6 text-gray-600 hover:text-gray-900 transition-colors duration-200" aria-label="Volver" onclick="(history.length>1?history.back():location.href='/')">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-      </a>
+      </button>
 
       <!-- Sección formulario registro -->
       <div class="w-full max-w-md mx-auto py-12">
