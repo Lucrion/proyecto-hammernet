@@ -2,18 +2,20 @@ import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
 import node from '@astrojs/node';
 
+const isProd = String(process.env.PUBLIC_ENVIRONMENT || process.env.NODE_ENV || '').toLowerCase() === 'production';
+
 // https://astro.build/config
 export default defineConfig({
   integrations: [tailwind()],
   output: 'server',
   adapter: node({ mode: 'standalone' }),
-  server: {
+  server: isProd ? undefined : {
     host: true,
     port: 4321
   },
   vite: {
     assetsInclude: ['**/*.webp', '**/*.svg', '**/*.png', '**/*.jpg', '**/*.jpeg'],
-    server: {
+    server: isProd ? { hmr: false } : {
       proxy: {
         '/api': {
           target: 'http://localhost:8000',
