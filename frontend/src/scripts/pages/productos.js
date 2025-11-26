@@ -1,15 +1,19 @@
 // Funciones para la página de productos (sin imports para evitar problemas de análisis)
 
 // Utilidades locales mínimas
+const env = (typeof window !== 'undefined' ? (window.__ENV__ || {}) : {});
+const API_BASE = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+
 async function getJson(endpoint) {
-    const res = await fetch(endpoint);
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     return res.json();
 }
 
 async function checkServerAvailability() {
     try {
-        await fetch('/api/health');
+        await fetch(`${API_BASE}/health`);
     } catch (e) {
         // No bloquear si falla
         console.warn('Servidor no disponible (healthcheck falló)');
@@ -178,7 +182,7 @@ function configurarEventos() {
 async function cargarCategorias() {
     if (!contenedorCategorias) return;
     try {
-        const categorias = await getJson('/api/categorias');
+        const categorias = await getJson('/categorias');
         const listaCat = Array.isArray(categorias) ? categorias : [];
         contenedorCategorias.innerHTML = listaCat.map(c => `
             <label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
@@ -231,7 +235,7 @@ function configurarEventosCategorias() {
 async function cargarSubcategoriasParaCategoria(idCategoria) {
     if (!contenedorSubcategorias || !idCategoria) return;
     try {
-        const subs = await getJson(`/api/subcategorias?categoria_id=${idCategoria}`);
+        const subs = await getJson(`/subcategorias?categoria_id=${idCategoria}`);
         const listaSub = Array.isArray(subs) ? subs : [];
         contenedorSubcategorias.innerHTML = listaSub.map(s => `
             <label class="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer group">
@@ -276,7 +280,7 @@ async function cargarProductos() {
         }
 
         // Obtener productos del catálogo (pidiendo más que el límite por defecto 10)
-        const productos = await getJson(`/api/productos/catalogo?skip=0&limit=${CATALOGO_FETCH_LIMIT}`);
+        const productos = await getJson(`/productos/catalogo?skip=0&limit=${CATALOGO_FETCH_LIMIT}`);
         state.todosProductos = Array.isArray(productos) ? productos : [];
         
         if (!Array.isArray(productos)) {

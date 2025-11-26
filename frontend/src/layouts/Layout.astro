@@ -316,13 +316,14 @@ try {
 			return u.includes('/images/logos/logo_bn.webp') || u.includes('/images/logos/herramientas.webp') || u.includes('placeholder');
 		  };
 
-		  const getProductoInfo = async (id) => {
-			try {
-			  const res = await fetch(`/api/productos/${id}`);
-			  if (!res.ok) return null;
-			  return await res.json();
-			} catch { return null; }
-		  };
+          const getProductoInfo = async (id) => {
+            try {
+              const base = window.API_BASE || '/api';
+              const res = await fetch(`${base}/productos/${id}`);
+              if (!res.ok) return null;
+              return await res.json();
+            } catch { return null; }
+          };
 
 		  const normalizeCarrito = async (carrito) => {
 			let changed = false;

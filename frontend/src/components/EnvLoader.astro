@@ -64,6 +64,8 @@ const isDevelopment = PUBLIC_ENVIRONMENT === 'development';
     if (typeof window !== 'undefined') {
       window.__ENV__ = envConfig;
       try { window.GOOGLE_MAPS_API_KEY = GOOGLE_MAPS_API_KEY; } catch {}
+      try { window.API_BASE = envConfig.PUBLIC_API_URL || envConfig.PUBLIC_API_URL_PRODUCTION || '/api'; } catch {}
+      try { console.log('Cargando script de login...'); console.log('API URL es:', window.API_BASE); } catch {}
       
       // También crear una función helper para acceder a las variables
       window.getEnvVar = function(name, defaultValue = undefined) {
