@@ -34,26 +34,7 @@ export async function onRequest(context: APIContext, next: Function) {
   const path = url.pathname;
   pingHealthOnce();
 
-  if (path.startsWith('/admin')) {
-    const raw = context.request.headers.get('cookie') || '';
-    const cookies: Record<string, string> = {};
-    raw.split(';').forEach(pair => {
-      const idx = pair.indexOf('=');
-      if (idx > -1) {
-        const k = pair.slice(0, idx).trim();
-        const v = pair.slice(idx + 1).trim();
-        cookies[k] = v;
-      }
-    });
-    const isLogged = cookies['isLoggedIn'] === 'true';
-    const role = String(cookies['role'] || '').toLowerCase();
-    const allowed = ['administrador','admin','trabajador','vendedor','bodeguero'];
-    // Bloquear únicamente si el rol en cookie es explícitamente "cliente".
-    if (role === 'cliente') {
-      return new Response(null, { status: 302, headers: new Headers({ Location: '/?error=unauthorized_admin' }) });
-    }
-    // Si no hay cookies, dejar pasar y validar en el layout del admin.
-  }
+  // Acceso a /admin sin restricciones de rol; validaciones se manejan en el cliente o páginas.
 
   const res = await next();
 

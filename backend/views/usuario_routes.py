@@ -62,6 +62,24 @@ async def obtener_usuarios_desactivados(
     ]
 
 
+@router.get("/me", response_model=Usuario)
+async def obtener_usuario_actual(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    return {
+        "id_usuario": current_user.id_usuario,
+        "nombre": current_user.nombre,
+        "apellido": current_user.apellido,
+        "rut": _rut_a_int(current_user.rut),
+        "email": current_user.email,
+        "telefono": current_user.telefono,
+        "role": current_user.role,
+        "activo": current_user.activo,
+        "fecha_creacion": current_user.fecha_creacion.isoformat() if getattr(current_user, "fecha_creacion", None) else None
+    }
+
+
 @router.get("/{usuario_id}", response_model=Usuario)
 async def obtener_usuario(
     usuario_id: int,
@@ -119,6 +137,16 @@ async def crear_usuario(
     return nuevo
 
 
+@router.put("/me", response_model=Usuario)
+async def actualizar_usuario_actual(
+    usuario: UsuarioUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    actualizado = await UsuarioController.actualizar_usuario(current_user.id_usuario, usuario, db)
+    return actualizado
+
+
 @router.put("/{usuario_id}", response_model=Usuario)
 async def actualizar_usuario(
     usuario_id: int,
@@ -130,13 +158,6 @@ async def actualizar_usuario(
 
     VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
     """
-    # TODO: Reactivar después - Solo admin puede actualizar otros usuarios, usuarios normales solo pueden actualizarse a sí mismos
-    # if current_user.role != "administrador" and current_user.id_usuario != usuario_id:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="No tienes permisos para actualizar este usuario"
-    #     )
-    
     actualizado = await UsuarioController.actualizar_usuario(usuario_id, usuario, db)
     try:
         registrar_evento(

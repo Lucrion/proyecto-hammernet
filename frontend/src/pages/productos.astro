@@ -56,18 +56,14 @@ import Layout from '../layouts/Layout.astro';
   const subcatsContainer = document.getElementById('subcats-container');
   async function cargarCategorias() {
     try {
-      const env = window.__ENV__ || {};
-      const API = (env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api').replace(/\/$/, '');
-      const res = await fetch(`${API}/categorias/`);
+      const res = await fetch('/api/categorias/');
       const cats = res.ok ? await res.json() : [];
       renderCategorias(Array.isArray(cats) ? cats : []);
     } catch {}
   }
   async function cargarSubcategorias(categoriaId) {
     try {
-      const env = window.__ENV__ || {};
-      const API = (env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api').replace(/\/$/, '');
-      const res = await fetch(`${API}/subcategorias/?categoria_id=${encodeURIComponent(categoriaId)}`);
+      const res = await fetch(`/api/subcategorias/?categoria_id=${encodeURIComponent(categoriaId)}`);
       const subs = res.ok ? await res.json() : [];
       renderSubcategorias(Array.isArray(subs) ? subs : []);
     } catch {}

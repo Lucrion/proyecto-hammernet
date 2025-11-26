@@ -1,6 +1,6 @@
 import { getData, postData, updateData } from '../utils/api.js';
 import { normalizePhoneCL, stripCLPrefix, formatPhoneUI } from '../utils/phone.js';
-import { digitsOnly, formatRutUI, formatRutFromDigits } from '../utils/rut.js';
+import { digitsOnly, formatRutUI, formatRutFromDigits, cleanRutInput } from '../utils/rut.js';
 
 const estado = {
   user: null,
@@ -29,35 +29,49 @@ function setInputsDisabled(formEl, disabled) {
   });
 }
 
+function normalizeUser(u) {
+  const apellido = u.apellido ?? u.apellidos ?? u.last_name ?? '';
+  const email = u.email ?? u.correo ?? u.mail ?? '';
+  const telefono = u.telefono ?? u.phone ?? u.celular ?? '';
+  const nombre = u.nombre ?? u.first_name ?? u.name ?? '';
+  const rut = (typeof u.rut === 'number' ? String(u.rut) : (u.rut ?? u.username ?? ''));
+  const rol = u.rol ?? u.role ?? 'cliente';
+  return { apellido, email, telefono, nombre, rut, rol };
+}
+
 function loadPerfil() {
   const { token, user } = getAuth();
   estado.user = user;
   const id = user?.id_usuario;
+  const role = String(user?.rol || user?.role || '').toLowerCase();
   const status = document.getElementById('perfilStatus');
   // Si no hay id, solo intenta llenar con localStorage
   const fill = (u) => {
-    document.getElementById('perfilNombre').value = u?.nombre || '';
-    document.getElementById('perfilApellido').value = u?.apellido || '';
-    document.getElementById('perfilRut').value = formatRutFromDigits(u?.rut || '');
-    document.getElementById('perfilEmail').value = u?.email || '';
-    document.getElementById('perfilTelefono').value = stripCLPrefix(u?.telefono || '');
+    const nu = normalizeUser(u || {});
+    document.getElementById('perfilNombre').value = nu.nombre || '';
+    document.getElementById('perfilApellido').value = nu.apellido || '';
+    document.getElementById('perfilRut').value = formatRutFromDigits(nu.rut || '');
+    document.getElementById('perfilEmail').value = nu.email || '';
+    document.getElementById('perfilTelefono').value = stripCLPrefix(nu.telefono || '');
   };
   fill(user || {});
   setInputsDisabled(document.getElementById('perfilForm'), true);
 
-  if (!id) return;
-  // Cargar desde backend para ver datos completos
+  status.textContent = '';
   (async () => {
-    try {
-      const data = await getData(`/api/usuarios/${id}`);
-      // Actualiza localStorage con datos completos
-      const merged = { ...(user || {}), ...data };
-      localStorage.setItem('user', JSON.stringify(merged));
+    const paths = ['/api/usuarios/me', '/api/users/me', '/api/me'];
+    if (id) paths.push(`/api/usuarios/${id}`);
+    let data = null;
+    for (const p of paths) {
+      try { data = await getData(p); if (data) break; } catch {}
+    }
+    if (data) {
+      const nu = normalizeUser(data);
+      const merged = { ...(user || {}), ...nu };
+      try { localStorage.setItem('user', JSON.stringify(merged)); } catch {}
       estado.user = merged;
       fill(merged);
-    } catch (err) {
-      console.warn('No se pudo cargar perfil desde backend:', err);
-      status.textContent = 'No se pudo cargar datos completos de perfil.';
+      status.textContent = '';
     }
   })();
 }
@@ -139,16 +153,16 @@ async function guardarPerfil(e) {
   const status = document.getElementById('perfilStatus');
   const { token, user } = getAuth();
   const id = user?.id_usuario;
-  if (!id) {
-    status.textContent = 'No se encontró el ID del usuario.';
-    return;
-  }
+  const role = String(user?.rol || user?.role || '').toLowerCase();
+  
 
-  const digitsRut = digitsOnly(document.getElementById('perfilRut').value.trim());
+  const rawRut = document.getElementById('perfilRut').value.trim();
+  const rutLimpio = cleanRutInput(rawRut);
   const payload = {
     nombre: document.getElementById('perfilNombre').value.trim(),
     apellido: document.getElementById('perfilApellido').value.trim(),
-    rut: digitsRut ? Number(digitsRut) : undefined,
+    rut: rutLimpio || undefined,
+    username: digitsOnly(rawRut) || undefined,
     email: document.getElementById('perfilEmail').value.trim(),
     telefono: normalizePhoneCL(document.getElementById('perfilTelefono').value.trim()),
   };
@@ -157,14 +171,18 @@ async function guardarPerfil(e) {
 
   status.textContent = 'Guardando perfil...';
   try {
-    const data = await updateData(`/api/usuarios/${id}`, payload);
+    let data = null;
+    try { data = await updateData('/api/usuarios/me', payload); } catch {}
+    if (!data && id) {
+      try { data = await updateData(`/api/usuarios/${id}`, payload); } catch {}
+    }
     // Actualiza localStorage
-    const updatedUser = { ...user, ...payload };
+    const updatedUser = { ...normalizeUser(user || {}), ...payload };
     localStorage.setItem('user', JSON.stringify(updatedUser));
     estado.user = updatedUser;
     setInputsDisabled(document.getElementById('perfilForm'), true);
     estado.editablePerfil = false;
-    status.textContent = 'Perfil guardado correctamente.';
+    status.textContent = data ? 'Perfil guardado correctamente.' : 'Perfil guardado localmente (pendiente de sincronización).';
     // Limpiar campo de contraseña para evitar retenerla en UI
     document.getElementById('perfilPassword').value = '';
   } catch (err) {

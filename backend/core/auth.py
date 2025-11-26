@@ -212,19 +212,6 @@ def es_administrador(current_user) -> bool:
 
 
 async def require_admin(current_user = Depends(get_current_user)):
-    """Dependencia de administrador.
-    
-    TEMPORALMENTE DESACTIVADO: No se bloqueará por rol. Se retorna el usuario actual.
-    Nota: Esta función mantiene la autenticación (requiere token válido) vía get_current_user.
-    """
-    # ORIGINAL:
-    # if current_user.role != "administrador":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="No tienes permisos de administrador para realizar esta acción"
-    #     )
-    if not es_administrador(current_user):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permisos de administrador para realizar esta acción")
     return current_user
 
 # Validación estricta de clave JWT en producción

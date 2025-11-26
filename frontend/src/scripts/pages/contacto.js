@@ -2,7 +2,7 @@
 import { postData, getData } from '../utils/api.js';
 import { API_URL } from '../utils/config.js';
 
-document.addEventListener('DOMContentLoaded', function() {
+function init() {
     const form = document.getElementById('contactForm');
     const charCount = document.getElementById('charCount');
     const mensajeTextarea = document.getElementById('mensaje');
@@ -46,14 +46,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Intentar bloquear edición tras prefill local
     lockPersonalFieldsIfApplicable();
 
-    // Prefill consultando el backend si hay token e id_usuario
+    // Prefill consultando el backend si hay token
     (async () => {
         try {
             const { token, user } = getAuth();
-            const id = user && (user.id_usuario || user.id);
-            if (!token || !id) return;
-
-            const data = await getData(`/api/usuarios/${id}`);
+            if (!token) return;
+            let data = null;
+            try { data = await getData(`/api/usuarios/me`); } catch {}
+            if (!data) {
+                const id = user && (user.id_usuario || user.id);
+                if (id) {
+                    try { data = await getData(`/api/usuarios/${id}`); } catch {}
+                }
+            }
+            if (!data) return;
             if (nombreEl && data?.nombre) nombreEl.value = data.nombre;
             if (apellidoEl && data?.apellido) apellidoEl.value = data.apellido;
             if (emailEl && data?.email) emailEl.value = data.email;
@@ -132,4 +138,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-});
+}
+
+try {
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    }
+} catch {}

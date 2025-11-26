@@ -1,5 +1,5 @@
 // Funciones para comunicación con la API
-import { API_URL, corsConfig, handleApiError } from './config.js';
+import { API_URL, corsConfig, handleApiError, API_TIMEOUT } from './config.js';
 
 // Construye URL robusta evitando doble "/api" y soportando endpoints absolutos
 function buildUrl(endpoint) {
@@ -42,10 +42,16 @@ export async function fetchWithAuth(endpoint, options = {}) {
         const url = buildUrl(endpoint);
         
         try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), Number(API_TIMEOUT || 10000));
             const response = await fetch(url, {
                 ...options,
-                headers
+                headers,
+                mode: corsConfig?.mode || 'cors',
+                credentials: corsConfig?.credentials || 'include',
+                signal: controller.signal
             });
+            clearTimeout(timeout);
             
             return response;
         } catch (fetchError) {

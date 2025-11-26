@@ -72,7 +72,7 @@ async function handleRegister(e) {
     const payload = {
       nombre,
       apellido,
-      username: rutNormDigits, // compatibilidad OAuth2 (login por RUT)
+      username: rutNormDigits,
       rut: Number(rutNormDigits),
       email,
       telefono: normalizePhoneCL(telefono),
@@ -81,40 +81,70 @@ async function handleRegister(e) {
       role: 'cliente'
     };
 
-    const response = await fetch(`${API_URL}/auth/register-and-login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
+    let data;
+    async function tryRegisterAndLogin() {
+      const res = await fetch(`${API_URL}/auth/register-and-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      return res;
+    }
+    async function tryRegisterThenLogin() {
+      const reg = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      if (!reg.ok) return reg;
+      const formData = new URLSearchParams();
+      formData.append('username', rutNormDigits);
+      formData.append('password', password);
+      formData.append('grant_type', 'password');
+      const loginRes = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal
+      });
+      // Empaquetar respuesta de login para flujo común
+      return loginRes;
+    }
+
+    let response = await tryRegisterAndLogin().catch(() => null);
+    if (!response || response.status === 404 || response.status === 405) {
+      response = await tryRegisterThenLogin().catch(() => null);
+    }
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const text = await response.text();
-      let msg = `Error al registrar (${response.status})`;
+    if (!response || !response.ok) {
+      const text = response ? (await response.text()) : '';
+      let msg = `Error al registrar (${response ? response.status : 'sin respuesta'})`;
       try {
-        const data = JSON.parse(text);
-        if (data.detail) msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+        const d = JSON.parse(text);
+        if (d.detail) msg = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
       } catch {}
       showStatus(msg, 'error');
       showLoading(false);
       return;
     }
 
-    const data = await response.json();
-    // Guardar token y usuario para autologin
+    data = await response.json();
     localStorage.setItem('token', data.access_token);
     const user = {
       id_usuario: data.id_usuario,
       nombre: data.nombre,
       rut: data.rut ?? rutNormDigits,
-      rol: data.role
+      rol: data.role || data.rol || 'cliente'
     };
     localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('role', user.rol);
+    localStorage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
+    document.cookie = `isLoggedIn=true; path=/; SameSite=Lax`;
+    document.cookie = `role=${encodeURIComponent(user.rol)}; path=/; SameSite=Lax`;
 
     // Completar datos del usuario (email y teléfono) inmediatamente después del registro
     try {
@@ -137,11 +167,9 @@ async function handleRegister(e) {
 
     showStatus(`Cuenta creada: ${formatRutFromDigits(rutNormDigits)}. Iniciando sesión...`, 'success');
     setTimeout(() => { 
-      if (user.rol === 'admin') {
-        window.location.href = '/admin';
-      } else {
-        window.location.href = '/';
-      }
+      const workerRoles=['administrador','admin','trabajador','vendedor','bodeguero'];
+      const isWorker = workerRoles.includes(String(user.rol).toLowerCase());
+      window.location.href = isWorker ? '/admin' : '/';
     }, 1000);
   } catch (error) {
     const isTimeout = error.name === 'AbortError';

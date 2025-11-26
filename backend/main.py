@@ -76,7 +76,14 @@ origins = [origin.strip() for origin in origins_str.split(",")]
 
 # Agregar localhost para desarrollo si no está en producción
 if os.getenv("ENVIRONMENT") != "production":
-    origins.extend(["http://localhost:4321", "http://localhost:8000", "http://127.0.0.1:4321", "http://127.0.0.1:8000"])
+    origins.extend([
+        "http://localhost:4321",
+        "http://localhost:4322",
+        "http://localhost:8000",
+        "http://127.0.0.1:4321",
+        "http://127.0.0.1:4322",
+        "http://127.0.0.1:8000"
+    ])
 
 app.add_middleware(
     CORSMiddleware,

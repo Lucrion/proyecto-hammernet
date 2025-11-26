@@ -1,6 +1,5 @@
 ---
 import EnvLoader from '../components/EnvLoader.astro';
-const loginScriptUrl = Astro.resolve('../scripts/pages/login-cliente.js');
 ---
 
 <html lang="es">
@@ -13,7 +12,11 @@ const loginScriptUrl = Astro.resolve('../scripts/pages/login-cliente.js');
   </head>
   <body class="min-h-screen bg-gray-100">
     <div class="min-h-screen flex relative">
-      <a href="/" class="absolute top-6 left-6 text-gray-600 hover:text-gray-900">Volver</a>
+      <button type="button" class="absolute top-6 left-6 text-gray-600 hover:text-gray-900 transition-colors duration-200" onclick="(history.length>1?history.back():location.href='/')">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+      </button>
       <div class="w-1/2 bg-[#2B5BA9] flex items-center justify-center">
         <img src="/images/logos/logo_bn.webp" alt="Ferretería Patricio" class="w-164 h-164">
       </div>
@@ -45,6 +48,6 @@ const loginScriptUrl = Astro.resolve('../scripts/pages/login-cliente.js');
         </div>
       </div>
     </div>
-    <script type="module" src={loginScriptUrl}></script>
+    <script type="module">import '/src/scripts/pages/login-cliente.js';</script>
   </body>
 </html>
