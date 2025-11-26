@@ -84,10 +84,20 @@ import EnvLoader from '../components/EnvLoader.astro';
     </div>
 
     <script type="module">
-// Configuración centralizada
-import { API_URL, API_TIMEOUT } from '../scripts/utils/config.js';
-import { normalizePhoneCL, formatPhoneUI } from '../scripts/utils/phone.js';
-import { digitsOnly, formatRutUI, formatRutFromDigits } from '../scripts/utils/rut.js';
+
+// Configuración centralizada (inline)
+function getApiBase(){try{const env=window.__ENV__||{};return env.PUBLIC_API_URL||env.PUBLIC_API_URL_PRODUCTION||'/api'}catch{return '/api'}}
+const API_URL=getApiBase();
+const API_TIMEOUT=10000;
+
+// Utilidades de RUT (inline)
+function digitsOnly(v){return String(v||'').replace(/\D/g,'')}
+function formatRutUI(v){const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase();if(!s)return'';if(s.length===1)return s;const body=s.slice(0,-1);const dv=s.slice(-1);const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.');return `${withDots}-${dv}`}
+function formatRutFromDigits(d){const s=String(d||'').replace(/\D/g,'');if(!s)return'';return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.')}
+
+// Utilidades de teléfono (inline)
+function formatPhoneUI(v){const d=String(v||'').replace(/\D/g,'').slice(0,8);return d}
+function normalizePhoneCL(v){const d=String(v||'').replace(/\D/g,'').slice(0,8);return `+569${d}`}
 
 function showStatus(message, type = 'info') {
   const el = document.getElementById('statusMessage');
@@ -194,6 +204,7 @@ async function handleRegister(e) {
         body: formData,
         signal: controller.signal
       });
+      // Empaquetar respuesta de login para flujo común
       return loginRes;
     }
 
@@ -231,6 +242,7 @@ async function handleRegister(e) {
     document.cookie = `isLoggedIn=true; path=/; SameSite=Lax`;
     document.cookie = `role=${encodeURIComponent(user.rol)}; path=/; SameSite=Lax`;
 
+    // Completar datos del usuario (email y teléfono) inmediatamente después del registro
     try {
       const uResp = await fetch(`${API_URL}/usuarios/${user.id_usuario}`, {
         headers: {
@@ -245,6 +257,7 @@ async function handleRegister(e) {
         }
       }
     } catch (err) {
+      // No bloquear el flujo de registro por esta mejora
       console.warn('No se pudo completar datos de usuario tras registro:', err);
     }
 
@@ -272,15 +285,18 @@ document.addEventListener('DOMContentLoaded', () => {
   form?.addEventListener('submit', handleRegister);
   googleButton?.addEventListener('click', handleGoogleAuth);
 
+  // Formatear RUT al escribir (puntos y guion con DV)
   if (rutEl) {
     rutEl.addEventListener('input', (e) => {
       const pos = e.target.selectionStart;
       const formatted = formatRutUI(e.target.value);
       e.target.value = formatted;
+      // Ajuste simple del cursor: mover al final
       e.target.selectionStart = e.target.selectionEnd = formatted.length;
     });
   }
 
+  // Teléfono: permitir solo dígitos y limitar a 8 (prefijo fijo +569)
   if (telEl) {
     telEl.addEventListener('input', (e) => {
       const formatted = formatPhoneUI(e.target.value);
@@ -289,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Verificar callback de Google
   checkGoogleCallback();
 });
 
@@ -297,6 +314,7 @@ async function handleGoogleAuth() {
   showStatus('Redirigiendo a Google...', 'info');
 
   try {
+    // El backend ahora realiza redirección directa
     window.location.href = `${API_URL}/auth/google`;
   } catch (error) {
     showStatus(`Error al conectar con Google: ${error.message}`, 'error');
@@ -304,6 +322,7 @@ async function handleGoogleAuth() {
   }
 }
 
+// Verificar si hay parámetros de retorno de Google
 function checkGoogleCallback() {
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get('token');
@@ -311,6 +330,7 @@ function checkGoogleCallback() {
   const error = urlParams.get('error');
 
   if (success && token) {
+    // Guardar token y redirigir
     localStorage.setItem('token', token);
     showStatus('¡Registro exitoso con Google! Redirigiendo...', 'success');
     setTimeout(() => {
@@ -318,19 +338,10 @@ function checkGoogleCallback() {
     }, 1500);
   } else if (error) {
     showStatus(`Error en registro con Google: ${decodeURIComponent(error)}`, 'error');
+    // Limpiar URL
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
-    </script>
-    <script>
-      (function(){
-        try {
-          const env = window.__ENV__ || {};
-          const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
-          if (!window.API_BASE) window.API_BASE = api;
-          if (!window.__API_BASE_LOGGED__) { console.log('Cargando script de login...'); console.log('API URL es:', window.API_BASE); window.__API_BASE_LOGGED__ = true; }
-        } catch {}
-      })();
     </script>
   </body>
 </html>

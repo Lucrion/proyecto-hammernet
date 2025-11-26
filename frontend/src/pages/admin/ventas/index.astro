@@ -188,9 +188,11 @@ const title = 'Gestión de Ventas';
 
     <!-- Scripts -->
     <script type="module">
-import { API_URL, handleApiError } from '../../scripts/utils/config.js';
-import { getData, updateData } from '../../scripts/utils/api.js';
-import { mostrarErrorToast } from '../../scripts/utils/ui.js';
+function buildUrl(endpoint){const base=(window.API_BASE||'/api');if(endpoint.startsWith('http'))return endpoint;const origin=String(base).replace(/\/api$/,'');if(endpoint.startsWith('/'))return origin+endpoint;return base+endpoint}
+async function fetchWithAuth(endpoint,options={}){const headers=options.headers||{};let token='';try{token=sessionStorage.getItem('token')||localStorage.getItem('token')||localStorage.getItem('access_token')||''}catch{}if(token)headers['Authorization']='Bearer '+token;if(!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const url=buildUrl(endpoint);const c=new AbortController();const t=setTimeout(()=>c.abort(),Number(10000));const res=await fetch(url,{...options,headers,mode:'cors',credentials:'include',signal:c.signal});clearTimeout(t);return res}
+async function getData(endpoint){const r=await fetchWithAuth(endpoint,{method:'GET',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
+async function updateData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
+function mostrarErrorToast(mensaje){try{const div=document.createElement('div');div.className='fixed top-4 right-4 z-50 bg-red-600 text-white px-4 py-2 rounded shadow';div.textContent=mensaje;document.body.appendChild(div);setTimeout(()=>{div.remove();},3000);}catch{alert('Error: '+mensaje)}}
 
 const state = { ventas: [], ventaDetalleActual: null, filtros: { fechaInicio: null, fechaFin: null, estado: null }, paginacion: { paginaActual: 1, elementosPorPagina: 20, totalElementos: 0 }, orden: { clave: null, direccion: 'asc' } };
 

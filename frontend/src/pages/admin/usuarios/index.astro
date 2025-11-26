@@ -514,7 +514,16 @@ async function crearUsuario(formData) {
         }
     } catch (error) {
         console.error('Error al crear usuario:', error);
-        mostrarMensaje('Error al crear usuario', 'error');
+        const msg = String(error && error.message || '');
+        let det = 'Error al crear usuario';
+        try {
+            const jsonStr = msg.replace(/^Error\s+\d+:\s+/, '');
+            const data = JSON.parse(jsonStr);
+            if (data && data.detail) {
+                det = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+            }
+        } catch {}
+        mostrarMensaje(det, 'error');
     }
 }
 
@@ -758,7 +767,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (/^[0-9]+[kK]?$/.test(cleaned)) { body = cleaned.length >= 2 ? cleaned.slice(0, -1) : cleaned; }
                 body = body.slice(0, 8);
                 data.rut = body ? Number(body) : null;
-            } else { data.rut = null; }
+                data.username = body || null;
+            } else { data.rut = null; data.username = null; }
             if (data.nombre !== undefined) { data.nombre = String(data.nombre).trim(); }
             if (data.apellido !== undefined) { data.apellido = String(data.apellido).trim(); }
             if (data.role !== undefined) { data.role = String(data.role).toLowerCase().trim(); }
