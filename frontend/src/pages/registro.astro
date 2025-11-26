@@ -1,6 +1,6 @@
 ---
 import EnvLoader from '../components/EnvLoader.astro';
-import registerScriptUrl from '../scripts/pages/register.js?url';
+ 
 ---
 
 <html lang="es">
@@ -83,6 +83,6 @@ import registerScriptUrl from '../scripts/pages/register.js?url';
       </div>
     </div>
 
-    <script type="module" src={registerScriptUrl}></script>
+    <script type="module">import '../scripts/pages/register.js';</script>
   </body>
 </html>

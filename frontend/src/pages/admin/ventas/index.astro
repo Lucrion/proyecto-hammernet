@@ -2,7 +2,6 @@
 export const prerender = false;
 
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import ventasScriptUrl from '../../../scripts/pages/ventas.js?url';
 
 const title = 'Gestión de Ventas';
 ---
@@ -187,7 +186,7 @@ const title = 'Gestión de Ventas';
     </div>
 
     <!-- Scripts -->
-    <script type="module" src={ventasScriptUrl}></script>
+    <script type="module">import '../../../scripts/pages/ventas.js';</script>
 </AdminLayout>
 
 <style>

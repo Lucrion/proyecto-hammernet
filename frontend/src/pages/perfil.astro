@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import perfilScriptUrl from '../scripts/pages/perfil.js?url';
+ 
 ---
 
 <Layout title="Perfil del Cliente">
@@ -101,5 +101,5 @@ import perfilScriptUrl from '../scripts/pages/perfil.js?url';
     </div>
   </div>
 
-  <script type="module" src={perfilScriptUrl}></script>
+  <script type="module">import '../scripts/pages/perfil.js';</script>
 </Layout>

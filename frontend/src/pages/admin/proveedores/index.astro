@@ -1,6 +1,5 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import proveedoresScriptUrl from '../../../scripts/admin/proveedores.js?url';
 ---
 
 <AdminLayout title="Gestión de Proveedores">
@@ -150,5 +149,5 @@ import proveedoresScriptUrl from '../../../scripts/admin/proveedores.js?url';
 		</div>
 	</main>
 
-	<script type="module" src={proveedoresScriptUrl}></script>
+	<script type="module">import '../../../scripts/admin/proveedores.js';</script>
 </AdminLayout>

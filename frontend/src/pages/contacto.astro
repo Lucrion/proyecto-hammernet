@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import contactoScriptUrl from '../scripts/pages/contacto.js?url';
+ 
 ---
 
 <Layout title="Contáctanos - Ferretería Patricio">
@@ -211,4 +211,4 @@ import contactoScriptUrl from '../scripts/pages/contacto.js?url';
     </div>
 </Layout>
 
-<script type="module" src={contactoScriptUrl}></script>
+<script type="module">import '../scripts/pages/contacto.js';</script>

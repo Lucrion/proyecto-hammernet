@@ -1,7 +1,6 @@
 ---
 // No importamos el Layout para evitar superposición
 import EnvLoader from '../components/EnvLoader.astro';
-import loginScriptUrl from '../scripts/pages/login.js?url';
 ---
 
 <html lang="es">
@@ -94,4 +93,4 @@ import loginScriptUrl from '../scripts/pages/login.js?url';
 	</body>
 </html>
 
-    <script type="module" src={loginScriptUrl}></script>
+    <script type="module">import '../scripts/pages/login.js';</script>

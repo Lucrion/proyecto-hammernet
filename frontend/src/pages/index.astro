@@ -1,11 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import EnvLoader from '../components/EnvLoader.astro';
-import indexScriptUrl from '../scripts/pages/index.js?url';
----
 
 <EnvLoader />
-<script type="module" src={indexScriptUrl}></script>
+<script type="module">import '../scripts/pages/index.js';</script>
 
 <script>
 	// El script del módulo se encarga de cargar los productos automáticamente

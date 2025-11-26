@@ -1,6 +1,6 @@
 ---
 import EnvLoader from '../components/EnvLoader.astro';
-import loginScriptUrl from '../scripts/pages/login-cliente.js?url';
+const loginScriptUrl = Astro.resolve('../scripts/pages/login-cliente.js');
 ---
 
 <html lang="es">

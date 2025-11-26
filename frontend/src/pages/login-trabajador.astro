@@ -1,6 +1,5 @@
 ---
 import EnvLoader from '../components/EnvLoader.astro';
-import loginScriptUrl from '../scripts/pages/login-trabajador.js?url';
 ---
 
 <html lang="es">
@@ -43,6 +42,6 @@ import loginScriptUrl from '../scripts/pages/login-trabajador.js?url';
         </div>
       </div>
     </div>
-    <script type="module" src={loginScriptUrl}></script>
+    <script type="module">import '../scripts/pages/login-trabajador.js';</script>
   </body>
 </html>

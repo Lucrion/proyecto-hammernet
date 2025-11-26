@@ -1,6 +1,5 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
 ---
 
 <AdminLayout title="Gestión de Usuarios">
@@ -243,4 +242,4 @@ import usuariosScriptUrl from '../../../scripts/admin/usuarios.js?url';
     </div>
 </AdminLayout>
 
-<script type="module" src={usuariosScriptUrl}></script>
+<script type="module">import '../../../scripts/admin/usuarios.js';</script>
