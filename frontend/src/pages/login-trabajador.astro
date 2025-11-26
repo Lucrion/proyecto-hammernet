@@ -19,7 +19,7 @@ import loginScriptUrl from '../scripts/pages/login-trabajador.js?url';
       <div class="w-1/2 bg-white flex items-center justify-center p-12">
         <div class="w-full max-w-md">
           <h2 class="text-2xl font-semibold text-gray-900 mb-8">Inicio de sesión (Trabajador)</h2>
-          <form id="loginForm" class="space-y-6">
+          <form id="loginForm" class="space-y-6" method="post" onsubmit="return false">
             <div class="space-y-4">
               <div>
                 <label id="usernameLabel" for="username" class="block text-sm font-medium text-gray-700 mb-1">RUT</label>
@@ -45,4 +45,3 @@ import loginScriptUrl from '../scripts/pages/login-trabajador.js?url';
     <script type="module" src={loginScriptUrl}></script>
   </body>
 </html>
-
