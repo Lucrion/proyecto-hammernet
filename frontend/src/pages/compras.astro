@@ -249,3 +249,13 @@ import EnvLoader from '../components/EnvLoader.astro';
     });
   </script>
 </Layout>
+<script>
+(function(){
+  try {
+    const env = window.__ENV__ || {};
+    const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+    if (!window.API_BASE) window.API_BASE = api;
+    if (!window.__API_BASE_LOGGED__) { console.log('Cargando script de login...'); console.log('API URL es:', window.API_BASE); window.__API_BASE_LOGGED__ = true; }
+  } catch {}
+})();
+</script>
