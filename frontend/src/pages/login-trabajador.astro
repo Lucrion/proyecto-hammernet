@@ -46,6 +46,41 @@ import EnvLoader from '../components/EnvLoader.astro';
         </div>
       </div>
     </div>
-    <script type="module">import '../scripts/pages/login-trabajador.js';</script>
+    <script>
+      (function(){
+        const env = window.__ENV__ || {};
+        const API_BASE = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+        console.log('Cargando script de login...');
+        console.log('API URL es:', API_BASE);
+        const form = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const digitsOnly = (s) => String(s||'').replace(/\D/g,'');
+        if (form) {
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const raw = (usernameInput?.value||'').trim();
+            const baseRut = raw.includes('-') ? raw.split('-')[0] : raw;
+            const username = digitsOnly(baseRut);
+            const password = passwordInput?.value||'';
+            const formData = new URLSearchParams({ username, password, grant_type:'password' });
+            try {
+              const response = await fetch(`${API_BASE}/auth/login`, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json' }, body: formData });
+              if (response.ok) {
+                const result = await response.json();
+                const token = result.access_token || result.token;
+                sessionStorage.setItem('isLoggedIn','true');
+                sessionStorage.setItem('token', token);
+                window.location.href = '/admin';
+              } else {
+                alert('Error en las credenciales');
+              }
+            } catch (error) {
+              console.error('Error de conexión:', error);
+            }
+          });
+        }
+      })();
+    </script>
   </body>
 </html>
