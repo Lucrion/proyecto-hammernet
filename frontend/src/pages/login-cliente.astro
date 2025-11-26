@@ -48,10 +48,16 @@ import EnvLoader from '../components/EnvLoader.astro';
         </div>
       </div>
     </div>
-    <script>
-      import { API_URL, corsConfig, API_TIMEOUT } from '../scripts/utils/config.js';
-import { digitsOnly, formatRutFromDigits, formatRutUI, cleanRutInput } from '../scripts/utils/rut.js';
-corsConfig.headers = { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' };
+    <script type="module">
+      function getApiBase(){try{const env=window.__ENV__||{};return env.PUBLIC_API_URL||env.PUBLIC_API_URL_PRODUCTION||'/api'}catch{return'/api'}}
+      const API_URL=getApiBase();
+      const API_TIMEOUT=10000;
+      const corsConfig={ mode:'cors', credentials:'include' };
+      function digitsOnly(v){return String(v||'').replace(/\D/g,'')}
+      function cleanRutInput(v){return String(v||'').replace(/[^0-9kK]/g,'').toUpperCase()}
+      function formatRutUI(v){const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase();if(!s)return'';if(s.length===1)return s;const body=s.slice(0,-1);const dv=s.slice(-1);const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.');return `${withDots}-${dv}`}
+      function formatRutFromDigits(d){const s=String(d||'').replace(/\D/g,'');if(!s)return'';return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.')}
+      const defaultHeaders={ 'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json' };
 
 async function checkServerAvailability() {
   try { const c = new AbortController(); const t = setTimeout(() => c.abort(), API_TIMEOUT/2);
@@ -71,7 +77,7 @@ async function handleLogin(e){ e.preventDefault(); const usernameInput=(document
     formData.append('username', rutLimpio);
     formData.append('password', password);
     formData.append('grant_type','password');
-    const opts = { method:'POST', body:formData, signal:controller.signal, mode:corsConfig.mode, credentials:corsConfig.credentials, headers: { 'Content-Type':'application/x-www-form-urlencoded', 'Accept':'application/json' } };
+      const opts = { method:'POST', body:formData, signal:controller.signal, mode:corsConfig.mode, credentials:corsConfig.credentials, headers: defaultHeaders };
     let response = await fetch(`${API_URL}/auth/login`, opts).catch(()=>null);
     if (!response || !response.ok) {
       response = await fetch(`${API_URL}/auth/login-cliente`, opts).catch(()=>null);

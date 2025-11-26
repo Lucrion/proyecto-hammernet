@@ -265,7 +265,7 @@ async function handleRegister(e) {
     setTimeout(() => { 
       const workerRoles=['administrador','admin','trabajador','vendedor','bodeguero'];
       const isWorker = workerRoles.includes(String(user.rol).toLowerCase());
-      window.location.href = isWorker ? '/admin' : '/';
+      location.replace(isWorker ? '/admin' : '/');
     }, 1000);
   } catch (error) {
     const isTimeout = error.name === 'AbortError';
@@ -277,6 +277,16 @@ async function handleRegister(e) {
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const isLogged = (localStorage.getItem('isLoggedIn') === 'true') || (sessionStorage.getItem('isLoggedIn') === 'true');
+    const role = (localStorage.getItem('role') || sessionStorage.getItem('role') || '').toLowerCase();
+    if (isLogged) {
+      const workerRoles=['administrador','admin','trabajador','vendedor','bodeguero'];
+      const target = workerRoles.includes(role) ? '/admin' : '/';
+      location.replace(target);
+      return;
+    }
+  } catch {}
   const form = document.getElementById('registerForm');
   const googleButton = document.getElementById('googleButton');
   const rutEl = document.getElementById('rut');

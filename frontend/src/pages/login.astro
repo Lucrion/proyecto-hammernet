@@ -94,13 +94,16 @@ import EnvLoader from '../components/EnvLoader.astro';
 </html>
 
     <script type="module">
-// Configuración centralizada
-import { API_URL, corsConfig, API_TIMEOUT } from '../scripts/utils/config.js';
-import { digitsOnly, formatRutUI, formatRutFromDigits } from '../scripts/utils/rut.js';
-corsConfig.headers = {
-  'Content-Type': 'application/x-www-form-urlencoded',
-  'Accept': 'application/json'
-};
+// Configuración centralizada (inline)
+function getApiBase(){try{const env=window.__ENV__||{};return env.PUBLIC_API_URL||env.PUBLIC_API_URL_PRODUCTION||'/api'}catch{return'/api'}}
+const API_URL=getApiBase();
+const API_TIMEOUT=10000;
+const corsConfig={ mode:'cors', credentials:'include' };
+const defaultHeaders={ 'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json' };
+// Utilidades RUT inline
+function digitsOnly(v){return String(v||'').replace(/\D/g,'')}
+function formatRutUI(v){const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase();if(!s)return'';if(s.length===1)return s;const body=s.slice(0,-1);const dv=s.slice(-1);const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.');return `${withDots}-${dv}`}
+function formatRutFromDigits(d){const s=String(d||'').replace(/\D/g,'');if(!s)return'';return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.')}
 
 async function checkServerAvailability() {
     try {
@@ -155,7 +158,7 @@ async function handleLogin(e) {
         formData.append('username', username);
         formData.append('password', password);
         formData.append('grant_type', 'password');
-        const fetchOptions = { method: 'POST', body: formData, signal: controller.signal, ...corsConfig };
+        const fetchOptions = { method: 'POST', body: formData, signal: controller.signal, ...corsConfig, headers: defaultHeaders };
         let response = await fetch(`${API_URL}/auth/login`, fetchOptions);
         clearTimeout(timeoutId);
         if (!response.ok) {

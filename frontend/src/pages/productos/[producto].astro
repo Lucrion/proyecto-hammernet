@@ -157,8 +157,23 @@ try {
             imagen: normalizeImageUrl(s.imagen),
             precio: Number(s.precio || 0)
           })) : [];
+          // Filtrar por pertenencia al catálogo público
+          let catalogSet = new Set();
+          try {
+            let respCat = await fetch(`${ABS_API_BASE}/productos/catalogo?skip=0&limit=1000`);
+            if (!respCat.ok && PROXY_BASE) {
+              try { respCat = await fetch(`${PROXY_BASE}/productos/catalogo?skip=0&limit=1000`); } catch {}
+            }
+            if (respCat.ok) {
+              const catalogo = await respCat.json();
+              if (Array.isArray(catalogo)) {
+                catalogSet = new Set(catalogo.map(p => p.id_producto).filter(id => id != null));
+              }
+            }
+          } catch {}
 
           productosSimilares = await Promise.all(baseSim.map(async (sim) => {
+            if (catalogSet.size && !catalogSet.has(sim.id)) { return null; }
             try {
               let respDet = await fetch(`${ABS_API_BASE}/productos/${sim.id}`);
               if (!respDet.ok && PROXY_BASE) {
@@ -195,8 +210,9 @@ try {
                 };
               }
             } catch {}
-            return sim;
+            return catalogSet.size ? null : sim;
           }));
+          productosSimilares = productosSimilares.filter(Boolean);
         }
       } catch (e) {
         console.warn('No se pudo cargar productos similares:', e);
