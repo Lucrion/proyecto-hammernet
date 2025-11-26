@@ -11,12 +11,23 @@ async function pingHealthOnce() {
   didHealthPing = true;
   try {
     const url = String(apiBase || devApiDefault).replace(/\/$/, '') + '/health';
+    console.log(`[frontend] Ping de health al backend: ${url}`);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => { try { controller.abort(); } catch {} }, 5000);
-    await fetch(url, { method: 'GET', signal: controller.signal }).catch(() => {});
+    const res = await fetch(url, { method: 'GET', signal: controller.signal }).catch((err) => {
+      console.log(`[frontend] Backend health FAILED: ${String(err && err.message || err)}`);
+      throw err;
+    });
     clearTimeout(timeoutId);
+    if (res && res.ok) {
+      console.log(`[frontend] Backend health OK: ${res.status}`);
+    } else {
+      console.log(`[frontend] Backend health NOT OK: ${res ? res.status : 'no response'}`);
+    }
   } catch {}
 }
+
+pingHealthOnce();
 
 export async function onRequest(context: APIContext, next: Function) {
   const url = new URL(context.request.url);
