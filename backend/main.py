@@ -71,7 +71,7 @@ except Exception as e:
     print(f"❌ Error al inicializar base de datos: {e}")
 
 # Configurar CORS
-origins_str = os.getenv("ALLOWED_ORIGINS", "https://hammernet-frontend.onrender.com,https://hammernet-backend.onrender.com")
+origins_str = os.getenv("ALLOWED_ORIGINS", "https://ferreteria-patricio.onrender.com,https://hammernet.onrender.com")
 origins = [origin.strip() for origin in origins_str.split(",")]
 
 # Agregar localhost para desarrollo si no está en producción

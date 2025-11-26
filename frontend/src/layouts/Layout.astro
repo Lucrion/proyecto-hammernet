@@ -174,10 +174,11 @@ import Footer from '../components/Footer.astro';
 		      modal.style.display = 'flex';
 		    });
 		  }
-		  const goToLogin = (tipo) => {
-		    localStorage.setItem('loginTipo', tipo);
-		    window.location.href = `/login?tipo=${encodeURIComponent(tipo)}`;
-		  };
+          const goToLogin = (tipo) => {
+            localStorage.setItem('loginTipo', tipo);
+            const dest = (tipo === 'trabajador') ? '/login-trabajador' : '/login-cliente';
+            window.location.href = dest;
+          };
 		  btnCliente && btnCliente.addEventListener('click', () => goToLogin('cliente'));
 		  btnTrabajador && btnTrabajador.addEventListener('click', () => goToLogin('trabajador'));
 		  cerrarModalLogin && cerrarModalLogin.addEventListener('click', () => {

@@ -1,0 +1,50 @@
+---
+import EnvLoader from '../components/EnvLoader.astro';
+import loginScriptUrl from '../scripts/pages/login-cliente.js?url';
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Iniciar Sesión (Cliente)</title>
+    <EnvLoader />
+  </head>
+  <body class="min-h-screen bg-gray-100">
+    <div class="min-h-screen flex relative">
+      <a href="/" class="absolute top-6 left-6 text-gray-600 hover:text-gray-900">Volver</a>
+      <div class="w-1/2 bg-[#2B5BA9] flex items-center justify-center">
+        <img src="/images/logos/logo_bn.webp" alt="Ferretería Patricio" class="w-164 h-164">
+      </div>
+      <div class="w-1/2 bg-white flex items-center justify-center p-12">
+        <div class="w-full max-w-md">
+          <h2 class="text-2xl font-semibold text-gray-900 mb-8">Inicio de sesión (Cliente)</h2>
+          <form id="loginForm" class="space-y-6">
+            <div class="space-y-4">
+              <div>
+                <label id="usernameLabel" for="username" class="block text-sm font-medium text-gray-700 mb-1">RUT</label>
+                <input id="username" name="username" type="text" maxlength="13" required class="w-full px-3 py-2 border border-gray-300 rounded-md" inputmode="numeric" autocomplete="username" placeholder="20.347.793-7" />
+              </div>
+              <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                <input id="password" name="password" type="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="****************" />
+              </div>
+            </div>
+            <div>
+              <button id="loginButton" type="submit" class="w-full flex justify-center py-2 px-4 rounded-md text-sm font-medium text-white bg-gray-900 hover:bg-gray-800">
+                <span>Iniciar</span>
+                <span id="loadingSpinner" class="hidden ml-2">...</span>
+              </button>
+            </div>
+            <div id="statusMessage" class="mt-2 text-sm text-center hidden"></div>
+            <div id="createAccountContainer" class="mt-6 flex justify-center">
+              <a href="/registro" class="px-4 py-2 bg-black text-white rounded font-bold hover:bg-gray-900">Crear cuenta</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <script type="module" src={loginScriptUrl}></script>
+  </body>
+</html>
+

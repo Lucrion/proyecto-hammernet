@@ -94,13 +94,13 @@ async def google_callback(
         
         # Redirigir al frontend con el token
         import os
-        frontend_base = os.environ.get("FRONTEND_URL", "http://localhost:4321")
+        frontend_base = os.environ.get("FRONTEND_URL", "https://ferreteria-patricio.onrender.com")
         frontend_url = f"{frontend_base}/login?token={result['access_token']}&success=true"
         return RedirectResponse(url=frontend_url)
         
     except Exception as e:
         # Redirigir al frontend con error
         import os
-        frontend_base = os.environ.get("FRONTEND_URL", "http://localhost:4321")
+        frontend_base = os.environ.get("FRONTEND_URL", "https://ferreteria-patricio.onrender.com")
         frontend_url = f"{frontend_base}/login?error={str(e)}"
         return RedirectResponse(url=frontend_url)

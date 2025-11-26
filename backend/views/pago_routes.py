@@ -43,7 +43,7 @@ async def estado_pago(id_venta: int, db: Session = Depends(get_db)):
 @router.get("/return")
 async def pago_return(venta_id: int, token: str, db: Session = Depends(get_db)):
     """Retorno informal del portal de pagos: redirige al frontend raíz con flag de compra."""
-    frontend_base = os.environ.get("FRONTEND_URL", "http://localhost:4321")
+    frontend_base = os.environ.get("FRONTEND_URL", "https://ferreteria-patricio.onrender.com")
     url = f"{frontend_base}/?paid=1&venta_id={venta_id}&token={token}"
     return RedirectResponse(url=url, status_code=302)
 
