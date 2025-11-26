@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <script type="module">
-  import { trackEvent } from '/src/scripts/utils/analytics.js';
+  import { trackEvent } from '../scripts/utils/analytics.js';
   // Helpers para normalizar URLs de imágenes (soporta relativas del backend)
   function getApiHost() {
     try {
@@ -56,14 +56,18 @@ import Layout from '../layouts/Layout.astro';
   const subcatsContainer = document.getElementById('subcats-container');
   async function cargarCategorias() {
     try {
-      const res = await fetch('/api/categorias/');
+      const env = window.__ENV__ || {};
+      const apiBase = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      const res = await fetch(`${apiBase}/categorias/`);
       const cats = res.ok ? await res.json() : [];
       renderCategorias(Array.isArray(cats) ? cats : []);
     } catch {}
   }
   async function cargarSubcategorias(categoriaId) {
     try {
-      const res = await fetch(`/api/subcategorias/?categoria_id=${encodeURIComponent(categoriaId)}`);
+      const env = window.__ENV__ || {};
+      const apiBase = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      const res = await fetch(`${apiBase}/subcategorias/?categoria_id=${encodeURIComponent(categoriaId)}`);
       const subs = res.ok ? await res.json() : [];
       renderSubcategorias(Array.isArray(subs) ? subs : []);
     } catch {}
@@ -340,8 +344,10 @@ import Layout from '../layouts/Layout.astro';
   async function cargarProductos() {
     mostrarCargando();
     try {
-      await fetch('/api/health').catch(() => {});
-      const res = await fetch('/api/productos/catalogo?skip=0&limit=1000');
+      const env = window.__ENV__ || {};
+      const apiBase = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      await fetch(`${apiBase}/health`).catch(() => {});
+      const res = await fetch(`${apiBase}/productos/catalogo?skip=0&limit=1000`);
       const productos = res.ok ? await res.json() : [];
       state.todosProductos = productos;
       state.paginacion.paginaActual = 1;
