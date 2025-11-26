@@ -6,6 +6,15 @@ interface Props {
 const { title } = Astro.props;
 import EnvLoader from '../components/EnvLoader.astro';
 import Footer from '../components/Footer.astro';
+// Determinar origen de la API para preconnect/dns-prefetch en producción
+const env = import.meta.env.PUBLIC_ENVIRONMENT;
+const apiUrl = env === 'development' ? import.meta.env.PUBLIC_API_URL : import.meta.env.PUBLIC_API_URL_PRODUCTION;
+let apiOrigin = '';
+try {
+  if (apiUrl && apiUrl.startsWith('http')) {
+    apiOrigin = new URL(apiUrl).origin;
+  }
+} catch {}
 ---
 
 <!DOCTYPE html>
@@ -14,8 +23,12 @@ import Footer from '../components/Footer.astro';
 		<meta charset="UTF-8" />
 		<meta name="description" content="Ferretería Patricio - Herramientas y materiales de construcción">
 		<meta name="viewport" content="width=device-width" />
-		<link rel="preconnect" href="http://127.0.0.1:8000" crossorigin>
-		<link rel="dns-prefetch" href="http://127.0.0.1:8000">
+        {apiOrigin && (
+          <>
+            <link rel="preconnect" href={apiOrigin} crossorigin>
+            <link rel="dns-prefetch" href={apiOrigin}>
+          </>
+        )}
 		<link rel="preconnect" href="https://picsum.photos" crossorigin>
 		<link rel="dns-prefetch" href="https://picsum.photos">
 		<link rel="icon" type="image/svg+xml" href="/images/logos/logo_bn.webp" />
