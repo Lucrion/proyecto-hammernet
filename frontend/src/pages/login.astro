@@ -93,7 +93,173 @@ import EnvLoader from '../components/EnvLoader.astro';
 	</body>
 </html>
 
-    <script type="module">import '../scripts/pages/login.js';</script>
+    <script type="module">
+// Configuración centralizada
+import { API_URL, corsConfig, API_TIMEOUT } from '../scripts/utils/config.js';
+import { digitsOnly, formatRutUI, formatRutFromDigits } from '../scripts/utils/rut.js';
+corsConfig.headers = {
+  'Content-Type': 'application/x-www-form-urlencoded',
+  'Accept': 'application/json'
+};
+
+async function checkServerAvailability() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT / 2);
+        const response = await fetch(`${API_URL}/health`, { method: 'GET', signal: controller.signal });
+        clearTimeout(timeoutId);
+        return { available: response.ok, message: 'Servidor disponible' };
+    } catch (error) {
+        return { available: false, message: error.name === 'AbortError' ? 'Tiempo de espera agotado al conectar con el servidor' : `Error de conexión: ${error.message}` };
+    }
+}
+
+function handleApiError(error) {
+    if (error.name === 'AbortError') return { type: 'timeout', message: 'La solicitud ha excedido el tiempo de espera', original: error };
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) return { type: 'connection', message: 'No se pudo conectar con el servidor', original: error };
+    return { type: 'unknown', message: error.message || 'Error desconocido', original: error };
+}
+
+function showStatus(message, type = 'info') {
+    const statusMessage = document.getElementById('statusMessage');
+    statusMessage.textContent = message;
+    statusMessage.className = 'mt-2 text-sm text-center';
+    statusMessage.classList.add(type === 'error' ? 'text-red-600' : type === 'success' ? 'text-green-600' : type === 'warning' ? 'text-yellow-600' : 'text-gray-600');
+    statusMessage.classList.remove('hidden');
+}
+
+function showLoading(isLoading) {
+    const loginButton = document.getElementById('loginButton');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    if (isLoading) { loadingSpinner.classList.remove('hidden'); loginButton.disabled = true; loginButton.classList.add('opacity-75'); }
+    else { loadingSpinner.classList.add('hidden'); loginButton.disabled = false; loginButton.classList.remove('opacity-75'); }
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const params = new URLSearchParams(window.location.search);
+    const tipoSeleccionado = params.get('tipo') || localStorage.getItem('loginTipo');
+    const usernameInput = document.getElementById('username').value.trim();
+    const baseRut = usernameInput.includes('-') ? usernameInput.split('-')[0] : usernameInput;
+    const username = digitsOnly(baseRut);
+    const password = document.getElementById('password').value;
+    if (!username || !password) { showStatus('Por favor, ingrese RUT y contraseña', 'error'); return; }
+    showLoading(true);
+    showStatus('Verificando credenciales...', 'info');
+    const serverAvailable = await checkServerAvailability();
+    if (!serverAvailable.available) { showStatus('No se pudo verificar el servidor. Intentando iniciar sesión...', 'info'); }
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const formData = new URLSearchParams();
+        formData.append('username', username);
+        formData.append('password', password);
+        formData.append('grant_type', 'password');
+        const fetchOptions = { method: 'POST', body: formData, signal: controller.signal, ...corsConfig };
+        let response = await fetch(`${API_URL}/auth/login`, fetchOptions);
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = `Error de autenticación (${response.status})`;
+            try {
+                const errorData = JSON.parse(errorText);
+                if (errorData.detail) errorMessage = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
+                else if (errorData.message) errorMessage = errorData.message; else errorMessage = JSON.stringify(errorData);
+            } catch (e) {
+                errorMessage += ` - Respuesta: ${errorText.substring(0, 100)}${errorText.length > 100 ? '...' : ''}`;
+            }
+            if (response.status === 422) errorMessage = `Error 422: Datos no procesables. ${errorMessage}. Verifique la consola para más detalles.`;
+            if (response.status === 401) errorMessage = 'Credenciales incorrectas';
+            showStatus(errorMessage, 'error');
+            showLoading(false);
+            return;
+        }
+        const data = await response.json();
+        const user = {
+            id_usuario: data.id_usuario,
+            nombre: data.nombre,
+            apellido: data.apellido ?? data.apellidos ?? data.last_name,
+            email: data.email ?? data.correo ?? data.mail,
+            telefono: data.telefono ?? data.phone ?? data.celular,
+            rut: data.rut ?? digitsOnly(usernameInput),
+            rol: data.role || data.rol || 'cliente'
+        };
+        const workerRoles = ['administrador','admin','trabajador','vendedor','bodeguero'];
+        const storage = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
+        storage.setItem('isLoggedIn', 'true');
+        storage.setItem('token', data.access_token);
+        storage.setItem('user', JSON.stringify(user));
+        storage.setItem('role', user.rol);
+        storage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
+        document.cookie = `isLoggedIn=true; path=/; SameSite=Lax`;
+        document.cookie = `role=${encodeURIComponent(user.rol)}; path=/; SameSite=Lax`;
+        document.cookie = `loginTipo=${encodeURIComponent(tipoSeleccionado || '')}; path=/; SameSite=Lax`;
+        try {
+            const uResp = await fetch(`${API_URL}/usuarios/${user.id_usuario}`, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.access_token}` } });
+            if (uResp.ok) {
+                const fullUser = await uResp.json();
+                if (fullUser && (fullUser.email || fullUser.telefono)) { storage.setItem('user', JSON.stringify(fullUser)); }
+            }
+        } catch (err) {}
+        showStatus('Autenticación exitosa. Redirigiendo...', 'success');
+        const roleStr = String(user.rol || user.role || '').toLowerCase();
+        const allowWorker = workerRoles.includes(roleStr);
+        const tipoFinal = tipoSeleccionado ? tipoSeleccionado : (allowWorker ? 'trabajador' : 'cliente');
+        const destino = tipoFinal === 'trabajador' ? '/admin' : '/';
+        setTimeout(() => { window.location.href = destino; }, 800);
+    } catch (error) {
+        showLoading(false);
+        const errorInfo = handleApiError(error);
+        if (error.message && (error.message.includes('credenciales') || error.message.includes('credentials'))) showStatus('Credenciales incorrectas', 'error');
+        else showStatus('Error de autenticación: ' + errorInfo.message, 'error');
+    }
+}
+
+function showGoogleLoading(isLoading) {
+    const googleButton = document.getElementById('googleLoginButton');
+    const googleSpinner = document.getElementById('googleLoginLoadingSpinner');
+    if (googleButton && googleSpinner) { if (isLoading) { googleButton.disabled = true; googleSpinner.classList.remove('hidden'); } else { googleButton.disabled = false; googleSpinner.classList.add('hidden'); } }
+}
+
+async function handleGoogleAuth() {
+    try { showGoogleLoading(true); showStatus('Redirigiendo a Google...', 'info'); window.location.href = `${API_URL}/auth/google`; }
+    catch (error) { showStatus('Error al conectar con Google. Inténtalo de nuevo.', 'error'); showGoogleLoading(false); }
+}
+
+function checkGoogleCallback() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const error = urlParams.get('error');
+    if (token) { localStorage.setItem('token', token); showStatus('¡Inicio de sesión exitoso con Google!', 'success'); setTimeout(() => { window.location.href = '/dashboard'; }, 1000); return true; }
+    else if (error) { showStatus(`Error de autenticación: ${error}`, 'error'); window.history.replaceState({}, document.title, window.location.pathname); return true; }
+    return false;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const loginForm = document.getElementById('loginForm');
+    const googleLoginButton = document.getElementById('googleLoginButton');
+    const usernameEl = document.getElementById('username');
+    const usernameLabel = document.getElementById('usernameLabel');
+    const createAccountContainer = document.getElementById('createAccountContainer');
+    if (checkGoogleCallback()) { return; }
+    const params = new URLSearchParams(window.location.search);
+    const tipoSeleccionado = params.get('tipo') || localStorage.getItem('loginTipo');
+    if (tipoSeleccionado === 'trabajador' && createAccountContainer) { createAccountContainer.classList.add('hidden'); }
+    if (usernameLabel) usernameLabel.textContent = 'RUT';
+    if (usernameEl) usernameEl.placeholder = '20.347.793-7';
+    try {
+        const storagePrimary = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
+        const storageSecondary = (tipoSeleccionado === 'trabajador') ? window.localStorage : window.sessionStorage;
+        const userStr = storagePrimary.getItem('user') || storageSecondary.getItem('user');
+        if (userStr && usernameEl) { const u = JSON.parse(userStr); const rutDigits = (u && u.rut) || ''; if (rutDigits) { usernameEl.value = formatRutFromDigits(rutDigits); } }
+    } catch {}
+    const serverStatus = await checkServerAvailability();
+    if (!serverStatus.available) { showStatus('No se pudo verificar el servidor. Puedes intentar iniciar sesión.', 'info'); }
+    if (loginForm) { loginForm.addEventListener('submit', handleLogin); }
+    if (usernameEl) { usernameEl.addEventListener('input', (e) => { const formatted = formatRutUI(e.target.value); e.target.value = formatted; e.target.selectionStart = e.target.selectionEnd = formatted.length; }); }
+    if (googleLoginButton) { googleLoginButton.addEventListener('click', handleGoogleAuth); }
+});
+    </script>
     <script>
       (function(){
         try {

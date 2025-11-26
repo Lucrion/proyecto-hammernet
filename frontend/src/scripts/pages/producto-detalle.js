@@ -1,6 +1,6 @@
 // Funciones para la página de detalle de producto
-import { API_URL, checkServerAvailability, handleApiError } from '../utils/config.js';
-import { getData } from '../utils/api.js';
+import { API_URL, checkServerAvailability, handleApiError } from '../scripts/utils/config.js';
+import { getData } from '../scripts/utils/api.js';
 
 // Función para formatear precios con puntos como separador de miles (formato chileno)
 function formatearPrecio(precio) {

@@ -254,8 +254,8 @@ import EnvLoader from '../components/EnvLoader.astro';
   </div>
 
   <script type="module">
-    import { trackEvent } from '/src/scripts/utils/analytics.js';
-    import { formatRutUI, formatRutFromDigits, cleanRutInput, digitsOnly } from '/src/scripts/utils/rut.js';
+    import { trackEvent } from '../scripts/utils/analytics.js';
+    import { formatRutUI, formatRutFromDigits, cleanRutInput, digitsOnly } from '../scripts/utils/rut.js';
     const ENVIO_COSTO = 2000;
     const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 

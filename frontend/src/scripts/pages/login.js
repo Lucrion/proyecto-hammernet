@@ -1,6 +1,6 @@
 // Configuración centralizada
-import { API_URL, corsConfig, API_TIMEOUT } from '../utils/config.js';
-import { digitsOnly, formatRutUI, formatRutFromDigits } from '../utils/rut.js';
+import { API_URL, corsConfig, API_TIMEOUT } from '../scripts/utils/config.js';
+import { digitsOnly, formatRutUI, formatRutFromDigits } from '../scripts/utils/rut.js';
 // Asegurar headers adecuados para este flujo
 corsConfig.headers = {
   'Content-Type': 'application/x-www-form-urlencoded',

@@ -1,7 +1,7 @@
 // Configuración centralizada
-import { API_URL, API_TIMEOUT } from '../utils/config.js';
-import { normalizePhoneCL, formatPhoneUI } from '../utils/phone.js';
-import { digitsOnly, formatRutUI, formatRutFromDigits } from '../utils/rut.js';
+import { API_URL, API_TIMEOUT } from '../scripts/utils/config.js';
+import { normalizePhoneCL, formatPhoneUI } from '../scripts/utils/phone.js';
+import { digitsOnly, formatRutUI, formatRutFromDigits } from '../scripts/utils/rut.js';
 
 function showStatus(message, type = 'info') {
   const el = document.getElementById('statusMessage');

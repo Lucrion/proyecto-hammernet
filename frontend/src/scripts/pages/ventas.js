@@ -1,7 +1,7 @@
 // Funciones para la gestión de ventas
-import { API_URL, handleApiError } from '../utils/config.js';
-import { getData, updateData } from '../utils/api.js';
-import { mostrarErrorToast } from '../utils/ui.js';
+import { API_URL, handleApiError } from '../scripts/utils/config.js';
+import { getData, updateData } from '../scripts/utils/api.js';
+import { mostrarErrorToast } from '../scripts/utils/ui.js';
 
 // Estado global
 const state = {

@@ -1,6 +1,6 @@
 // Funciones para la página principal
-import { API_URL, checkServerAvailability } from '../utils/config.js';
-import { getData, postData } from '../utils/api.js';
+import { API_URL, checkServerAvailability } from '../scripts/utils/config.js';
+import { getData, postData } from '../scripts/utils/api.js';
 
 // Estado global
 const state = {

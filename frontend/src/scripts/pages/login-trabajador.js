@@ -1,5 +1,5 @@
-import { API_URL, corsConfig, API_TIMEOUT } from '../utils/config.js';
-import { digitsOnly, formatRutFromDigits, formatRutUI } from '../utils/rut.js';
+import { API_URL, corsConfig, API_TIMEOUT } from '../scripts/utils/config.js';
+import { digitsOnly, formatRutFromDigits, formatRutUI } from '../scripts/utils/rut.js';
 corsConfig.headers = { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' };
 
 async function checkServerAvailability() { try { const c=new AbortController(); const t=setTimeout(()=>c.abort(), API_TIMEOUT/2); const r=await fetch(`${API_URL}/health`,{method:'GET',signal:c.signal}); clearTimeout(t); return {available:r.ok}; } catch { return {available:false}; } }
