@@ -884,7 +884,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       const rutInput = document.getElementById('dp-rut');
       if (rutInput) {
         const rv = rutInput.value || '';
-        if (!isRutValid(rv)) { alert('RUT inválido'); if (rutInput.reportValidity) rutInput.reportValidity(); return; }
+        if (!isRutValid(rv)) { if (rutInput.reportValidity) rutInput.reportValidity(); return; }
       }
           const guestInfo = {
             nombre: getVal('dp-nombre') || 'Invitado',
@@ -944,11 +944,14 @@ import EnvLoader from '../components/EnvLoader.astro';
           });
           if (initResp.ok) {
             const initData = await initResp.json();
-            const redirectUrl = initData?.redirect_url;
-            if (redirectUrl) {
-              window.location.href = redirectUrl;
+            const ventaId = Number(venta?.id_venta || venta?.id);
+            const token = initData?.token;
+            if (ventaId && token) {
+              window.location.href = `/pago-simular?venta_id=${encodeURIComponent(ventaId)}&token=${encodeURIComponent(token)}`;
               return;
             }
+            const redirectUrl = initData?.redirect_url;
+            if (redirectUrl) { window.location.href = redirectUrl; return; }
           }
         } catch (e) {
           console.warn('No se pudo iniciar pago simulado:', e);

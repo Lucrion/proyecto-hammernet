@@ -1,0 +1,77 @@
+---
+import EnvLoader from '../components/EnvLoader.astro';
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Simulación de Pago</title>
+    <EnvLoader />
+  </head>
+  <body class="min-h-screen bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+      <h1 class="text-2xl font-bold mb-6">Simulación de Pago</h1>
+      <div id="info" class="mb-4 text-gray-700"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <button id="btnAprobado" class="px-4 py-2 bg-green-600 text-white rounded">Autorizar</button>
+        <button id="btnRechazado" class="px-4 py-2 bg-red-600 text-white rounded">Rechazado</button>
+        <button id="btnAbortado" class="px-4 py-2 bg-yellow-600 text-white rounded">Cliente canceló</button>
+        <button id="btnTimeout" class="px-4 py-2 bg-gray-700 text-white rounded">Timeout</button>
+        <button id="btnError" class="px-4 py-2 bg-black text-white rounded">Error autenticación</button>
+      </div>
+      <div id="banner" class="mt-4 hidden p-3 rounded"></div>
+    </div>
+    <script>
+      (function(){
+        const params = new URLSearchParams(window.location.search);
+        const ventaId = Number(params.get('venta_id')||'');
+        const token = params.get('token')||'';
+        const API_BASE = window.API_BASE || '/api';
+        const info = document.getElementById('info');
+        const banner = document.getElementById('banner');
+        const showBanner = (status, data) => {
+          let cls = 'bg-gray-200 text-gray-800';
+          let msg = 'Procesando pago';
+          const reason = data?.reason || data?.message || '';
+          if (status === 'AUTHORIZED') { cls = 'bg-green-100 text-green-800'; msg = `Pago aprobado. Orden ${data?.buy_order || ''}`; }
+          else if (status === 'REJECTED' || status === 'FAILED') { cls = 'bg-red-100 text-red-800'; msg = `Pago rechazado${reason?`: ${reason}`:''}`; }
+          else if (status === 'ABORTED') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago cancelado por el cliente'; }
+          else if (status === 'TIMEOUT') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago expirado por timeout'; }
+          else if (status === 'ERROR') { cls = 'bg-red-100 text-red-800'; msg = `Error de autenticación${reason?`: ${reason}`:''}`; }
+          banner.className = `mt-4 p-3 rounded ${cls}`;
+          banner.textContent = msg;
+          banner.classList.remove('hidden');
+        };
+        info.textContent = `Venta #${ventaId} | token=${token}`;
+        async function sim(status, extra){
+          const payload = Object.assign({ id_venta: ventaId, status }, extra||{});
+          const resp = await fetch(`${API_BASE}/pagos/simular/notificar`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+          const data = await resp.json().catch(()=>({}));
+          showBanner(status, data);
+          if (status === 'AUTHORIZED') {
+            const bo = data?.buy_order || '';
+            setTimeout(()=>{ window.location.href='/orden-compra-detalle'+(bo?`?bo=${encodeURIComponent(bo)}`:''); }, 1200);
+          } else if (status === 'REJECTED') {
+            const rs = data?.reason || '';
+            setTimeout(()=>{ window.location.href='/?payment_status=REJECTED'+(rs?`&reason=${encodeURIComponent(rs)}`:''); }, 1600);
+          } else if (status === 'FAILED') {
+            setTimeout(()=>{ window.location.href='/?payment_status=FAILED'; }, 1600);
+          } else if (status === 'ABORTED') {
+            setTimeout(()=>{ window.location.href='/?payment_status=ABORTED'; }, 1600);
+          } else if (status === 'TIMEOUT') {
+            setTimeout(()=>{ window.location.href='/?payment_status=TIMEOUT'; }, 1600);
+          } else if (status === 'ERROR') {
+            const msg = data?.message || '';
+            setTimeout(()=>{ window.location.href='/?payment_status=ERROR'+(msg?`&message=${encodeURIComponent(msg)}`:''); }, 1800);
+          }
+        }
+        document.getElementById('btnAprobado').addEventListener('click', ()=> sim('AUTHORIZED', { payment_type_code:'VD', amount: 0, installments_number: 0 }));
+        document.getElementById('btnRechazado').addEventListener('click', ()=> sim('REJECTED', { reason:'Fondos insuficientes' }));
+        document.getElementById('btnAbortado').addEventListener('click', ()=> sim('ABORTED'));
+        document.getElementById('btnTimeout').addEventListener('click', ()=> sim('TIMEOUT'));
+        document.getElementById('btnError').addEventListener('click', ()=> sim('ERROR', { message:'API key inválida' }));
+      })();
+    </script>
+  </body>
+  </html>

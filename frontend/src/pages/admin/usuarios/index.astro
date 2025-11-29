@@ -252,6 +252,7 @@ async function deleteData(endpoint){const r=await fetchWithAuth(endpoint,{method
 function formatRutUI(v){const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase();if(!s)return'';const b=s.slice(0,-1);const dv=s.slice(-1);const withDots=b.replace(/\B(?=(\d{3})+(?!\d))/g,'.');return `${withDots}-${dv}`}
 function cleanRutInput(v){return String(v||'').replace(/[^0-9kK]/g,'').toUpperCase()}
 function formatRutFromDigits(d){const s=String(d||'').replace(/\D/g,'');if(!s)return'';const dv='';const withDots=s.replace(/\B(?=(\d{3})+(?!\d))/g,'.');return withDots}
+function formatRutDisplay(v){const s=String(v||'').toUpperCase().replace(/[^0-9K]/g,'');if(!s||s.length<2)return'';const body=s.slice(0,-1);const dv=s.slice(-1);const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.');return `${withDots}-${dv}`}
 
 let usuarioIdEliminar = null;
 let usuarioIdEliminarPermanente = null;
@@ -270,7 +271,7 @@ async function obtenerUsuarios() {
     try {
         const response = await getData('/api/usuarios/');
         if (response && Array.isArray(response)) {
-            const trabajadores = response.filter(u => u.role !== 'cliente');
+            const trabajadores = response.filter(u => (String(u.role||'').toLowerCase() !== 'cliente' && String(u.role||'').toLowerCase() !== 'invitado'));
             usuariosLista = trabajadores;
             paginaActual = 1;
             renderPagina();
@@ -317,15 +318,22 @@ function validarFormularioUsuario(data, { isNew = false } = {}) {
         }
     }
     const pwd = data.password !== undefined ? String(data.password).trim() : undefined;
+    const cpwd = data.confirm_password !== undefined ? String(data.confirm_password).trim() : undefined;
     if (isNew) {
         if (!pwd) {
             errores.push('Debe ingresar una contraseña.');
         } else if (pwd.length < 3) {
             errores.push('La contraseña debe tener al menos 3 caracteres.');
         }
+        if (pwd && cpwd !== undefined && pwd !== cpwd) {
+            errores.push('La confirmación de contraseña no coincide.');
+        }
     } else if (pwd) {
         if (pwd.length < 3) {
             errores.push('La contraseña debe tener al menos 3 caracteres.');
+        }
+        if (cpwd !== undefined && pwd !== cpwd) {
+            errores.push('La confirmación de contraseña no coincide.');
         }
     }
     if (data.rut) {
@@ -397,7 +405,7 @@ async function mostrarTrabajadores() {
     try {
         const response = await getData('/api/usuarios/');
         if (response && Array.isArray(response)) {
-            usuariosLista = response.filter(u => u.role !== 'cliente');
+            usuariosLista = response.filter(u => (String(u.role||'').toLowerCase() !== 'cliente' && String(u.role||'').toLowerCase() !== 'invitado'));
             paginaActual = 1;
             renderPagina();
         }
@@ -410,7 +418,7 @@ async function mostrarClientes() {
     try {
         const response = await getData('/api/usuarios/');
         if (response && Array.isArray(response)) {
-            usuariosLista = response.filter(u => u.role === 'cliente');
+            usuariosLista = response.filter(u => (String(u.role||'').toLowerCase() === 'cliente' || String(u.role||'').toLowerCase() === 'invitado'));
             paginaActual = 1;
             renderPagina();
         }
@@ -435,23 +443,22 @@ function cargarUsuarios(usuarios) {
         row.className = 'hover:bg-gray-50';
         const fechaCreacion = new Date(usuario.fecha_creacion).toLocaleDateString('es-ES');
         let botonesAccion = '';
-        if (usuario.role !== 'cliente') {
+        if ((String(usuario.role||'').toLowerCase() !== 'cliente') && (String(usuario.role||'').toLowerCase() !== 'invitado')) {
             botonesAccion = `
-                <button onclick="editarUsuario(${usuario.rut})" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
-                <button onclick="confirmarEliminarUsuario(${usuario.rut})" class="text-red-600 hover:text-red-900">Desactivar</button>
+                <button onclick="editarUsuario('${String(usuario.rut)}')" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
+                <button onclick="confirmarEliminarUsuario('${String(usuario.rut)}')" class="text-red-600 hover:text-red-900">Desactivar</button>
             `;
         } else {
             botonesAccion = `
-                <button onclick="verInfoUsuario(${usuario.rut})" class="text-blue-600 hover:text-blue-900">Ver Información</button>
+                <button onclick="verInfoUsuario('${String(usuario.rut)}')" class="text-blue-600 hover:text-blue-900">Ver Información</button>
             `;
         }
         const nombreCompleto = `${usuario.nombre || ''}${usuario.apellido ? ' ' + usuario.apellido : ''}`.trim();
-        const rutDigits = String(usuario.rut ?? '').replace(/\D/g, '');
-        const rutDisplay = (rutDigits && rutDigits !== '0') ? formatRutFromDigits(rutDigits) : '—';
+        const rutDisplay = formatRutDisplay(usuario.rut) || '—';
         row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.rut}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${nombreCompleto || '—'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rutDisplay}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${rutDisplay}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre || '—'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.apellido || '—'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.role}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -475,17 +482,16 @@ function cargarUsuariosDesactivados(usuarios) {
         row.className = 'hover:bg-gray-50';
         const fechaCreacion = new Date(usuario.fecha_creacion).toLocaleDateString('es-ES');
         const nombreCompleto = `${usuario.nombre || ''}${usuario.apellido ? ' ' + usuario.apellido : ''}`.trim();
-        const rutDigits2 = String(usuario.rut ?? '').replace(/\D/g, '');
-        const rutDisplay2 = (rutDigits2 && rutDigits2 !== '0') ? formatRutFromDigits(rutDigits2) : '—';
+        const rutDisplay2 = formatRutDisplay(usuario.rut) || '—';
         row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.rut}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${rutDisplay2}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${nombreCompleto || '—'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rutDisplay2}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.apellido || '—'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.role}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button onclick="activarUsuario(${usuario.rut})" class="text-green-600 hover:text-green-800 font-semibold mr-3">Activar</button>
-                <button onclick="eliminarUsuarioPermanente(${usuario.rut})" class="text-red-600 hover:text-red-900 font-semibold">Eliminar Permanentemente</button>
+                <button onclick="activarUsuario('${String(usuario.rut)}')" class="text-green-600 hover:text-green-800 font-semibold mr-3">Activar</button>
+                <button onclick="eliminarUsuarioPermanente('${String(usuario.rut)}')" class="text-red-600 hover:text-red-900 font-semibold">Eliminar Permanentemente</button>
             </td>
         `;
         tbody.appendChild(row);
@@ -529,7 +535,7 @@ async function crearUsuario(formData) {
 
 async function actualizarUsuario(id, formData) {
     try {
-        const response = await updateData(`/api/usuarios/${id}`, formData);
+        const response = await updateData(`/api/usuarios/${encodeURIComponent(String(id))}`, formData);
         if (response) {
             mostrarMensaje('Usuario actualizado exitosamente', 'success');
             cerrarFormulario();
@@ -543,7 +549,7 @@ async function actualizarUsuario(id, formData) {
 
 async function eliminarUsuario(id) {
     try {
-        const response = await updateData(`/api/usuarios/${id}/desactivar`, {});
+        const response = await updateData(`/api/usuarios/${encodeURIComponent(String(id))}/desactivar`, {});
         if (response) {
             mostrarMensaje('Usuario desactivado exitosamente', 'success');
             obtenerUsuarios();
@@ -556,7 +562,7 @@ async function eliminarUsuario(id) {
 
 async function eliminarUsuarioPermanenteAPI(id) {
     try {
-        const response = await deleteData(`/api/usuarios/${id}/eliminar-permanente`);
+        const response = await deleteData(`/api/usuarios/${encodeURIComponent(String(id))}/eliminar-permanente`);
         if (response) {
             mostrarMensaje('Usuario eliminado permanentemente', 'success');
             obtenerUsuariosDesactivados();
@@ -569,7 +575,7 @@ async function eliminarUsuarioPermanenteAPI(id) {
 
 async function activarUsuarioAPI(id) {
     try {
-        const response = await updateData(`/api/usuarios/${id}/activar`, {});
+        const response = await updateData(`/api/usuarios/${encodeURIComponent(String(id))}/activar`, {});
         if (response) {
             mostrarMensaje('Usuario activado exitosamente', 'success');
             obtenerUsuarios();
@@ -594,7 +600,7 @@ function cerrarModalInfo() { document.getElementById('modalInfoUsuario').classLi
 
 window.verInfoUsuario = async function(id) {
     try {
-        const usuario = await getData(`/api/usuarios/${id}`);
+        const usuario = await getData(`/api/usuarios/${encodeURIComponent(String(id))}`);
         if (usuario) {
             document.getElementById('infoId').textContent = usuario.rut ?? '—';
             document.getElementById('infoNombre').textContent = usuario.nombre ?? '—';
@@ -685,9 +691,9 @@ function renderAuditoriaUsuario(registros) {
 
 window.editarUsuario = async function(id) {
     try {
-        const response = await getData(`/api/usuarios/${id}`);
+        const response = await getData(`/api/usuarios/${encodeURIComponent(String(id))}`);
         if (response) {
-            document.getElementById('userId').value = response.id_usuario;
+            document.getElementById('userId').value = String(response.rut || '');
             document.getElementById('nombre').value = response.nombre;
             const apellidoInput = document.getElementById('apellido');
             if (apellidoInput) { apellidoInput.value = response.apellido || ''; }

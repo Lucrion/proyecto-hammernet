@@ -32,13 +32,23 @@ class PagoController:
         if not venta:
             raise HTTPException(status_code=404, detail="Venta no encontrada para iniciar pago")
 
+        from datetime import datetime
+        import uuid
+        buy_order = f"ORD-{id_venta}-{int(datetime.utcnow().timestamp())}"
+        session_id = None
+        try:
+            session_id = str(venta.rut_usuario or "GUEST")
+        except Exception:
+            session_id = str(uuid.uuid4())
+
         db_pago = PagoDB(
             id_venta=id_venta,
             proveedor="transbank",
             estado="iniciado",
             monto=monto,
             moneda=moneda,
-            # buy_order y session_id podrán definirse al integrar el PSP
+            buy_order=buy_order,
+            session_id=session_id,
         )
         db.add(db_pago)
         db.commit()
@@ -62,6 +72,31 @@ class PagoController:
             fecha_creacion=db_pago.fecha_creacion,
             fecha_actualizacion=db_pago.fecha_actualizacion,
         )
+
+    @staticmethod
+    def preparar_transaccion_psp(pago: Pago, return_url: str, notify_url: str) -> dict:
+        import os, hmac, hashlib
+        commerce_code = os.environ.get("PAYMENT_COMMERCE_CODE", "dev_commerce")
+        merchant_id = os.environ.get("PAYMENT_MERCHANT_ID", commerce_code)
+        api_key = os.environ.get("PAYMENT_API_KEY", "dev_api_key")
+        msg = "|".join([
+            str(pago.buy_order or ""),
+            str(pago.session_id or ""),
+            str(int(float(pago.monto))),
+            str(pago.moneda or "CLP"),
+        ]).encode()
+        signature = hmac.new(api_key.encode(), msg, hashlib.sha256).hexdigest()
+        return {
+            "merchant_id": merchant_id,
+            "commerce_code": commerce_code,
+            "buy_order": pago.buy_order,
+            "session_id": pago.session_id,
+            "amount": int(float(pago.monto)),
+            "currency": pago.moneda or "CLP",
+            "return_url": return_url,
+            "notify_url": notify_url,
+            "signature": signature,
+        }
 
     @staticmethod
     def estado_pago_por_venta(db: Session, id_venta: int) -> dict:

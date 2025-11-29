@@ -109,10 +109,11 @@ try {
 			<div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
 				<h3 class="text-xl font-semibold mb-4">¿Cómo deseas iniciar sesión?</h3>
 				<p class="text-gray-600 mb-6">Selecciona una opción para continuar</p>
-				<div class="grid grid-cols-2 gap-4">
-					<button id="btnLoginCliente" class="bg-blue-600 text-white py-3 rounded hover:bg-blue-700">Cliente</button>
-					<button id="btnLoginTrabajador" class="bg-gray-800 text-white py-3 rounded hover:bg-gray-900">Trabajador</button>
-				</div>
+                <div class="grid grid-cols-3 gap-4">
+                    <button id="btnLoginCliente" class="bg-blue-600 text-white py-3 rounded hover:bg-blue-700">Cliente</button>
+                    <button id="btnLoginTrabajador" class="bg-gray-800 text-white py-3 rounded hover:bg-gray-900">Trabajador</button>
+                    <button id="btnLoginInvitado" class="bg-green-600 text-white py-3 rounded hover:bg-green-700">Invitado</button>
+                </div>
 				<button id="cerrarModalLogin" class="mt-6 w-full bg-gray-200 text-gray-800 py-2 rounded hover:bg-gray-300">Cancelar</button>
 			</div>
 		</div>
@@ -167,10 +168,38 @@ try {
                         history.replaceState({}, '', url.pathname + (qs ? ('?' + qs) : '') + url.hash);
                     }
                 } catch {}
+                try {
+                    const url = new URL(window.location.href);
+                    const status = url.searchParams.get('payment_status');
+                    const reason = url.searchParams.get('reason');
+                    const message = url.searchParams.get('message');
+                    const bo = url.searchParams.get('bo');
+                    if (status) {
+                        const toast = document.createElement('div');
+                        let cls = 'fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded shadow z-50 ';
+                        let txt = 'Pago procesado';
+                        if (status === 'AUTHORIZED') { cls += 'bg-green-600 text-white'; txt = 'Pago aprobado'; if (bo) txt += ` · Orden ${bo}`; }
+                        else if (status === 'REJECTED' || status === 'FAILED') { cls += 'bg-red-600 text-white'; txt = 'Pago rechazado'; if (reason) txt += `: ${reason}`; }
+                        else if (status === 'ABORTED') { cls += 'bg-yellow-500 text-white'; txt = 'Pago cancelado por el cliente'; }
+                        else if (status === 'TIMEOUT') { cls += 'bg-yellow-600 text-white'; txt = 'Pago expirado por timeout'; }
+                        else if (status === 'ERROR') { cls += 'bg-red-700 text-white'; txt = 'Error de autenticación'; if (message) txt += `: ${message}`; }
+                        toast.className = cls;
+                        toast.textContent = txt;
+                        document.body.appendChild(toast);
+                        setTimeout(() => { try { document.body.removeChild(toast); } catch {} }, 4500);
+                        url.searchParams.delete('payment_status');
+                        url.searchParams.delete('reason');
+                        url.searchParams.delete('message');
+                        url.searchParams.delete('bo');
+                        const qs = url.searchParams.toString();
+                        history.replaceState({}, '', url.pathname + (qs ? ('?' + qs) : '') + url.hash);
+                    }
+                } catch {}
 			  const loginLink = document.getElementById('login-link');
 		  const modal = document.getElementById('login-role-modal');
-		  const btnCliente = document.getElementById('btnLoginCliente');
-		  const btnTrabajador = document.getElementById('btnLoginTrabajador');
+          const btnCliente = document.getElementById('btnLoginCliente');
+          const btnTrabajador = document.getElementById('btnLoginTrabajador');
+          const btnInvitado = document.getElementById('btnLoginInvitado');
 		  const cerrarModalLogin = document.getElementById('cerrarModalLogin');
           const userLoggedContainer = document.getElementById('userLoggedContainer');
           const userNameDisplay = document.getElementById('userNameDisplay');
@@ -187,11 +216,12 @@ try {
 		  }
           const goToLogin = (tipo) => {
             localStorage.setItem('loginTipo', tipo);
-            const dest = (tipo === 'trabajador') ? '/login-trabajador' : '/login-cliente';
+            const dest = tipo === 'trabajador' ? '/login-trabajador' : (tipo === 'cliente' ? '/login-cliente' : '/orden-compra');
             window.location.href = dest;
           };
-		  btnCliente && btnCliente.addEventListener('click', () => goToLogin('cliente'));
-		  btnTrabajador && btnTrabajador.addEventListener('click', () => goToLogin('trabajador'));
+          btnCliente && btnCliente.addEventListener('click', () => goToLogin('cliente'));
+          btnTrabajador && btnTrabajador.addEventListener('click', () => goToLogin('trabajador'));
+          btnInvitado && btnInvitado.addEventListener('click', () => goToLogin('invitado'));
 		  cerrarModalLogin && cerrarModalLogin.addEventListener('click', () => {
 		    modal.style.display = 'none';
 		  });

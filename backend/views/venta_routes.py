@@ -24,6 +24,7 @@ from seed_data import seed_extra_ventas
 from seed_data import seed_client_purchases
 from core.auth import get_current_user, require_admin
 from config.constants import API_PREFIX
+from models.pago import PagoDB
 
 router = APIRouter(prefix=f"{API_PREFIX}/ventas", tags=["Ventas"])
 
@@ -164,6 +165,17 @@ async def obtener_ventas_por_usuario(
 ):
     """ Obtener ventas de un usuario específico """
     return VentaController.obtener_ventas(db, skip, limit, fecha_inicio, fecha_fin, rut)
+
+
+@router.get("/orden/{buy_order}", response_model=Venta)
+async def obtener_venta_por_orden(
+    buy_order: str,
+    db: Session = Depends(get_db),
+):
+    pago = db.query(PagoDB).filter(PagoDB.buy_order == buy_order).first()
+    if not pago:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden no encontrada")
+    return VentaController.obtener_venta_por_id(db, pago.id_venta)
 
 
 @router.get("/producto/{id_producto}/movimientos", response_model=List[MovimientoInventario])

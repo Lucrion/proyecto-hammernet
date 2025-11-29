@@ -156,7 +156,6 @@ class VentaController:
             return usuario
         # Crear usuario de sistema 'Invitado' sin RUT ni teléfono
         try:
-            from models.rol import RolDB
             rol = db.query(RolDB).filter(RolDB.nombre == "invitado").first()
             if not rol:
                 rol = RolDB(nombre="invitado")
@@ -164,7 +163,7 @@ class VentaController:
                 db.flush()
             usuario = UsuarioDB(
                 nombre="Invitado",
-                rut=None,
+                rut="00000000K",
                 email=None,
                 password=hash_contraseña("guest_checkout"),
                 id_rol=rol.id_rol,

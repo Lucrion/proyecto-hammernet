@@ -439,6 +439,7 @@ async def quitar_producto_de_catalogo(
     except Exception:
         pass
     return resultado
+
 @router.get("/similares/{producto_id}")
 async def obtener_productos_similares(
     producto_id: int,
@@ -447,24 +448,6 @@ async def obtener_productos_similares(
 ):
     """Obtener productos similares desde la base de datos (misma subcategoría o categoría)."""
     return await ProductoController.obtener_similares(producto_id, db, limit)
-
-
-@router.post("/seed")
-async def seed_productos_de_ejemplo(
-    db: Session = Depends(get_db)
-):
-    """Inserta datos de ejemplo (categorías, subcategorías y productos)."""
-    return await ProductoController.seed_ejemplos(db)
-
-
-@router.post("/cleanup/color-null")
-async def cleanup_color_null(db: Session = Depends(get_db)):
-    """Elimina o inactiva productos con color nulo/vacío.
-    - Elimina productos sin ventas relacionadas.
-    - Inactiva y saca del catálogo los que tengan ventas.
-    """
-    resumen = ProductoController.purge_products_without_color(db)
-    return {"status": "ok", "resumen": resumen}
 
 @router.post("/seed/all")
 async def seed_todas_tablas(

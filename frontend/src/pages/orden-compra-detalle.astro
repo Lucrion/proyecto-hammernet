@@ -1,0 +1,66 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Detalle Orden de Compra">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6">Detalle Orden de Compra</h1>
+    <div id="estado" class="mb-3 text-gray-700"></div>
+    <div id="orden" class="mb-2 text-sm text-gray-600"></div>
+    <div id="resumen" class="bg-white rounded shadow p-4 mb-6 hidden">
+      <p id="ventaInfo" class="mb-2"></p>
+      <p id="clienteInfo" class="mb-2"></p>
+      <p id="totalInfo" class="font-semibold"></p>
+    </div>
+    <div id="items" class="bg-white rounded shadow p-4 hidden">
+      <h2 class="text-lg font-semibold mb-2">Productos</h2>
+      <ul id="itemsList" class="list-disc pl-5"></ul>
+    </div>
+    <div id="json" class="mt-6 bg-gray-50 rounded p-3 text-xs overflow-auto hidden"></div>
+    <div class="mt-6">
+      <a href="/" class="px-4 py-2 bg-blue-600 text-white rounded">Volver al inicio</a>
+    </div>
+  </div>
+  <script type="module">
+    (function(){
+      const API_BASE = window.API_BASE || '/api';
+      const u = new URL(window.location.href);
+      const bo = u.searchParams.get('bo')||'';
+      const estado = document.getElementById('estado');
+      const orden = document.getElementById('orden');
+      const resumen = document.getElementById('resumen');
+      const ventaInfo = document.getElementById('ventaInfo');
+      const clienteInfo = document.getElementById('clienteInfo');
+      const totalInfo = document.getElementById('totalInfo');
+      const itemsBox = document.getElementById('items');
+      const itemsList = document.getElementById('itemsList');
+      const jsonBox = document.getElementById('json');
+      const show=(el)=>el.classList.remove('hidden');
+      orden.textContent = bo ? `Orden: ${bo}` : '';
+      if (!bo) { estado.textContent='Orden no proporcionada'; return; }
+      estado.textContent='Cargando detalle...';
+      fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`,{ headers:{ 'Accept':'application/json' }})
+        .then(r=>{ if(!r.ok) throw new Error('No encontrada'); return r.json(); })
+        .then(data=>{
+          estado.textContent='Compra encontrada';
+          const fecha = data?.fecha_venta ? new Date(data.fecha_venta).toLocaleString() : '';
+          ventaInfo.textContent = `Venta #${data?.id_venta || ''} · Fecha: ${fecha}`;
+          clienteInfo.textContent = `Cliente: ${data?.usuario_rut || data?.rut_usuario || 'Invitado'}`;
+          totalInfo.textContent = `Total: $${Number(data?.total_venta||0).toLocaleString('es-CL')}`;
+          show(resumen);
+          const detalles = data?.detalles_venta || [];
+          itemsList.innerHTML = '';
+          detalles.forEach(d=>{
+            const li = document.createElement('li');
+            const nombre = d?.producto_nombre || `ID ${d?.id_producto}`;
+            li.textContent = `${nombre} · Cant: ${d?.cantidad} · Subtotal: $${Number(d?.subtotal||0).toLocaleString('es-CL')}`;
+            itemsList.appendChild(li);
+          });
+          show(itemsBox);
+          jsonBox.textContent = JSON.stringify(data,null,2);
+          show(jsonBox);
+        })
+        .catch(()=>{ estado.textContent='Orden no encontrada'; });
+    })();
+  </script>
+</Layout>
