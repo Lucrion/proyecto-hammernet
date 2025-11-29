@@ -454,7 +454,7 @@ function cargarUsuarios(usuarios) {
             `;
         }
         const nombreCompleto = `${usuario.nombre || ''}${usuario.apellido ? ' ' + usuario.apellido : ''}`.trim();
-        const rutDisplay = formatRutDisplay(usuario.rut) || '—';
+        const rutDisplay = formatRutDisplay(usuario.rut) || 'Invitado';
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${rutDisplay}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.nombre || '—'}</td>
@@ -482,7 +482,7 @@ function cargarUsuariosDesactivados(usuarios) {
         row.className = 'hover:bg-gray-50';
         const fechaCreacion = new Date(usuario.fecha_creacion).toLocaleDateString('es-ES');
         const nombreCompleto = `${usuario.nombre || ''}${usuario.apellido ? ' ' + usuario.apellido : ''}`.trim();
-        const rutDisplay2 = formatRutDisplay(usuario.rut) || '—';
+        const rutDisplay2 = formatRutDisplay(usuario.rut) || 'Invitado';
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${rutDisplay2}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${nombreCompleto || '—'}</td>
@@ -605,8 +605,9 @@ window.verInfoUsuario = async function(id) {
             document.getElementById('infoId').textContent = usuario.rut ?? '—';
             document.getElementById('infoNombre').textContent = usuario.nombre ?? '—';
             document.getElementById('infoApellido').textContent = usuario.apellido ?? '—';
-            document.getElementById('infoUsername').textContent = formatRutUI(String(usuario.rut ?? '')) ?? '—';
-            document.getElementById('infoRut').textContent = usuario.rut ?? '—';
+            const rutTxt = usuario.rut ? formatRutUI(String(usuario.rut)) : 'Invitado';
+            document.getElementById('infoUsername').textContent = rutTxt;
+            document.getElementById('infoRut').textContent = usuario.rut ?? 'Invitado';
             document.getElementById('infoEmail').textContent = usuario.email ?? '—';
             document.getElementById('infoTelefono').textContent = usuario.telefono ?? '—';
             document.getElementById('infoRol').textContent = usuario.role ?? '—';

@@ -26,7 +26,7 @@ class VentaDB(Base):
     )
     
     id_venta = Column(Integer, primary_key=True, index=True)
-    rut_usuario = Column(String(9), ForeignKey("usuarios.rut"), nullable=False)
+    rut_usuario = Column(String(9), ForeignKey("usuarios.rut"), nullable=True)
     cliente_rut = Column(String(9), ForeignKey("usuarios.rut"), nullable=True)
     fecha_venta = Column(DateTime, default=func.now(), nullable=False)
     total_venta = Column(Numeric(10, 2), nullable=False)
@@ -74,7 +74,7 @@ class MovimientoInventarioDB(Base):
     
     id_movimiento = Column(Integer, primary_key=True, index=True)
     id_producto = Column(Integer, ForeignKey("productos.id_producto"), nullable=False)
-    rut_usuario = Column(String(9), ForeignKey("usuarios.rut"), nullable=False)
+    rut_usuario = Column(String(9), ForeignKey("usuarios.rut"), nullable=True)
     id_venta = Column(Integer, ForeignKey("ventas.id_venta"), nullable=True)  # Opcional para otros tipos de movimientos
     tipo_movimiento = Column(String(20), nullable=False)  # venta, entrada, ajuste, devolucion
     cantidad = Column(Integer, nullable=False)  # Positivo para entradas, negativo para salidas
@@ -94,7 +94,7 @@ class MovimientoInventarioDB(Base):
 
 class VentaBase(BaseModel):
     """Modelo base para venta"""
-    rut_usuario: str
+    rut_usuario: Optional[str] = None
     total_venta: Decimal
     estado: Optional[str] = "completada"
     observaciones: Optional[str] = None
@@ -168,7 +168,7 @@ class DetalleVenta(DetalleVentaBase):
 class MovimientoInventarioBase(BaseModel):
     """Modelo base para movimiento de inventario"""
     id_producto: int
-    rut_usuario: str
+    rut_usuario: Optional[str] = None
     tipo_movimiento: str
     cantidad: int
     cantidad_anterior: int

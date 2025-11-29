@@ -163,7 +163,7 @@ class VentaController:
                 db.flush()
             usuario = UsuarioDB(
                 nombre="Invitado",
-                rut="00000000K",
+                rut=None,
                 email=None,
                 password=hash_contraseña("guest_checkout"),
                 id_rol=rol.id_rol,
@@ -194,7 +194,7 @@ class VentaController:
         try:
             # Usar usuario de sistema para atribuir la venta y movimientos
             usuario_guest = VentaController._get_or_create_guest_user(db)
-            rut_usuario = usuario_guest.rut or "GUEST"
+            rut_usuario = None
 
             # Verificar disponibilidad de productos y calcular total
             total_calculado = Decimal('0.00')
@@ -233,7 +233,7 @@ class VentaController:
 
             # Crear la venta
             db_venta = VentaDB(
-                rut_usuario=str(rut_usuario),
+                rut_usuario=rut_usuario,
                 total_venta=enviado,
                 estado=venta_guest.estado,
                 observaciones=obs
@@ -263,7 +263,7 @@ class VentaController:
 
                 movimiento = MovimientoInventarioDB(
                     id_producto=detalle.id_producto,
-                    rut_usuario=str(rut_usuario),
+                    rut_usuario=rut_usuario,
                     id_venta=db_venta.id_venta,
                     tipo_movimiento="venta",
                     cantidad=-detalle.cantidad,
@@ -280,7 +280,7 @@ class VentaController:
                 registrar_evento(
                     db,
                     accion="venta_invitado_creada",
-                    usuario_rut=str(rut_usuario) if rut_usuario != "GUEST" else None,
+                    usuario_rut=None,
                     entidad_tipo="venta",
                     entidad_id=db_venta.id_venta,
                     detalle=f"Total: {float(enviado)} | Detalles: {len(productos_verificados)}"
