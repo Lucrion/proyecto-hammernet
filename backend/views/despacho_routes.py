@@ -11,14 +11,14 @@ from config.constants import API_PREFIX
 router = APIRouter(prefix=f"{API_PREFIX}/despachos", tags=["Despachos"])
 
 
-@router.get("/usuario/{usuario_id}", response_model=List[Despacho])
-async def listar_por_usuario(usuario_id: int, db: Session = Depends(get_db)):
-    return await DespachoController.listar_por_usuario(usuario_id, db)
+@router.get("/usuario/{rut}", response_model=List[Despacho])
+async def listar_por_usuario(rut: str, db: Session = Depends(get_db)):
+    return await DespachoController.listar_por_usuario(rut, db)
 
 
-@router.post("/usuario/{usuario_id}", response_model=Despacho)
-async def crear_despacho(usuario_id: int, data: DespachoCreate, db: Session = Depends(get_db)):
-    return await DespachoController.crear(usuario_id, data, db)
+@router.post("/usuario/{rut}", response_model=Despacho)
+async def crear_despacho(rut: str, data: DespachoCreate, db: Session = Depends(get_db)):
+    return await DespachoController.crear(rut, data, db)
 
 
 @router.get("/{despacho_id}", response_model=Despacho)

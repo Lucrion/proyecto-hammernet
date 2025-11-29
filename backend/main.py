@@ -63,12 +63,67 @@ try:
     from sqlalchemy import text
     with engine.connect() as conn:
         try:
-            conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS id_rol INTEGER"))
+            cols = conn.execute(text("PRAGMA table_info(usuarios)")).fetchall()
+            names = [c[1] for c in cols]
+            if 'id_rol' not in names:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN id_rol INTEGER"))
         except Exception as ie:
             print(f"⚠️  No se pudo asegurar columna id_rol en usuarios: {ie}")
     print("🔄 Servidor iniciado - Base de datos verificada")
 except Exception as e:
     print(f"❌ Error al inicializar base de datos: {e}")
+
+try:
+    from config.database import SessionLocal
+    from models.rol import RolDB
+    from models.permiso import PermisoDB
+    from models.rol_permiso import RolPermisoDB
+    db = SessionLocal()
+    perms = [
+        "usuarios",
+        "catalogo",
+        "inventario",
+        "ventas",
+        "pagos",
+        "auditoria",
+        "dashboard",
+        "proveedores",
+        "categorias",
+        "subcategorias",
+        "despachos",
+    ]
+    created_perms = {}
+    for name in perms:
+        p = db.query(PermisoDB).filter(PermisoDB.descripcion == name).first()
+        if not p:
+            p = PermisoDB(descripcion=name)
+            db.add(p)
+            db.flush()
+        created_perms[name] = p.id_permiso
+    roles = ["administrador", "vendedor", "bodeguero", "cliente"]
+    created_roles = {}
+    for rname in roles:
+        r = db.query(RolDB).filter(RolDB.nombre == rname).first()
+        if not r:
+            r = RolDB(nombre=rname)
+            db.add(r)
+            db.flush()
+        created_roles[rname] = r.id_rol
+    admin_id = created_roles.get("administrador")
+    if admin_id:
+        for pid in created_perms.values():
+            rp = db.query(RolPermisoDB).filter(RolPermisoDB.id_rol == admin_id, RolPermisoDB.id_permiso == pid).first()
+            if not rp:
+                db.add(RolPermisoDB(id_rol=admin_id, id_permiso=pid))
+    db.commit()
+    db.close()
+except Exception as e:
+    try:
+        db.rollback()
+        db.close()
+    except Exception:
+        pass
+    print(f"⚠️  Inicialización de permisos/roles parcialmente fallida: {e}")
 
 # Configurar CORS
 origins_str = os.getenv("ALLOWED_ORIGINS", "https://ferreteria-patricio.onrender.com,https://hammernet.onrender.com")
@@ -137,11 +192,30 @@ app.include_router(proveedor_router)
 app.include_router(producto_router)
 app.include_router(mensaje_router)
 app.include_router(venta_router)
-app.include_router(pago_router)
-app.include_router(analytics_router)
 app.include_router(despacho_router)
 app.include_router(auditoria_router)
 app.include_router(dashboard_router)
+app.include_router(pago_router)
+app.include_router(analytics_router)
+
+# Proxy ligero de imágenes para evitar advertencias de tracking y servir desde mismo origen
+from fastapi import Query, Response
+import requests
+
+@app.get("/api/media", tags=["Media"])
+def proxy_media(url: str = Query(..., description="URL absoluta de la imagen")):
+    try:
+        r = requests.get(url, timeout=10)
+        ct = r.headers.get("content-type", "image/jpeg")
+        headers = {
+            "Cache-Control": "public, max-age=86400",
+            "Content-Type": ct,
+            "Referrer-Policy": "no-referrer",
+            "Cross-Origin-Resource-Policy": "same-origin",
+        }
+        return Response(content=r.content, headers=headers, media_type=ct)
+    except Exception as e:
+        return Response(status_code=502, content=b"", headers={"Cache-Control": "no-cache"})
 
 if __name__ == "__main__":
     # Obtener configuración del servidor desde variables de entorno

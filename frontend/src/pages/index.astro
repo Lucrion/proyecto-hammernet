@@ -5,8 +5,12 @@ import EnvLoader from '../components/EnvLoader.astro';
 
 <EnvLoader />
 <script type="module">
-import { API_URL, checkServerAvailability } from '../scripts/utils/config.js';
-import { getData, postData } from '../scripts/utils/api.js';
+function getApiBase(){try{const env=window.__ENV__||{};return env.PUBLIC_API_URL||env.PUBLIC_API_URL_PRODUCTION||'/api'}catch{return'/api'}}
+const API_URL=getApiBase();
+async function fetchWithAuth(endpoint,options={}){const headers=options.headers||{};let token='';try{token=sessionStorage.getItem('token')||localStorage.getItem('token')||localStorage.getItem('access_token')||''}catch{}if(token)headers['Authorization']='Bearer '+token;if(!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const url=endpoint.startsWith('http')?endpoint:`${API_URL.replace(/\/api$/,'')}${endpoint}`;const c=new AbortController();const t=setTimeout(()=>c.abort(),10000);const res=await fetch(url,{...options,headers,mode:'cors',credentials:'include',signal:c.signal});clearTimeout(t);return res}
+async function getData(endpoint){const r=await fetchWithAuth(endpoint,{method:'GET',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
+async function postData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
+async function checkServerAvailability(){try{const r=await fetchWithAuth('/api/health',{method:'GET'});return { available:r.ok }}catch{return { available:false }}}
 
 const state = {
     token: localStorage.getItem('token'),
@@ -30,8 +34,6 @@ function normalizeImageUrl(u) {
 
 export async function cargarProductosDestacados() {
     try {
-        const token = localStorage.getItem('token');
-        if (!token) { console.warn('No hay token de autenticación, mostrando productos públicos'); }
         try { await checkServerAvailability(); } catch {}
         mostrarCargando();
         const productos = await getData('/api/productos/catalogo');
@@ -91,7 +93,7 @@ function mostrarProductosGenerales(productos) {
                 <div class="relative w-full aspect-square bg-white">
                     ${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
                     <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
-                        <img src="${imagen}" alt="${producto.nombre}" class="w-full h-full object-cover" />
+                        <img src="${imagen}" alt="${producto.nombre}" class="w-full h-full object-cover" loading="eager" fetchpriority="high" decoding="async" crossorigin="anonymous" referrerpolicy="no-referrer" />
                     </div>
                 </div>
                 <div class="p-4 flex-1 flex flex-col">
@@ -124,7 +126,7 @@ function mostrarProductosDestacados(productos) {
                 <div class="relative w-full aspect-square bg-white">
                     ${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
                     <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
-                        <img src="${imagen}" alt="${producto.nombre}" class="w-full h-full object-cover" />
+                        <img src="${img}" alt="${p.nombre}" class="w-full h-full object-cover" loading="eager" fetchpriority="high" decoding="async"/>
                     </div>
                 </div>
                 <div class="p-4 flex-1 flex flex-col">
@@ -302,7 +304,6 @@ if (document.readyState === 'loading') {
 </script>
 
 <Layout title="Ferretería Patricio - Herramientas y Materiales de Construcción">
-
 	<!-- Sección de usuario autenticado -->
 	<div id="user-section" class="fixed top-4 right-4 z-50 hidden">
 		<div class="bg-white p-4 rounded-lg shadow-lg">
@@ -330,14 +331,14 @@ if (document.readyState === 'loading') {
 		<div class="relative rounded-xl p-12 mb-16 text-white text-center shadow-xl transform hover:scale-[1.02] transition-all duration-300 overflow-hidden" data-aos="fade-up" data-aos-duration="1000">
 			<!-- Background Image -->
 			<div class="absolute inset-0">
-				<img src="/images/logos/herramientas_hombre.webp" alt="Herramientas de construcción" class="w-full h-full object-cover">
+                <img src="/images/logos/herramientas_hombre.webp" alt="Herramientas de construcción" class="w-full h-full object-cover" loading="eager" fetchpriority="high" decoding="async">
 				<div class="absolute inset-0 bg-black bg-opacity-40"></div>
 			</div>
 			<!-- Content overlay -->
 			<div class="relative z-10">
 			<div class="max-w-3xl mx-auto">
 				<div class="rounded-full overflow-hidden w-56 h-56 mx-auto mb-8 shadow-2xl transform hover:rotate-3 transition-transform duration-500" data-aos="zoom-in" data-aos-delay="200">
-					<img src="/images/logos/logo.webp" alt="Herramientas de construcción" class="w-full h-full object-cover transform hover:scale-110 transition-transform duration-500">
+                    <img src="/images/logos/logo.webp" alt="Herramientas de construcción" class="w-full h-full object-cover transform hover:scale-110 transition-transform duration-500" loading="eager" fetchpriority="high" decoding="async">
 				</div>
 				<h1 class="text-4xl font-bold mb-6 leading-tight">Descubre las mejores herramientas y materiales para la construcción.</h1>
 				<p class="text-xl text-blue-100 mb-8">Tu socio confiable en proyectos de construcción</p>
@@ -425,15 +426,19 @@ if (document.readyState === 'loading') {
                 function normalizeImageUrl(u) {
                     if (!u) return null;
                     const s = String(u);
-                    if (/^(https?:\/\/|data:)/i.test(s)) return s;
-                    const host = getApiHost();
-                    const base = host || (typeof location !== 'undefined' ? location.origin : '');
+                    const api = (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
+                    const origin = api.replace(/\/api$/, '');
+                    if (/^https?:\/\//i.test(s)) {
+                        try { return `${api}/media?url=${encodeURIComponent(s)}`; } catch { return s; }
+                    }
+                    if (/^data:/i.test(s)) return s;
+                    const base = origin || (typeof location !== 'undefined' ? location.origin : '');
                     if (s.startsWith('/')) return base ? (base + s) : s;
                     return base ? (base + '/' + s) : s;
                 }
 
                 function render(items) {
-                    cont.innerHTML = items.map(p => {
+                    cont.innerHTML = items.map((p, idx) => {
                         const id = p.id_producto ?? p.id;
                         const imagen = normalizeImageUrl(p.imagen_url) || '/images/logos/herramientas.webp';
                         const precioBase = Number(p.precio_venta ?? p.precio ?? 0);
@@ -444,12 +449,13 @@ if (document.readyState === 'loading') {
                         const nombre = p.nombre || 'Producto';
                         const desc = (p.descripcion || '').trim();
                         const short = desc.length > 100 ? desc.slice(0, 100) + '...' : desc;
+                        const loadingAttr = 'loading="eager" fetchpriority="high" decoding="async"';
                         return `
                             <div class="flex-none bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden snap-start inicio-card" style="flex:0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));" onclick="if(!window.__homeDragGuard){ window.location.href='/productos/${id}'; }">
                                 <div class="relative w-full aspect-square bg-white">
                                     ${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
                                     <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
-                                        <img src="${imagen}" alt="${nombre}" class="w-full h-full object-cover pointer-events-none select-none" loading="lazy" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
+                                        <img src="${imagen}" alt="${nombre}" class="w-full h-full object-cover pointer-events-none select-none" loading="eager" fetchpriority="high" decoding="async" crossorigin="anonymous" referrerpolicy="no-referrer" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
                                     </div>
                                 </div>
                                 <div class="p-4 flex-1 flex flex-col">
@@ -559,21 +565,7 @@ if (document.readyState === 'loading') {
 					</div>
 				</div>
 				<div class="rounded-xl overflow-hidden shadow-xl transform hover:scale-105 transition-transform duration-300" data-aos="fade-left" data-aos-delay="200">
-					<img src="/images/logos/herramientas.webp" alt="Colección de herramientas" class="w-full">
+                    <img src="/images/logos/herramientas.webp" alt="Colección de herramientas" class="w-full" loading="eager" fetchpriority="high" decoding="async">
 				</div>
 			</div>
 		</section>
-
-
-
-		
-<script>
-(function(){
-  try {
-    const env = window.__ENV__ || {};
-    const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
-    if (!window.API_BASE) window.API_BASE = api;
-    if (!window.__API_BASE_LOGGED__) { console.log('Cargando script de login...'); console.log('API URL es:', window.API_BASE); window.__API_BASE_LOGGED__ = true; }
-  } catch {}
-})();
-</script>

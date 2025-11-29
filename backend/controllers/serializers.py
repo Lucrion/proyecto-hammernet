@@ -11,7 +11,7 @@ from models.usuario import Usuario
 from models.producto import ProductoInventario
 from models.usuario import UsuarioDB
 from models.producto import ProductoDB
-from .usuario_controller import _rut_a_int
+from .usuario_controller import _rut_normalizado
 
 
 def _to_pesos_int(value: Optional[Union[int, float, str, Decimal]]) -> int:
@@ -41,10 +41,9 @@ def _to_pesos_int(value: Optional[Union[int, float, str, Decimal]]) -> int:
 def serialize_usuario(u: UsuarioDB) -> Usuario:
     """Serializa UsuarioDB a Usuario Pydantic, normalizando RUT y fechas."""
     return Usuario(
-        id_usuario=u.id_usuario,
+        rut=str(u.rut) if u.rut is not None else None,
         nombre=u.nombre,
         apellido=u.apellido,
-        rut=_rut_a_int(u.rut),
         email=u.email,
         telefono=u.telefono,
         role=u.role,

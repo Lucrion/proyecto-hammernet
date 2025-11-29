@@ -14,27 +14,6 @@ from controllers.auditoria_controller import registrar_evento
 from core.auth import verificar_contraseña, crear_token
 
 
-def _rut_a_int(rut) -> int:
-    """Convierte un RUT con formato (con puntos/guion) a entero (solo dígitos).
-    Acepta int y str; si es str, se extraen solo dígitos, descartando DV.
-    """
-    if rut is None:
-        return None
-    if isinstance(rut, int):
-        return rut
-    s = str(rut).strip()
-    digits = ''.join(ch for ch in s if ch.isdigit())
-    if not digits:
-        return None
-    # Si el string original contiene separadores/formato (guion, puntos, K/k), asumir DV presente y descartar último dígito
-    has_format = ('-' in s) or ('.' in s) or ('k' in s.lower())
-    if has_format and len(digits) >= 2:
-        body = digits[:-1]
-    else:
-        # Si no hay formato, usar todos los dígitos tal cual (no asumir DV)
-        body = digits
-    return int(body) if body else None
-
 
 class AuthController:
     """Controlador para manejo de autenticación"""
@@ -55,20 +34,32 @@ class AuthController:
             HTTPException: Si las credenciales son incorrectas
         """
         try:
-            s = str(form_data.username).strip()
+            s = str(form_data.username).strip().upper()
             usuario = None
-            if '@' in s:
-                usuario = db.query(UsuarioDB).filter(UsuarioDB.email == s).first()
-            else:
-                digits = ''.join(ch for ch in s if ch.isdigit())
-                rut_body = digits[:-1] if len(digits) >= 2 else digits
-                if rut_body:
-                    usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == int(rut_body)).first()
-                if not usuario and digits:
-                    try:
-                        usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == int(digits)).first()
-                    except Exception:
-                        usuario = None
+            # Solo RUT permitido
+            cuerpo = ''.join(ch for ch in s if ch.isdigit())
+            dv_prov = None
+            if s and not s[-1].isdigit():
+                dv_prov = 'K' if s[-1] == 'K' else s[-1]
+            if not cuerpo or len(cuerpo) < 7 or len(cuerpo) > 8:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="RUT inválido")
+            def _dv_calc(b: str) -> str:
+                acc = 0
+                f = 2
+                for ch in reversed(b):
+                    acc += int(ch) * f
+                    f = 2 if f == 7 else f + 1
+                rest = 11 - (acc % 11)
+                if rest == 11:
+                    return '0'
+                if rest == 10:
+                    return 'K'
+                return str(rest)
+            expected = _dv_calc(cuerpo)
+            if dv_prov is not None and dv_prov != expected:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="RUT inválido")
+            rut_full = f"{cuerpo}{expected}"
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut_full).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -90,8 +81,7 @@ class AuthController:
                 )
             
             # Crear token con el RUT como 'sub' (como string)
-            # Crear token usando el RUT si existe, de lo contrario el email
-            subject = str(usuario.rut) if usuario.rut is not None else str(usuario.email)
+            subject = str(usuario.rut)
             token = crear_token(data={"sub": subject})
             
             # Auditoría: login exitoso
@@ -99,9 +89,9 @@ class AuthController:
                 registrar_evento(
                     db,
                     accion="login",
-                    usuario_id=usuario.id_usuario,
+                    usuario_rut=usuario.rut,
                     entidad_tipo="Usuario",
-                    entidad_id=usuario.id_usuario,
+                    entidad_id=None,
                     detalle="Login exitoso",
                 )
             except Exception:
@@ -111,10 +101,9 @@ class AuthController:
             return Token(
                 access_token=token,
                 token_type="bearer",
-                id_usuario=usuario.id_usuario,
                 nombre=usuario.nombre,
                 rut=usuario.rut,
-                role=usuario.role
+                role=(getattr(getattr(usuario, "rol_ref", None), "nombre", None))
             )
             
         except HTTPException:
@@ -129,7 +118,16 @@ class AuthController:
     async def login_cliente(form_data: OAuth2PasswordRequestForm, db: Session) -> Token:
         try:
             result = await AuthController.login(form_data, db)
-            if (result.role or '').lower() != 'cliente':
+            from models.rol import RolDB
+            from models.usuario import UsuarioDB
+            rol = (
+                db.query(RolDB)
+                .join(UsuarioDB, UsuarioDB.id_rol == RolDB.id_rol)
+                .filter(UsuarioDB.rut == str(result.rut))
+                .first()
+            )
+            nombre = getattr(rol, 'nombre', None) or (result.role or '')
+            if (nombre or '').lower() != 'cliente':
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso restringido a clientes")
             return result
         except HTTPException:

@@ -14,18 +14,37 @@ from models.usuario import UsuarioDB, UsuarioCreate, UsuarioUpdate, Usuario
 from core.auth import hash_contraseña
 
 
-def _rut_a_int(rut) -> int:
-    """Convierte un RUT con formato (con puntos/guion) a entero (solo dígitos).
-    Acepta int y str; si es str, se extraen solo dígitos, descartando DV.
-    """
+def _rut_normalizado(rut: str) -> str:
     if rut is None:
         return None
-    if isinstance(rut, int):
-        return rut
-    s = str(rut).strip()
-    # Extraer únicamente dígitos
-    digits = ''.join(ch for ch in s if ch.isdigit())
-    return int(digits) if digits else None
+    s = str(rut).strip().upper()
+    cuerpo = ''.join(ch for ch in s if ch.isdigit())[:8]
+    dv = ''
+    dv_prov = None
+    if s and not s[-1].isdigit():
+        dv = 'K' if s[-1] == 'K' else s[-1]
+        dv_prov = dv
+    def _dv_calc(b: str) -> str:
+        if not b:
+            return ''
+        acc = 0
+        f = 2
+        for ch in reversed(b):
+            acc += int(ch) * f
+            f = 2 if f == 7 else f + 1
+        rest = 11 - (acc % 11)
+        if rest == 11:
+            return '0'
+        if rest == 10:
+            return 'K'
+        return str(rest)
+    if cuerpo:
+        expected = _dv_calc(cuerpo)
+        if dv_prov is not None and dv_prov != expected:
+            return None
+        if not dv:
+            dv = expected
+    return f"{cuerpo}{dv}" if cuerpo else None
 
 
 class UsuarioController:
@@ -54,26 +73,36 @@ class UsuarioController:
                     detail="La confirmación de contraseña no coincide"
                 )
 
-            # Normalizar RUT a entero (login por RUT)
-            rut_int = _rut_a_int(usuario.rut)
-            if not rut_int:
+            rut_str = _rut_normalizado(usuario.rut)
+            if not rut_str:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Debe proporcionar el RUT"
+                    detail="RUT inválido"
                 )
 
             # Hash de la contraseña
             hashed_password = hash_contraseña(usuario.password)
             
-            # Crear usuario en BD
+            rol_nombre = usuario.role
+            if not rol_nombre:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Debe proporcionar el rol"
+                )
+            from models.rol import RolDB
+            rol = db.query(RolDB).filter(RolDB.nombre == rol_nombre).first()
+            if not rol:
+                rol = RolDB(nombre=rol_nombre)
+                db.add(rol)
+                db.flush()
             db_usuario = UsuarioDB(
                 nombre=usuario.nombre,
                 apellido=usuario.apellido,
-                rut=rut_int,
+                rut=rut_str,
                 email=usuario.email,
                 telefono=usuario.telefono,
                 password=hashed_password,
-                role=usuario.role
+                id_rol=rol.id_rol
             )
             
             db.add(db_usuario)
@@ -81,13 +110,12 @@ class UsuarioController:
             db.refresh(db_usuario)
             
             return Usuario(
-                id_usuario=db_usuario.id_usuario,
+                rut=db_usuario.rut,
                 nombre=db_usuario.nombre,
                 apellido=db_usuario.apellido,
-                rut=_rut_a_int(db_usuario.rut),
                 email=db_usuario.email,
                 telefono=db_usuario.telefono,
-                role=db_usuario.role,
+                role=getattr(getattr(db_usuario, "rol_ref", None), "nombre", None),
                 activo=db_usuario.activo,
                 fecha_creacion=db_usuario.fecha_creacion.isoformat() if db_usuario.fecha_creacion else None
             )
@@ -113,67 +141,6 @@ class UsuarioController:
                 detail=f"Error al crear usuario: {str(e)}"
             )
     
-    @staticmethod
-    async def crear_usuario_google(nombre: str, rut: str, email: str, password: str, role: str, db: Session) -> Usuario:
-        """
-        Crea un nuevo usuario desde Google OAuth
-        
-        Args:
-            nombre: Nombre del usuario
-            rut: RUT del usuario (normalizado)
-            email: Email del usuario
-            password: Contraseña temporal
-            role: Rol del usuario
-            db: Sesión de base de datos
-            
-        Returns:
-            Usuario: Usuario creado
-            
-        Raises:
-            HTTPException: Si hay error en la creación
-        """
-        try:
-            # Hash de la contraseña
-            hashed_password = hash_contraseña(password)
-            
-            # Crear usuario en BD
-            db_usuario = UsuarioDB(
-                nombre=nombre,
-                rut=_rut_a_int(rut) if rut else None,
-                email=email,
-                password=hashed_password,
-                role=role,
-                activo=True
-            )
-            
-            db.add(db_usuario)
-            db.commit()
-            db.refresh(db_usuario)
-            
-            return Usuario(
-                id_usuario=db_usuario.id_usuario,
-                nombre=db_usuario.nombre,
-                apellido=db_usuario.apellido,
-                rut=_rut_a_int(db_usuario.rut),
-                email=db_usuario.email,
-                telefono=db_usuario.telefono,
-                role=db_usuario.role,
-                activo=db_usuario.activo,
-                fecha_creacion=db_usuario.fecha_creacion.isoformat() if db_usuario.fecha_creacion else None
-            )
-            
-        except IntegrityError:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El usuario ya existe"
-            )
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error al crear usuario desde Google: {str(e)}"
-            )
     
     @staticmethod
     async def obtener_usuarios(db: Session) -> List[Usuario]:
@@ -216,7 +183,7 @@ class UsuarioController:
             )
     
     @staticmethod
-    async def obtener_usuario(usuario_id: int, db: Session) -> Usuario:
+    async def obtener_usuario(rut: str, db: Session) -> Usuario:
         """
         Obtiene un usuario por ID
         
@@ -231,7 +198,7 @@ class UsuarioController:
             HTTPException: Si el usuario no existe
         """
         try:
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -248,7 +215,7 @@ class UsuarioController:
             )
     
     @staticmethod
-    async def actualizar_usuario(usuario_id: int, usuario_update: UsuarioUpdate, db: Session) -> Usuario:
+    async def actualizar_usuario(rut: str, usuario_update: UsuarioUpdate, db: Session) -> Usuario:
         """
         Actualiza un usuario
         
@@ -264,7 +231,7 @@ class UsuarioController:
             HTTPException: Si el usuario no existe o hay error
         """
         try:
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -276,9 +243,6 @@ class UsuarioController:
                 usuario.nombre = usuario_update.nombre
             if usuario_update.apellido is not None:
                 usuario.apellido = usuario_update.apellido
-            # Si se actualiza el RUT, normalizarlo a entero
-            if usuario_update.rut is not None:
-                usuario.rut = _rut_a_int(usuario_update.rut)
             if usuario_update.email is not None:
                 usuario.email = usuario_update.email
             if usuario_update.telefono is not None:
@@ -286,19 +250,24 @@ class UsuarioController:
             if usuario_update.password is not None:
                 usuario.password = hash_contraseña(usuario_update.password)
             if usuario_update.role is not None:
-                usuario.role = usuario_update.role
+                from models.rol import RolDB
+                rol = db.query(RolDB).filter(RolDB.nombre == usuario_update.role).first()
+                if not rol:
+                    rol = RolDB(nombre=usuario_update.role)
+                    db.add(rol)
+                    db.flush()
+                usuario.id_rol = rol.id_rol
             
             db.commit()
             db.refresh(usuario)
             
             return Usuario(
-                id_usuario=usuario.id_usuario,
+                rut=usuario.rut,
                 nombre=usuario.nombre,
                 apellido=usuario.apellido,
-                rut=_rut_a_int(usuario.rut),
                 email=usuario.email,
                 telefono=usuario.telefono,
-                role=usuario.role,
+                role=getattr(getattr(usuario, "rol_ref", None), "nombre", None),
                 activo=usuario.activo,
                 fecha_creacion=usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
             )
@@ -319,7 +288,7 @@ class UsuarioController:
             )
     
     @staticmethod
-    async def eliminar_usuario(usuario_id: int, db: Session) -> dict:
+    async def eliminar_usuario(rut: str, db: Session) -> dict:
         """
         Desactiva un usuario (eliminación lógica)
         
@@ -334,7 +303,7 @@ class UsuarioController:
             HTTPException: Si el usuario no existe o hay error
         """
         try:
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -357,7 +326,7 @@ class UsuarioController:
             )
 
     @staticmethod
-    async def activar_usuario(usuario_id: int, db: Session) -> dict:
+    async def activar_usuario(rut: str, db: Session) -> dict:
         """
         Activa un usuario previamente desactivado (alta lógica)
         
@@ -372,7 +341,7 @@ class UsuarioController:
             HTTPException: Si el usuario no existe o hay error
         """
         try:
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -394,7 +363,7 @@ class UsuarioController:
             )
 
     @staticmethod
-    async def eliminar_usuario_permanente(usuario_id: int, db: Session) -> dict:
+    async def eliminar_usuario_permanente(rut: str, db: Session) -> dict:
         """
         Elimina permanentemente un usuario de la base de datos
         
@@ -409,7 +378,7 @@ class UsuarioController:
             HTTPException: Si el usuario no existe o hay error
         """
         try:
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut).first()
             if not usuario:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -418,10 +387,6 @@ class UsuarioController:
             # Solo permitir si está desactivado
             if usuario.activo:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El usuario debe estar desactivado antes de eliminar permanentemente")
-            # No permitir eliminar clientes vía permanente (solo trabajadores)
-            if (usuario.role or '').lower() == 'cliente':
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se permite eliminar clientes permanentemente")
-            
             # Borrado en cascada manual de datos relacionados al usuario
             from models.venta import VentaDB, MovimientoInventarioDB, DetalleVentaDB
             from models.despacho import DespachoDB
@@ -429,13 +394,13 @@ class UsuarioController:
             from models.auditoria import AuditoriaDB
 
             # 1) Eliminar movimientos de inventario asociados al usuario (sin venta)
-            movimientos_usuario = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_usuario == usuario_id).all()
+            movimientos_usuario = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.rut_usuario == rut).all()
             for m in movimientos_usuario:
                 db.delete(m)
 
             # 2) Obtener ventas del usuario (como vendedor) y como cliente
-            ventas_usuario = db.query(VentaDB).filter(VentaDB.id_usuario == usuario_id).all()
-            ventas_cliente = db.query(VentaDB).filter(VentaDB.cliente_id == usuario_id).all()
+            ventas_usuario = db.query(VentaDB).filter(VentaDB.rut_usuario == rut).all()
+            ventas_cliente = db.query(VentaDB).filter(VentaDB.cliente_rut == rut).all()
             ventas_todas = ventas_usuario + ventas_cliente
 
             # 2a) Eliminar movimientos de inventario asociados a cada venta (id_venta)
@@ -457,7 +422,7 @@ class UsuarioController:
                 db.delete(v)
 
             # 3) Eliminar direcciones de despacho asociadas
-            despachos = db.query(DespachoDB).filter(DespachoDB.id_usuario == usuario_id).all()
+            despachos = db.query(DespachoDB).filter(DespachoDB.rut_usuario == rut).all()
             for d in despachos:
                 db.delete(d)
 
@@ -486,17 +451,17 @@ class UsuarioController:
             usuarios = db.query(UsuarioDB).filter(UsuarioDB.activo == False).all()
             eliminados = 0
             for usuario in usuarios:
-                uid = usuario.id_usuario
+                uid = usuario.rut
                 from models.venta import VentaDB, MovimientoInventarioDB, DetalleVentaDB
                 from models.despacho import DespachoDB
                 from models.pago import PagoDB
                 from models.auditoria import AuditoriaDB
 
-                mov_sin_venta = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_usuario == uid, MovimientoInventarioDB.id_venta == None).all()
+                mov_sin_venta = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.rut_usuario == uid, MovimientoInventarioDB.id_venta == None).all()
                 for m in mov_sin_venta:
                     db.delete(m)
 
-                ventas_usuario = db.query(VentaDB).filter((VentaDB.id_usuario == uid) | (VentaDB.cliente_id == uid)).all()
+                ventas_usuario = db.query(VentaDB).filter((VentaDB.rut_usuario == uid) | (VentaDB.cliente_rut == uid)).all()
                 for v in ventas_usuario:
                     movs = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_venta == v.id_venta).all()
                     for mv in movs:
@@ -509,11 +474,11 @@ class UsuarioController:
                         db.delete(d)
                     db.delete(v)
 
-                despachos = db.query(DespachoDB).filter(DespachoDB.id_usuario == uid).all()
+                despachos = db.query(DespachoDB).filter(DespachoDB.rut_usuario == uid).all()
                 for d in despachos:
                     db.delete(d)
 
-                auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_id == uid).all()
+                auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_rut == uid).all()
                 for a in auds:
                     db.delete(a)
 
@@ -526,7 +491,7 @@ class UsuarioController:
             db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al eliminar usuarios desactivados: {str(e)}")
             # 3b) Eliminar auditoría asociada al usuario
-            auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_id == usuario_id).all()
+            auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_rut == uid).all()
             for a in auds:
                 db.delete(a)
 
@@ -544,16 +509,22 @@ class UsuarioController:
             from models.auditoria import AuditoriaDB
 
             from sqlalchemy import func
-            clientes = db.query(UsuarioDB).filter(func.lower(UsuarioDB.role) == 'cliente').all()
+            from models.rol import RolDB
+            clientes = (
+                db.query(UsuarioDB)
+                .join(RolDB, UsuarioDB.id_rol == RolDB.id_rol)
+                .filter(func.lower(RolDB.nombre) == 'cliente')
+                .all()
+            )
             eliminados = 0
 
             for cliente in clientes:
-                uid = cliente.id_usuario
+                uid = cliente.rut
 
                 # Ventas donde el usuario es cliente
-                ventas_cliente = db.query(VentaDB).filter(VentaDB.cliente_id == uid).all()
+                ventas_cliente = db.query(VentaDB).filter(VentaDB.cliente_rut == uid).all()
                 # Ventas donde el usuario aparece como vendedor (por si acaso en datos de prueba)
-                ventas_usuario = db.query(VentaDB).filter(VentaDB.id_usuario == uid).all()
+                ventas_usuario = db.query(VentaDB).filter(VentaDB.rut_usuario == uid).all()
                 ventas_todas = ventas_cliente + ventas_usuario
                 for v in ventas_todas:
                     # Eliminar movimientos generados por la venta
@@ -572,17 +543,17 @@ class UsuarioController:
                     db.delete(v)
 
                 # También eliminar movimientos de inventario sueltos del cliente (si existieran)
-                mov_sin_venta = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_usuario == uid, MovimientoInventarioDB.id_venta == None).all()
+                mov_sin_venta = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.rut_usuario == uid, MovimientoInventarioDB.id_venta == None).all()
                 for m in mov_sin_venta:
                     db.delete(m)
 
                 # Eliminar direcciones de despacho
-                despachos = db.query(DespachoDB).filter(DespachoDB.id_usuario == uid).all()
+                despachos = db.query(DespachoDB).filter(DespachoDB.rut_usuario == uid).all()
                 for d in despachos:
                     db.delete(d)
 
                 # Eliminar auditoría asociada al usuario
-                auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_id == uid).all()
+                auds = db.query(AuditoriaDB).filter(AuditoriaDB.usuario_rut == uid).all()
                 for a in auds:
                     db.delete(a)
 

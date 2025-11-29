@@ -192,22 +192,10 @@ async function handleLogin(e) {
     // Obtener los valores del formulario
     const usernameInput = document.getElementById('username').value.trim();
     const isTrabajador = (tipoSeleccionado === 'trabajador');
-    let username = usernameInput;
-    if (isTrabajador) {
-        const cleaned = cleanRutInput(usernameInput);
-        const body = cleaned.length >= 2 ? cleaned.slice(0, -1) : cleaned;
-        username = body;
-    } else {
-        // Cliente: permitir login por RUT o por email, y si es RUT quitar DV
-        const isEmail = /@/.test(usernameInput);
-        if (isEmail) {
-            username = usernameInput;
-        } else {
-            const cleaned = cleanRutInput(usernameInput); // hasta 9 (cuerpo+DV)
-            const body = cleaned.length >= 2 ? cleaned.slice(0, -1) : cleaned;
-            username = body;
-        }
-    }
+    const cleaned = cleanRutInput(usernameInput);
+    if (!cleaned || cleaned.length < 2) { showStatus('RUT inválido', 'error'); return; }
+    const body = cleaned.slice(0, -1);
+    let username = body;
     const password = document.getElementById('password').value;
     
     if (!username || !password) {
@@ -269,44 +257,7 @@ async function handleLogin(e) {
             console.error('- URL:', response.url);
             console.error('- Headers:', [...response.headers.entries()]);
             
-            // Intento de respaldo: si es 401 y parece que el input original es email, reintentar con el valor crudo
-            if (response.status === 401 && tipoSeleccionado !== 'trabajador' && /@/.test(usernameInput)) {
-                try {
-                    const usernameAlt = usernameInput;
-                    const formDataAlt = new URLSearchParams();
-                    formDataAlt.append('username', usernameAlt);
-                    formDataAlt.append('password', password);
-                    formDataAlt.append('grant_type', 'password');
-                    const fetchOptionsAlt = { method: 'POST', body: formDataAlt, signal: controller.signal, ...corsConfig };
-                    console.warn('401 al login cliente. Reintentando con email crudo:', formDataAlt.toString());
-                    response = await fetch(`${API_URL}/auth/${loginEndpoint}`, fetchOptionsAlt);
-                    if (response.ok) {
-                        clearTimeout(timeoutId);
-                        const data = await response.json();
-                        console.log('Respuesta de autenticación (fallback):', JSON.stringify(data));
-
-                        const user = {
-                            id_usuario: data.id_usuario,
-                            nombre: data.nombre,
-                            rut: digitsOnly(usernameAlt),
-                            rol: data.role || data.rol || 'cliente'
-                        };
-
-                        localStorage.setItem('isLoggedIn', 'true');
-                        localStorage.setItem('token', data.access_token);
-                        localStorage.setItem('user', JSON.stringify(user));
-                        localStorage.setItem('role', user.rol);
-                        localStorage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
-                        showStatus('Autenticación exitosa. Redirigiendo...', 'success');
-                        const tipoFinal = tipoSeleccionado || (user.rol === 'administrador' ? 'trabajador' : 'cliente');
-                        const destino = tipoFinal === 'cliente' ? '/' : '/admin';
-                        setTimeout(() => { window.location.href = destino; }, 800);
-                        return;
-                    }
-                } catch (e) {
-                    console.warn('Fallback de login sin guion falló:', e);
-                }
-            }
+            // Sin fallback por email: solo RUT permitido
 
             // Información específica para error 422
             if (response.status === 422) {

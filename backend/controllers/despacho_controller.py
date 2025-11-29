@@ -16,9 +16,9 @@ class DespachoController:
     """Operaciones CRUD para direcciones de despacho"""
 
     @staticmethod
-    async def crear(usuario_id: int, data: DespachoCreate, db: Session) -> Despacho:
+    async def crear(rut_usuario: str, data: DespachoCreate, db: Session) -> Despacho:
         # Verificar usuario
-        usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == usuario_id, UsuarioDB.activo == True).first()
+        usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == str(rut_usuario), UsuarioDB.activo == True).first()
         if not usuario:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
 
@@ -27,7 +27,7 @@ class DespachoController:
 
         try:
             registro = DespachoDB(
-                id_usuario=usuario_id,
+                rut_usuario=str(rut_usuario),
                 buscar=data.buscar,
                 calle=data.calle,
                 numero=data.numero,
@@ -43,9 +43,9 @@ class DespachoController:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al crear despacho: {str(e)}")
 
     @staticmethod
-    async def listar_por_usuario(usuario_id: int, db: Session) -> List[Despacho]:
+    async def listar_por_usuario(rut_usuario: str, db: Session) -> List[Despacho]:
         try:
-            registros = db.query(DespachoDB).filter(DespachoDB.id_usuario == usuario_id).order_by(DespachoDB.fecha_actualizacion.desc()).all()
+            registros = db.query(DespachoDB).filter(DespachoDB.rut_usuario == str(rut_usuario)).order_by(DespachoDB.fecha_actualizacion.desc()).all()
             return [Despacho.from_orm(r) for r in registros]
         except Exception as e:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al obtener despachos: {str(e)}")

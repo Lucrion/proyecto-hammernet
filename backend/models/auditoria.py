@@ -6,7 +6,7 @@ Modelos de auditoría
 Registra eventos del sistema: login, CRUD de productos, cambios de inventario
 """
 
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -19,7 +19,7 @@ class AuditoriaDB(Base):
     __tablename__ = "auditoria"
 
     id_evento = Column(Integer, primary_key=True, index=True)
-    usuario_id = Column(Integer, nullable=True, index=True)
+    usuario_rut = Column(String(9), ForeignKey("usuarios.rut"), nullable=True, index=True)
     accion = Column(String(100), nullable=False, index=True)
     entidad_tipo = Column(String(100), nullable=True, index=True)
     entidad_id = Column(Integer, nullable=True, index=True)
@@ -30,7 +30,7 @@ class AuditoriaDB(Base):
 
 
 class AuditoriaBase(BaseModel):
-    usuario_id: Optional[int] = Field(None, description="ID del usuario asociado al evento")
+    usuario_rut: Optional[str] = Field(None, description="ID del usuario asociado al evento")
     accion: str = Field(..., description="Acción realizada (login, crear, actualizar, eliminar, inventario)")
     entidad_tipo: Optional[str] = Field(None, description="Tipo de entidad afectada (Producto, Inventario, Usuario, etc.)")
     entidad_id: Optional[int] = Field(None, description="ID de la entidad afectada")

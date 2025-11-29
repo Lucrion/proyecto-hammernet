@@ -29,13 +29,13 @@ class VentaController:
     """Controlador para gestión de ventas"""
     
     @staticmethod
-    def crear_venta(db: Session, venta_data: VentaCreate, id_usuario: int) -> Venta:
+    def crear_venta(db: Session, venta_data: VentaCreate, rut_usuario: str) -> Venta:
         """
         Crear una nueva venta con sus detalles y actualizar inventario
         """
         try:
             # Verificar que el usuario existe
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.id_usuario == id_usuario).first()
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == str(rut_usuario)).first()
             if not usuario:
                 # No crear usuarios automáticamente. Forzar registro previo.
                 raise HTTPException(status_code=404, detail="Usuario no encontrado. Regístrese antes de realizar una venta")
@@ -65,14 +65,14 @@ class VentaController:
             
             # Crear la venta
             db_venta = VentaDB(
-                id_usuario=id_usuario,
+                rut_usuario=str(rut_usuario),
                 total_venta=total_calculado,
                 estado=venta_data.estado,
                 observaciones=venta_data.observaciones,
                 tipo_documento=getattr(venta_data, 'tipo_documento', None),
                 folio_documento=getattr(venta_data, 'folio_documento', None),
                 fecha_emision_sii=getattr(venta_data, 'fecha_emision_sii', None),
-                cliente_id=getattr(venta_data, 'cliente_id', None)
+                cliente_rut=getattr(venta_data, 'cliente_rut', None)
             )
             db.add(db_venta)
             db.flush()  # Para obtener el ID de la venta
@@ -102,7 +102,7 @@ class VentaController:
                 # Registrar movimiento de inventario
                 movimiento = MovimientoInventarioDB(
                     id_producto=detalle.id_producto,
-                    id_usuario=id_usuario,
+                    rut_usuario=str(rut_usuario),
                     id_venta=db_venta.id_venta,
                     tipo_movimiento="venta",
                     cantidad=-detalle.cantidad,  # Negativo porque es una salida
@@ -121,7 +121,7 @@ class VentaController:
                     entidad_tipo="venta",
                     entidad_id=db_venta.id_venta,
                     accion="venta_creada",
-                    usuario_actor_id=id_usuario,
+                    usuario_actor_id=None,
                     detalle=f"Total: {float(total_calculado)} | Detalles: {len(productos_verificados)}"
                 )
             except Exception:
@@ -145,17 +145,29 @@ class VentaController:
     @staticmethod
     def _get_or_create_guest_user(db: Session) -> UsuarioDB:
         """Obtiene o crea un usuario de sistema para ventas de invitado"""
-        usuario = db.query(UsuarioDB).filter(UsuarioDB.role == "invitado", UsuarioDB.nombre == "Invitado").first()
+        from models.rol import RolDB
+        usuario = (
+            db.query(UsuarioDB)
+            .join(RolDB, UsuarioDB.id_rol == RolDB.id_rol)
+            .filter(RolDB.nombre == "invitado", UsuarioDB.nombre == "Invitado")
+            .first()
+        )
         if usuario:
             return usuario
         # Crear usuario de sistema 'Invitado' sin RUT ni teléfono
         try:
+            from models.rol import RolDB
+            rol = db.query(RolDB).filter(RolDB.nombre == "invitado").first()
+            if not rol:
+                rol = RolDB(nombre="invitado")
+                db.add(rol)
+                db.flush()
             usuario = UsuarioDB(
                 nombre="Invitado",
                 rut=None,
                 email=None,
                 password=hash_contraseña("guest_checkout"),
-                role="invitado",
+                id_rol=rol.id_rol,
                 activo=True
             )
             db.add(usuario)
@@ -165,7 +177,12 @@ class VentaController:
         except Exception:
             db.rollback()
             # Fallback: intentar obtener nuevamente por si existe tras rollback
-            usuario = db.query(UsuarioDB).filter(UsuarioDB.role == "invitado", UsuarioDB.nombre == "Invitado").first()
+            usuario = (
+                db.query(UsuarioDB)
+                .join(RolDB, UsuarioDB.id_rol == RolDB.id_rol)
+                .filter(RolDB.nombre == "invitado", UsuarioDB.nombre == "Invitado")
+                .first()
+            )
             if usuario:
                 return usuario
             raise HTTPException(status_code=500, detail="No se pudo crear usuario de invitado para ventas")
@@ -178,7 +195,7 @@ class VentaController:
         try:
             # Usar usuario de sistema para atribuir la venta y movimientos
             usuario_guest = VentaController._get_or_create_guest_user(db)
-            id_usuario = usuario_guest.id_usuario
+            rut_usuario = usuario_guest.rut or "GUEST"
 
             # Verificar disponibilidad de productos y calcular total
             total_calculado = Decimal('0.00')
@@ -217,7 +234,7 @@ class VentaController:
 
             # Crear la venta
             db_venta = VentaDB(
-                id_usuario=id_usuario,
+                rut_usuario=str(rut_usuario),
                 total_venta=enviado,
                 estado=venta_guest.estado,
                 observaciones=obs
@@ -247,7 +264,7 @@ class VentaController:
 
                 movimiento = MovimientoInventarioDB(
                     id_producto=detalle.id_producto,
-                    id_usuario=id_usuario,
+                    rut_usuario=str(rut_usuario),
                     id_venta=db_venta.id_venta,
                     tipo_movimiento="venta",
                     cantidad=-detalle.cantidad,
@@ -263,10 +280,10 @@ class VentaController:
             try:
                 registrar_evento(
                     db,
+                    accion="venta_invitado_creada",
+                    usuario_rut=str(rut_usuario) if rut_usuario != "GUEST" else None,
                     entidad_tipo="venta",
                     entidad_id=db_venta.id_venta,
-                    accion="venta_invitado_creada",
-                    usuario_actor_id=id_usuario,
                     detalle=f"Total: {float(enviado)} | Detalles: {len(productos_verificados)}"
                 )
             except Exception:
@@ -287,7 +304,7 @@ class VentaController:
             raise HTTPException(status_code=500, detail=f"Error al crear venta como invitado: {str(e)}")
     
     @staticmethod
-    def obtener_ventas(db: Session, skip: int = 0, limit: int = 100, fecha_inicio: Optional[date] = None, fecha_fin: Optional[date] = None, id_usuario: Optional[int] = None) -> List[Venta]:
+    def obtener_ventas(db: Session, skip: int = 0, limit: int = 100, fecha_inicio: Optional[date] = None, fecha_fin: Optional[date] = None, rut_usuario: Optional[str] = None) -> List[Venta]:
         """
         Obtener lista de ventas con filtros opcionales
         """
@@ -304,8 +321,8 @@ class VentaController:
                 query = query.filter(func.date(VentaDB.fecha_venta) <= fecha_fin)
             
             # Aplicar filtro de usuario si se proporciona
-            if id_usuario:
-                query = query.filter(VentaDB.id_usuario == id_usuario)
+            if rut_usuario:
+                query = query.filter(VentaDB.rut_usuario == str(rut_usuario))
             
             ventas = query.order_by(desc(VentaDB.fecha_venta)).offset(skip).limit(limit).all()
             
@@ -336,7 +353,7 @@ class VentaController:
             raise HTTPException(status_code=500, detail=f"Error al obtener venta: {str(e)}")
     
     @staticmethod
-    def cancelar_venta(db: Session, id_venta: int, id_usuario: int) -> Venta:
+    def cancelar_venta(db: Session, id_venta: int, rut_usuario: str) -> Venta:
         """
         Cancelar una venta y revertir el inventario
         """
@@ -361,7 +378,7 @@ class VentaController:
                 # Registrar movimiento de reversión
                 movimiento = MovimientoInventarioDB(
                     id_producto=detalle.id_producto,
-                    id_usuario=id_usuario,
+                    rut_usuario=str(rut_usuario),
                     id_venta=id_venta,
                     tipo_movimiento="devolucion",
                     cantidad=detalle.cantidad,  # Positivo porque es una entrada
@@ -381,10 +398,10 @@ class VentaController:
             try:
                 registrar_evento(
                     db,
+                    accion="venta_cancelada",
+                    usuario_rut=str(rut_usuario),
                     entidad_tipo="venta",
                     entidad_id=id_venta,
-                    accion="venta_cancelada",
-                    usuario_actor_id=id_usuario,
                     detalle="Inventario revertido por cancelación"
                 )
             except Exception:
@@ -400,7 +417,7 @@ class VentaController:
             raise HTTPException(status_code=500, detail=f"Error al cancelar venta: {str(e)}")
 
     @staticmethod
-    def completar_venta(db: Session, id_venta: int, usuario_admin_id: int = None, metodo: str = None) -> Venta:
+    def completar_venta(db: Session, id_venta: int, usuario_admin_rut: str = None, metodo: str = None) -> Venta:
         """
         Marcar una venta como completada (entregada). No modifica inventario.
         Registra auditoría con el usuario administrador y método de entrega.
@@ -425,14 +442,14 @@ class VentaController:
                 detalle = f"Entrega completada"
                 if metodo:
                     detalle += f" | metodo={metodo}"
-                if usuario_admin_id:
-                    detalle += f" | admin={usuario_admin_id}"
+                if usuario_admin_rut:
+                    detalle += f" | admin={usuario_admin_rut}"
                 registrar_evento(
                     db,
+                    accion="venta_completada",
+                    usuario_rut=str(usuario_admin_rut) if usuario_admin_rut else None,
                     entidad_tipo="venta",
                     entidad_id=id_venta,
-                    accion="venta_completada",
-                    usuario_actor_id=usuario_admin_id,
                     detalle=detalle
                 )
             except Exception:
@@ -450,13 +467,19 @@ class VentaController:
         Incluye eliminación de pagos y movimientos de inventario vinculados a esas ventas.
         """
         try:
-            clientes = db.query(UsuarioDB.id_usuario).filter(UsuarioDB.role == 'cliente').all()
-            cliente_ids = [row.id_usuario for row in clientes]
-            if not cliente_ids:
+            from models.rol import RolDB
+            clientes = (
+                db.query(UsuarioDB.rut)
+                .join(RolDB, UsuarioDB.id_rol == RolDB.id_rol)
+                .filter(RolDB.nombre == 'cliente')
+                .all()
+            )
+            cliente_ruts = [row.rut for row in clientes]
+            if not cliente_ruts:
                 return {"ventas_eliminadas": 0, "pagos_eliminados": 0, "movimientos_eliminados": 0, "detalles_eliminados": 0}
 
             ventas = db.query(VentaDB.id_venta).filter(
-                or_(VentaDB.cliente_id.in_(cliente_ids), VentaDB.id_usuario.in_(cliente_ids))
+                or_(VentaDB.cliente_rut.in_(cliente_ruts), VentaDB.rut_usuario.in_(cliente_ruts))
             ).all()
             venta_ids = [row.id_venta for row in ventas]
             if not venta_ids:
@@ -741,7 +764,7 @@ class VentaController:
         
         return Venta(
             id_venta=venta.id_venta,
-            id_usuario=venta.id_usuario,
+            rut_usuario=venta.rut_usuario,
             fecha_venta=venta.fecha_venta,
             total_venta=venta.total_venta,
             estado=venta.estado,
@@ -760,7 +783,7 @@ class VentaController:
         return MovimientoInventario(
             id_movimiento=movimiento.id_movimiento,
             id_producto=movimiento.id_producto,
-            id_usuario=movimiento.id_usuario,
+            rut_usuario=movimiento.rut_usuario,
             id_venta=movimiento.id_venta,
             tipo_movimiento=movimiento.tipo_movimiento,
             cantidad=movimiento.cantidad,

@@ -32,7 +32,7 @@ def listar_auditoria_por_entidad(
 
 @router.get("/", response_model=dict)
 def listar_auditoria_filtrada(
-    usuario_id: Optional[int] = Query(None),
+    usuario_rut: Optional[str] = Query(None, description="RUT del usuario"),
     accion: Optional[str] = Query(None),
     fecha_desde: Optional[str] = Query(None, description="ISO 8601"),
     fecha_hasta: Optional[str] = Query(None, description="ISO 8601"),
@@ -43,7 +43,7 @@ def listar_auditoria_filtrada(
     """Lista eventos de auditoría con filtros por usuario/fecha/acción y paginación"""
     return obtener_auditoria(
         db,
-        usuario_id=usuario_id,
+        usuario_rut=usuario_rut,
         accion=accion,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,

@@ -135,15 +135,16 @@ async def actualizar_inventario(
     try:
         ip = request.client.host if request and request.client else None
         ua = request.headers.get("user-agent") if request else None
-        await registrar_evento(db, AuditoriaCreate(
-            usuario_id=None,  # Se puede cambiar a current_user["id_usuario"] si se habilita auth
+        await registrar_evento(
+            db,
             accion="inventario_actualizar",
+            usuario_rut=str(getattr(current_user, "rut", None)) if current_user else None,
             entidad_tipo="Inventario",
             entidad_id=inventario_id,
             detalle=f"cantidad={cantidad}, precio={precio}",
             ip_address=ip,
             user_agent=ua,
-        ))
+        )
     except Exception:
         pass
     return resultado

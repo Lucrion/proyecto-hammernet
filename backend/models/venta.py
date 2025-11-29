@@ -21,26 +21,25 @@ class VentaDB(Base):
     __table_args__ = (
         Index('ix_ventas_fecha_venta', 'fecha_venta'),
         Index('ix_ventas_estado', 'estado'),
-        Index('ix_ventas_usuario', 'id_usuario'),
+        Index('ix_ventas_usuario', 'rut_usuario'),
+        Index('ix_ventas_cliente', 'cliente_rut'),
     )
     
     id_venta = Column(Integer, primary_key=True, index=True)
-    id_usuario = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
+    rut_usuario = Column(String(9), ForeignKey("usuarios.rut"), nullable=False)
+    cliente_rut = Column(String(9), ForeignKey("usuarios.rut"), nullable=True)
     fecha_venta = Column(DateTime, default=func.now(), nullable=False)
     total_venta = Column(Numeric(10, 2), nullable=False)
     estado = Column(String(20), default="completada", nullable=False)  # completada, cancelada, pendiente
     observaciones = Column(Text, nullable=True)
-    # Campos tributarios y cliente frecuente
     tipo_documento = Column(String(30), nullable=True)
     folio_documento = Column(String(50), nullable=True)
     fecha_emision_sii = Column(Date, nullable=True)
-    cliente_id = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=True)
     fecha_creacion = Column(DateTime, default=func.now())
     fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
     
     # Relaciones
-    usuario = relationship("UsuarioDB", foreign_keys=[id_usuario], back_populates="ventas")
-    cliente = relationship("UsuarioDB", foreign_keys=[cliente_id])
+    usuario = relationship("UsuarioDB", foreign_keys=[rut_usuario], back_populates="ventas")
     detalles_venta = relationship("DetalleVentaDB", back_populates="venta", cascade="all, delete-orphan")
     movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="venta")
     pagos = relationship("PagoDB", back_populates="venta")
@@ -75,7 +74,7 @@ class MovimientoInventarioDB(Base):
     
     id_movimiento = Column(Integer, primary_key=True, index=True)
     id_producto = Column(Integer, ForeignKey("productos.id_producto"), nullable=False)
-    id_usuario = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False)
+    rut_usuario = Column(String(9), ForeignKey("usuarios.rut"), nullable=False)
     id_venta = Column(Integer, ForeignKey("ventas.id_venta"), nullable=True)  # Opcional para otros tipos de movimientos
     tipo_movimiento = Column(String(20), nullable=False)  # venta, entrada, ajuste, devolucion
     cantidad = Column(Integer, nullable=False)  # Positivo para entradas, negativo para salidas
@@ -95,7 +94,7 @@ class MovimientoInventarioDB(Base):
 
 class VentaBase(BaseModel):
     """Modelo base para venta"""
-    id_usuario: int
+    rut_usuario: str
     total_venta: Decimal
     estado: Optional[str] = "completada"
     observaciones: Optional[str] = None
@@ -103,7 +102,7 @@ class VentaBase(BaseModel):
     tipo_documento: Optional[str] = None
     folio_documento: Optional[str] = None
     fecha_emision_sii: Optional[date] = None
-    cliente_id: Optional[int] = None
+    cliente_rut: Optional[str] = None
 
 
 class VentaCreate(VentaBase):
@@ -132,14 +131,13 @@ class Venta(VentaBase):
     fecha_venta: datetime
     fecha_creacion: datetime
     fecha_actualizacion: datetime
-    usuario: Optional[str] = None  # Nombre del usuario
+    usuario_rut: Optional[str] = None
+    cliente_rut: Optional[str] = None
     detalles_venta: Optional[List['DetalleVenta']] = []
     # Nuevos campos opcionales
     tipo_documento: Optional[str] = None
     folio_documento: Optional[str] = None
     fecha_emision_sii: Optional[date] = None
-    cliente_id: Optional[int] = None
-    
     class Config:
         from_attributes = True
 
@@ -167,11 +165,10 @@ class DetalleVenta(DetalleVentaBase):
     class Config:
         from_attributes = True
 
-
 class MovimientoInventarioBase(BaseModel):
     """Modelo base para movimiento de inventario"""
     id_producto: int
-    id_usuario: int
+    rut_usuario: str
     tipo_movimiento: str
     cantidad: int
     cantidad_anterior: int

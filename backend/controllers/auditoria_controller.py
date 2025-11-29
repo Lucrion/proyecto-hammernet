@@ -16,7 +16,7 @@ from models.auditoria import AuditoriaDB, Auditoria, AuditoriaCreate
 def registrar_evento(
     db: Session,
     accion: str,
-    usuario_id: Optional[int] = None,
+    usuario_rut: Optional[str] = None,
     entidad_tipo: Optional[str] = None,
     entidad_id: Optional[int] = None,
     detalle: Optional[str] = None,
@@ -26,7 +26,7 @@ def registrar_evento(
     """Registra un evento de auditoría"""
     try:
         evento = AuditoriaDB(
-            usuario_id=usuario_id,
+            usuario_rut=usuario_rut,
             accion=accion,
             entidad_tipo=entidad_tipo,
             entidad_id=entidad_id,
@@ -73,7 +73,7 @@ def obtener_auditoria_por_entidad(
 
 def obtener_auditoria(
     db: Session,
-    usuario_id: Optional[int] = None,
+    usuario_rut: Optional[str] = None,
     accion: Optional[str] = None,
     fecha_desde: Optional[str] = None,
     fecha_hasta: Optional[str] = None,
@@ -83,8 +83,8 @@ def obtener_auditoria(
     """Lista eventos de auditoría con filtros dinámicos y paginación"""
     from sqlalchemy import func, text
     qry = db.query(AuditoriaDB)
-    if usuario_id is not None:
-        qry = qry.filter(AuditoriaDB.usuario_id == usuario_id)
+    if usuario_rut is not None:
+        qry = qry.filter(AuditoriaDB.usuario_rut == usuario_rut)
     if accion:
         qry = qry.filter(AuditoriaDB.accion == accion)
     # Filtros de fecha si se proveen como ISO

@@ -48,7 +48,9 @@ def asegurar_esquema_usuarios():
     try:
         with engine.connect() as connection:
             # Crear columna si no existe
-            connection.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS id_rol INTEGER"))
+            exists_col = connection.execute(text("SELECT 1 FROM information_schema.columns WHERE table_name='usuarios' AND column_name='id_rol'"))
+            if not exists_col.fetchone():
+                connection.execute(text("ALTER TABLE usuarios ADD COLUMN id_rol INTEGER"))
             # Agregar FK si no existe (controlando por nombre de constraint)
             fk_name = 'fk_usuarios_roles'
             exists = connection.execute(text(

@@ -32,6 +32,12 @@ def seed_20_ejemplos_por_tabla(db):
 
     # 1) Usuarios
     usuarios_insertados = 0
+    rol_cliente = db.query(RolDB).filter(RolDB.nombre == "cliente").first()
+    if not rol_cliente:
+        rc = RolDB(nombre="cliente")
+        db.add(rc)
+        db.flush()
+        rol_cliente = rc
     for i in range(1, 21):
         rut = 20000000 + i
         existente = db.query(UsuarioDB).filter(UsuarioDB.rut == rut).first()
@@ -44,7 +50,7 @@ def seed_20_ejemplos_por_tabla(db):
             email=f"usuario{i}@example.com",
             telefono=f"+5697{str(i).zfill(7)}",
             password=hash_contraseña("demo123"),
-            role="cliente",
+            id_rol=rol_cliente.id_rol,
             activo=True,
         )
         db.add(u)
@@ -158,14 +164,14 @@ def seed_20_ejemplos_por_tabla(db):
         subtotal = precio_unitario * cantidad
 
         venta = VentaDB(
-            id_usuario=usr.id_usuario,
+            rut_usuario=str(usr.rut),
             total_venta=subtotal,
             estado="completada",
             observaciones=f"Venta demo #{i}",
             tipo_documento="boleta",
             folio_documento=f"B-{str(i).zfill(6)}",
             fecha_emision_sii=date.today(),
-            cliente_id=usr.id_usuario,
+            cliente_rut=str(usr.rut),
         )
         db.add(venta)
         db.flush()
@@ -187,7 +193,7 @@ def seed_20_ejemplos_por_tabla(db):
 
         mov = MovimientoInventarioDB(
             id_producto=producto.id_producto,
-            id_usuario=usr.id_usuario,
+            rut_usuario=str(usr.rut),
             id_venta=venta.id_venta,
             tipo_movimiento="venta",
             cantidad=-cantidad,
@@ -199,7 +205,7 @@ def seed_20_ejemplos_por_tabla(db):
 
         # Despacho
         despacho = DespachoDB(
-            id_usuario=usr.id_usuario,
+            rut_usuario=str(usr.rut),
             buscar="retiro_tienda",
             calle="",
             numero="",
@@ -224,7 +230,7 @@ def seed_20_ejemplos_por_tabla(db):
             entidad_tipo="venta",
             entidad_id=venta.id_venta,
             accion="venta_demo_creada",
-            usuario_id=usr.id_usuario,
+            usuario_rut=str(usr.rut),
             detalle=f"Seed: venta demo #{i}",
         )
         db.add(aud)
@@ -388,14 +394,14 @@ def seed_venta_simple(db):
     subtotal = precio * cantidad
 
     venta = VentaDB(
-        id_usuario=usuario.id_usuario,
+        rut_usuario=str(usuario.rut),
         total_venta=subtotal,
         estado="completada",
         observaciones="Venta de ejemplo",
         tipo_documento="boleta",
         folio_documento="B-000001",
         fecha_emision_sii=date.today(),
-        cliente_id=usuario.id_usuario,
+        cliente_rut=str(usuario.rut),
     )
     db.add(venta)
     db.flush()
@@ -417,7 +423,7 @@ def seed_venta_simple(db):
 
     mov = MovimientoInventarioDB(
         id_producto=producto.id_producto,
-        id_usuario=usuario.id_usuario,
+        rut_usuario=str(usuario.rut),
         id_venta=venta.id_venta,
         tipo_movimiento="venta",
         cantidad=-cantidad,
@@ -440,7 +446,7 @@ def seed_despacho_y_pago(db):
 
     # Despacho: retiro en tienda
     despacho = DespachoDB(
-        id_usuario=usuario.id_usuario,
+        rut_usuario=str(usuario.rut),
         buscar="retiro_tienda",
         calle="",
         numero="",
@@ -465,7 +471,7 @@ def seed_despacho_y_pago(db):
         entidad_tipo="venta",
         entidad_id=venta.id_venta,
         accion="venta_creada",
-        usuario_id=usuario.id_usuario,
+        usuario_rut=str(usuario.rut),
         detalle="Seed: venta y pago de ejemplo",
     )
     db.add(aud)
@@ -1184,7 +1190,7 @@ def seed_fill_tables(db, count: int = 200):
             total += Decimal(str((it.precio_venta or 0))) * qty
         estado = "completada" if i % 3 != 0 else "pendiente"
         venta = VentaDB(
-            id_usuario=u.id_usuario,
+            rut_usuario=str(u.rut),
             total_venta=total,
             estado=estado,
             observaciones=f"Seed bulk #{i}"
@@ -1205,7 +1211,7 @@ def seed_fill_tables(db, count: int = 200):
             it.cantidad_disponible = nuevo
             db.add(MovimientoInventarioDB(
                 id_producto=it.id_producto,
-                id_usuario=u.id_usuario,
+                rut_usuario=str(u.rut),
                 id_venta=venta.id_venta,
                 tipo_movimiento="venta",
                 cantidad=-qty,
@@ -1227,7 +1233,7 @@ def seed_fill_tables(db, count: int = 200):
         pagos_insertados += 1
         if i % 2 == 0:
             d = DespachoDB(
-                id_usuario=u.id_usuario,
+                rut_usuario=str(u.rut),
                 buscar=f"Direccion {i}",
                 calle=f"Calle {i}",
                 numero=str(100 + i),
@@ -1240,7 +1246,7 @@ def seed_fill_tables(db, count: int = 200):
             entidad_tipo="venta",
             entidad_id=venta.id_venta,
             accion="venta_bulk",
-            usuario_id=u.id_usuario,
+            usuario_rut=str(u.rut),
             detalle=f"total={float(total)}"
         ))
         auditoria_insertada += 1
@@ -1357,7 +1363,7 @@ def seed_extra_ventas(db, cantidad: int = 50):
 
         estado = random.choice(["pendiente", "completada"]) if i % 7 else "cancelada"
         venta = VentaDB(
-            id_usuario=u.id_usuario,
+            rut_usuario=str(u.rut),
             total_venta=total,
             estado=estado,
             observaciones=f"seed extra {i+1}"
@@ -1378,7 +1384,7 @@ def seed_extra_ventas(db, cantidad: int = 50):
             it.cantidad_disponible = nuevo
             db.add(MovimientoInventarioDB(
                 id_producto=it.id_producto,
-                id_usuario=u.id_usuario,
+                rut_usuario=str(u.rut),
                 id_venta=venta.id_venta,
                 tipo_movimiento="venta",
                 cantidad=-qty,
@@ -1400,7 +1406,7 @@ def seed_extra_ventas(db, cantidad: int = 50):
 
         if estado != "cancelada" and (i % 2 == 0):
             d = DespachoDB(
-                id_usuario=u.id_usuario,
+                rut_usuario=str(u.rut),
                 buscar=f"Direccion {i}",
                 calle=f"Calle {i}",
                 numero=str(100 + i),
@@ -1504,11 +1510,12 @@ def purge_demo_data(db):
         summary['mensajes_eliminados'] = deleted_msgs or 0
 
         # Usuarios demo (no admin)
-        deleted_users = db.query(UsuarioDB).filter(
+        from models.rol import RolDB
+        deleted_users = db.query(UsuarioDB).join(RolDB, UsuarioDB.id_rol == RolDB.id_rol).filter(
             (UsuarioDB.email.ilike('%@example.com')) |
             (UsuarioDB.nombre.ilike('Usuario %')) |
             (UsuarioDB.rut >= 20000000)
-        ).filter(~UsuarioDB.role.ilike('administrador')).delete(synchronize_session=False)
+        ).filter(~RolDB.nombre.ilike('administrador')).delete(synchronize_session=False)
         summary['usuarios_eliminados'] = deleted_users or 0
 
         db.commit()
@@ -1812,7 +1819,7 @@ def seed_real_dataset_2025(db):
         if not detalles_tmp:
             continue
         estado = random.choice(["completada","pendiente","completada","completada"]) if i % 9 else "cancelada"
-        venta = VentaDB(id_usuario=u.id_usuario, total_venta=total, estado=estado, observaciones="venta real", tipo_documento="boleta", folio_documento=f"B-{1000+i}", fecha_emision_sii=dt.date(), cliente_id=u.id_usuario, fecha_venta=dt)
+        venta = VentaDB(rut_usuario=str(u.rut), total_venta=total, estado=estado, observaciones="venta real", tipo_documento="boleta", folio_documento=f"B-{1000+i}", fecha_emision_sii=dt.date(), cliente_rut=str(u.rut), fecha_venta=dt)
         db.add(venta)
         db.flush()
         for it, qty, price in detalles_tmp:
@@ -1820,12 +1827,12 @@ def seed_real_dataset_2025(db):
             anterior = int(it.cantidad_disponible or 0)
             nuevo = max(0, anterior - qty)
             it.cantidad_disponible = nuevo
-            db.add(MovimientoInventarioDB(id_producto=it.id_producto, id_usuario=u.id_usuario, id_venta=venta.id_venta, tipo_movimiento="venta", cantidad=-qty, cantidad_anterior=anterior, cantidad_nueva=nuevo, motivo="venta"))
+            db.add(MovimientoInventarioDB(id_producto=it.id_producto, rut_usuario=str(u.rut), id_venta=venta.id_venta, tipo_movimiento="venta", cantidad=-qty, cantidad_anterior=anterior, cantidad_nueva=nuevo, motivo="venta"))
         pagos_estado = "aprobado" if estado == "completada" else ("iniciado" if estado == "pendiente" else "rechazado")
         db.add(PagoDB(id_venta=venta.id_venta, proveedor="transbank", estado=pagos_estado, monto=total, moneda="CLP"))
         pagos_creados += 1
         if estado != "cancelada" and (i % 2 == 0):
-            d = DespachoDB(id_usuario=u.id_usuario, buscar="direccion", calle="Calle 123", numero="100", depto=None, adicional="")
+            d = DespachoDB(rut_usuario=str(u.rut), buscar="direccion", calle="Calle 123", numero="100", depto=None, adicional="")
             db.add(d)
             despachos_creados += 1
         ventas_creadas += 1
@@ -1842,7 +1849,9 @@ def seed_client_purchases(db, cantidad: int = 30):
     """
     import random
     from decimal import Decimal
-    clientes = db.query(UsuarioDB).filter((UsuarioDB.role == 'cliente') & (UsuarioDB.activo == True)).all()
+    from models.rol import RolDB
+    from sqlalchemy import func
+    clientes = db.query(UsuarioDB).join(RolDB, UsuarioDB.id_rol == RolDB.id_rol).filter((func.lower(RolDB.nombre) == 'cliente') & (UsuarioDB.activo == True)).all()
     productos = db.query(ProductoDB).filter((ProductoDB.estado == 'activo') & (ProductoDB.en_catalogo == True)).all()
     if not clientes:
         return {"ventas_creadas": 0, "mensaje": "No hay clientes"}
@@ -1870,13 +1879,13 @@ def seed_client_purchases(db, cantidad: int = 30):
     for idx, cli in enumerate(seleccion, start=1):
         try:
             # Asignar/actualizar dirección única
-            db.query(DespachoDB).filter(DespachoDB.id_usuario == cli.id_usuario).delete(synchronize_session=False)
+            db.query(DespachoDB).filter(DespachoDB.rut_usuario == str(cli.rut)).delete(synchronize_session=False)
             comuna = random.choice(comunas)
             calle = random.choice(calles)
             numero = str(random.randint(100, 9999))
             buscar = f"{calle} {numero}, {comuna}, Región Metropolitana"
             despacho = DespachoDB(
-                id_usuario=cli.id_usuario,
+                rut_usuario=str(cli.rut),
                 buscar=buscar,
                 calle=calle,
                 numero=numero,
@@ -1910,11 +1919,11 @@ def seed_client_purchases(db, cantidad: int = 30):
                 continue
 
             venta = VentaDB(
-                id_usuario=cli.id_usuario,
+                rut_usuario=str(cli.rut),
                 total_venta=total,
                 estado="completada",
-                observaciones=f"compra cliente {cli.id_usuario}",
-                cliente_id=cli.id_usuario,
+                observaciones=f"compra cliente {cli.rut}",
+                cliente_rut=str(cli.rut),
                 tipo_documento="boleta",
             )
             db.add(venta)
@@ -1933,7 +1942,7 @@ def seed_client_purchases(db, cantidad: int = 30):
                 it.cantidad_disponible = nuevo
                 db.add(MovimientoInventarioDB(
                     id_producto=it.id_producto,
-                    id_usuario=cli.id_usuario,
+                    rut_usuario=str(cli.rut),
                     id_venta=venta.id_venta,
                     tipo_movimiento="venta",
                     cantidad=-qty,

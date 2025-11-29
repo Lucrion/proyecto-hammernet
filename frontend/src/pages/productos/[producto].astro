@@ -349,7 +349,7 @@ if (!producto) {
                             <img 
                                 src={producto.imagen} 
                                 alt={producto.nombre}
-                                loading="lazy" decoding="async" fetchpriority="high" sizes="(min-width: 1024px) 50vw, 100vw"
+                                loading="eager" fetchpriority="high" decoding="async" crossorigin="anonymous" referrerpolicy="no-referrer" sizes="(min-width: 1024px) 50vw, 100vw"
                                 class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
                             />
@@ -357,7 +357,7 @@ if (!producto) {
                             <img 
                                 src="/images/logos/herramientas.webp" 
                                 alt={producto.nombre}
-                                loading="lazy" decoding="async" sizes="(min-width: 1024px) 50vw, 100vw"
+                                loading="eager" fetchpriority="high" decoding="async" crossorigin="anonymous" referrerpolicy="no-referrer" sizes="(min-width: 1024px) 50vw, 100vw"
                                 class="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-300"
                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
                             />
@@ -632,7 +632,7 @@ if (!producto) {
                   {sim.tiene_oferta && (
                     <span class="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded">Oferta</span>
                   )}
-                  <img src={sim.imagen || '/images/logos/herramientas.webp'} alt={sim.nombre} class="h-32 w-auto object-contain pointer-events-none select-none" loading="lazy" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
+                  <img src={sim.imagen || '/images/logos/herramientas.webp'} alt={sim.nombre} class="h-32 w-auto object-contain pointer-events-none select-none" loading="eager" fetchpriority="low" crossorigin="anonymous" referrerpolicy="no-referrer" draggable="false" ondragstart="return false" style="-webkit-user-drag: none; user-drag: none;" />
                 </div>
                 <div class="p-4 flex-1 flex flex-col">
                   <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center line-clamp-2">{sim.nombre}</h3>

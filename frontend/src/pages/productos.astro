@@ -19,9 +19,13 @@ import Layout from '../layouts/Layout.astro';
   function normalizeImageUrl(u) {
     if (!u) return null;
     const s = String(u);
-    if (/^(https?:\/\/|data:)/i.test(s)) return s;
-    const host = getApiHost();
-    const base = host || (typeof location !== 'undefined' ? location.origin : '');
+    const api = (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
+    const origin = api.replace(/\/api$/, '');
+    if (/^https?:\/\//i.test(s)) {
+      try { return `${api}/media?url=${encodeURIComponent(s)}`; } catch { return s; }
+    }
+    if (/^data:/i.test(s)) return s;
+    const base = origin || (typeof location !== 'undefined' ? location.origin : '');
     if (s.startsWith('/')) return base ? (base + s) : s;
     return base ? (base + '/' + s) : s;
   }
@@ -180,7 +184,7 @@ import Layout from '../layouts/Layout.astro';
       contenedorProductos.innerHTML = `<div class="col-span-full text-center py-12"><h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3></div>`;
       return;
     }
-    contenedorProductos.innerHTML = productos.map(p => {
+    contenedorProductos.innerHTML = productos.map((p, idx) => {
       const img = normalizeImageUrl(p.imagen_url);
       const base = Number(p.precio_venta ?? p.precio ?? 0);
       const final = Number(p.precio_final ?? base);
@@ -191,7 +195,7 @@ import Layout from '../layouts/Layout.astro';
         <div class="relative w-full aspect-square bg-white">
           ${p.oferta_activa ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
           <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
-            <img src="${img || '/images/placeholder-product.jpg'}" alt="${p.nombre}" class="w-full h-full object-cover" loading="lazy" decoding="async" sizes="(min-width:1024px) 25vw, 50vw" />
+            <img src="${img || '/images/placeholder-product.jpg'}" alt="${p.nombre}" class="w-full h-full object-cover" loading="eager" fetchpriority="high" decoding="async" sizes="(min-width:1024px) 25vw, 50vw" />
           </div>
         </div>
         <div class="p-4 flex-1 flex flex-col">
@@ -657,8 +661,13 @@ function getApiHost() {
 function normalizeImageUrl(u) {
     if (!u) return null;
     const s = String(u);
-    if (/^(https?:\/\/|data:)/i.test(s)) return s;
-    const host = getApiHost();
+    const api = (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
+    const origin = api.replace(/\/api$/, '');
+    if (/^https?:\/\//i.test(s)) {
+        try { return `${api}/media?url=${encodeURIComponent(s)}`; } catch { return s; }
+    }
+    if (/^data:/i.test(s)) return s;
+    const host = origin || (typeof location !== 'undefined' ? location.origin : '');
     if (s.startsWith('/')) return host + s;
     return host + '/' + s;
 }

@@ -19,7 +19,7 @@ class DespachoDB(Base):
     __tablename__ = "despachos"
 
     id_despacho = Column(Integer, primary_key=True, index=True)
-    id_usuario = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=False, index=True)
+    rut_usuario = Column(String(9), ForeignKey("usuarios.rut"), nullable=False, index=True)
 
     # Campos de dirección
     buscar = Column(String(255), nullable=True)  # Texto completo ingresado/seleccionado
@@ -59,7 +59,7 @@ class DespachoUpdate(BaseModel):
 
 class Despacho(DespachoBase):
     id_despacho: int
-    id_usuario: int
+    rut_usuario: str
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
 

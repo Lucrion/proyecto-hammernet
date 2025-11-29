@@ -149,25 +149,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user_data is None:
         raise credentials_exception
 
-    # Extraer el subject del token (puede ser RUT numérico o email)
     subject = user_data["rut"]
-
-    # Intentar interpretar el subject como RUT entero
-    rut_int = None
-    try:
-        rut_int = int(str(subject))
-    except Exception:
-        rut_int = None
-
-    # Buscar el usuario en la base de datos
     from models import UsuarioDB
-    user = None
-    if rut_int is not None:
-        user = db.query(UsuarioDB).filter(UsuarioDB.rut == rut_int).first()
-    
-    # Compatibilidad: si no se encontró por RUT, intentar por email
-    if user is None:
-        user = db.query(UsuarioDB).filter(UsuarioDB.email == str(subject)).first()
+    user = db.query(UsuarioDB).filter(UsuarioDB.rut == str(subject)).first()
 
     if user is None:
         raise credentials_exception
@@ -179,13 +163,7 @@ def verificar_permisos_admin(current_user, accion: str = "realizar esta acción"
     TEMPORALMENTE DESACTIVADO: Se omite la verificación de rol para avanzar más rápido.
     Las comprobaciones originales quedan comentadas y se reactivarán más adelante.
     """
-    # ORIGINAL:
-    # if current_user.role != "administrador":
-    #     raise HTTPException(
-    #         status_code=403,
-    #         detail=f"No tienes permisos para {accion}"
-    #     )
-    if getattr(current_user, "role", None) != "administrador":
+    if getattr(getattr(current_user, "rol_ref", None), "nombre", None) != "administrador":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"No tienes permisos para {accion}"
@@ -202,9 +180,9 @@ def es_administrador(current_user) -> bool:
         bool: True si el usuario es administrador, False en caso contrario
     """
     try:
-        if getattr(current_user, "role", None) == "administrador":
-            return True
         if getattr(current_user, "rol_ref", None) and getattr(current_user.rol_ref, "nombre", None) == "administrador":
+            return True
+        if getattr(current_user, "role", None) == "administrador":
             return True
     except Exception:
         pass

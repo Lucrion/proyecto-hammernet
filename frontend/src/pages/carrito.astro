@@ -259,6 +259,7 @@ import EnvLoader from '../components/EnvLoader.astro';
     function computeRutDV(digits){ const body = digitsOnly(digits); if(!body) return ''; let sum=0,f=2; for(let i=body.length-1;i>=0;i--){ sum += Number(body[i])*f; f = f===7?2:f+1; } const rest=11-(sum%11); if(rest===11) return '0'; if(rest===10) return 'K'; return String(rest); }
     function formatRutFromDigits(val){ const body = digitsOnly(val); if(!body) return ''; const dv = computeRutDV(body); let res=''; let tmp=body; while(tmp.length>3){ res='.'+tmp.slice(-3)+res; tmp=tmp.slice(0,-3); } return tmp+res+'-'+dv; }
     function formatRutUI(v){ const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase(); if(!s) return ''; if(s.length===1) return s; const body=s.slice(0,-1); const dv=s.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return `${withDots}-${dv}`; }
+    function isRutValid(str){ const s=String(str||'').toUpperCase().replace(/[^0-9K]/g,''); if(!s||s.length<2) return false; const body=s.slice(0,-1); const dv=s.slice(-1); const expected=computeRutDV(body); return String(expected).toUpperCase()===dv; }
     const ENVIO_COSTO = 2000;
     const formatearPrecio = (precio) => precio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
@@ -676,7 +677,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       list.innerHTML = carrito.map(item => `
         <div class="flex items-center gap-4 border rounded-md p-3">
           <button aria-label="Ver detalle" onclick="irADetalle('${item.id ?? item.id_producto}')" class="shrink-0">
-            <img src="${item.imagen_url || '/images/logos/logo_bn.webp'}" onerror="this.src='/images/logos/logo_bn.webp';this.onerror=null;" alt="${item.nombre}" class="w-16 h-16 object-cover rounded" loading="lazy" decoding="async">
+            <img src="${item.imagen_url || '/images/logos/logo_bn.webp'}" onerror="this.src='/images/logos/logo_bn.webp';this.onerror=null;" alt="${item.nombre}" class="w-16 h-16 object-cover rounded" loading="eager" decoding="async" crossorigin="anonymous" referrerpolicy="no-referrer">
           </button>
           <div class="flex-1">
             <button class="text-left" aria-label="Ir al detalle" onclick="irADetalle('${item.id ?? item.id_producto}')">
@@ -740,8 +741,8 @@ import EnvLoader from '../components/EnvLoader.astro';
             rutEl.value = formatted;
           });
           rutEl.addEventListener('blur', () => {
-            const re = /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/;
-            rutEl.setCustomValidity(re.test(rutEl.value || '') ? '' : 'Formato: 12.345.678-5');
+            const ok = isRutValid(rutEl.value || '');
+            rutEl.setCustomValidity(ok ? '' : 'RUT inválido');
           });
         }
         const telEl = document.getElementById('dp-telefono');
@@ -879,7 +880,12 @@ import EnvLoader from '../components/EnvLoader.astro';
             const el = document.getElementById(id);
             return el && typeof el.value === 'string' ? el.value.trim() : '';
           };
-          const entregaTipo = (localStorage.getItem('checkoutEntrega') || 'retiro');
+      const entregaTipo = (localStorage.getItem('checkoutEntrega') || 'retiro');
+      const rutInput = document.getElementById('dp-rut');
+      if (rutInput) {
+        const rv = rutInput.value || '';
+        if (!isRutValid(rv)) { alert('RUT inválido'); if (rutInput.reportValidity) rutInput.reportValidity(); return; }
+      }
           const guestInfo = {
             nombre: getVal('dp-nombre') || 'Invitado',
             rut: getVal('dp-rut') || '',

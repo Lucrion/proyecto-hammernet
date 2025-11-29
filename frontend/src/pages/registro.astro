@@ -9,7 +9,7 @@ import EnvLoader from '../components/EnvLoader.astro';
     <meta name="viewport" content="width=device-width" />
     <title>Crear cuenta - Ferretería Patricio</title>
     <EnvLoader />
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
   </head>
   <body class="min-h-screen bg-gray-100">
     <div class="min-h-screen flex">
@@ -40,7 +40,7 @@ import EnvLoader from '../components/EnvLoader.astro';
             </div>
             <div>
               <label for="rut" class="block text-sm font-medium text-gray-700 mb-1">RUT</label>
-              <input id="rut" name="rut" type="text" maxlength="13" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500" inputmode="numeric" placeholder="20.347.793-7" />
+              <input id="rut" name="rut" type="text" maxlength="12" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500" inputmode="numeric" placeholder="20.347.793-7" />
             </div>
             <div>
               <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Correo</label>
@@ -92,6 +92,8 @@ const API_TIMEOUT=10000;
 
 // Utilidades de RUT (inline)
 function digitsOnly(v){return String(v||'').replace(/\D/g,'')}
+function computeRutDV(d){const body=String(d||'').replace(/\D/g,'');if(!body)return'';let sum=0,f=2;for(let i=body.length-1;i>=0;i--){sum+=Number(body[i])*f;f=f===7?2:f+1}const rest=11-(sum%11);if(rest===11)return'0';if(rest===10)return'K';return String(rest)}
+function isRutValid(str){const s=String(str||'').toUpperCase().replace(/[^0-9K]/g,'');if(!s||s.length<2)return false;const body=s.slice(0,-1);const dv=s.slice(-1);const expected=computeRutDV(body);return String(expected).toUpperCase()===dv}
 function formatRutUI(v){const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase();if(!s)return'';if(s.length===1)return s;const body=s.slice(0,-1);const dv=s.slice(-1);const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.');return `${withDots}-${dv}`}
 function formatRutFromDigits(d){const s=String(d||'').replace(/\D/g,'');if(!s)return'';return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.')}
 
@@ -147,7 +149,9 @@ async function handleRegister(e) {
   const password = document.getElementById('password').value;
   const confirm_password = document.getElementById('confirm_password').value;
 
-  const rutNormDigits = digitsOnly(rutInput);
+  const rutClean = String(rutInput||'').replace(/[^0-9kK]/g,'').toUpperCase();
+  if (!isRutValid(rutClean)) { showStatus('RUT inválido','error'); return; }
+  const rutNormDigits = digitsOnly(rutClean.slice(0,-1));
 
   if (!nombre || !apellido || !rutNormDigits || !email || !telefono || !password || !confirm_password) {
     showStatus('Completa todos los campos requeridos', 'error');
@@ -169,7 +173,7 @@ async function handleRegister(e) {
       nombre,
       apellido,
       username: rutNormDigits,
-      rut: Number(rutNormDigits),
+      rut: String(rutNormDigits),
       email,
       telefono: normalizePhoneCL(telefono),
       password,
@@ -199,7 +203,7 @@ async function handleRegister(e) {
       formData.append('username', rutNormDigits);
       formData.append('password', password);
       formData.append('grant_type', 'password');
-      const loginRes = await fetch(`${API_URL}/auth/login`, {
+      const loginRes = await fetch(`${API_URL}/auth/login-cliente`, {
         method: 'POST',
         body: formData,
         signal: controller.signal
@@ -230,7 +234,6 @@ async function handleRegister(e) {
     data = await response.json();
     localStorage.setItem('token', data.access_token);
     const user = {
-      id_usuario: data.id_usuario,
       nombre: data.nombre,
       rut: data.rut ?? rutNormDigits,
       rol: data.role || data.rol || 'cliente'
@@ -244,7 +247,7 @@ async function handleRegister(e) {
 
     // Completar datos del usuario (email y teléfono) inmediatamente después del registro
     try {
-      const uResp = await fetch(`${API_URL}/usuarios/${user.id_usuario}`, {
+      const uResp = await fetch(`${API_URL}/usuarios/me`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${data.access_token}`
@@ -289,11 +292,22 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch {}
   const form = document.getElementById('registerForm');
   const googleButton = document.getElementById('googleButton');
+  const registerButton = document.getElementById('registerButton');
   const rutEl = document.getElementById('rut');
   const telEl = document.getElementById('telefono');
 
   form?.addEventListener('submit', handleRegister);
   googleButton?.addEventListener('click', handleGoogleAuth);
+  registerButton?.addEventListener('click', (e) => {
+    const ok = isRutValid(rutEl?.value || '');
+    if (!ok) {
+      e.preventDefault();
+      showStatus('RUT inválido','error');
+      try { rutEl.setCustomValidity('RUT inválido'); rutEl.reportValidity(); } catch {}
+    } else {
+      try { rutEl.setCustomValidity(''); } catch {}
+    }
+  });
 
   // Formatear RUT al escribir (puntos y guion con DV)
   if (rutEl) {

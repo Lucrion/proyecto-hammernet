@@ -64,9 +64,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RUT</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apellido</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Creación</th>
                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -129,9 +129,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RUT</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apellido</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Creación</th>
                             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -437,19 +437,19 @@ function cargarUsuarios(usuarios) {
         let botonesAccion = '';
         if (usuario.role !== 'cliente') {
             botonesAccion = `
-                <button onclick="editarUsuario(${usuario.id_usuario})" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
-                <button onclick="confirmarEliminarUsuario(${usuario.id_usuario})" class="text-red-600 hover:text-red-900">Desactivar</button>
+                <button onclick="editarUsuario(${usuario.rut})" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
+                <button onclick="confirmarEliminarUsuario(${usuario.rut})" class="text-red-600 hover:text-red-900">Desactivar</button>
             `;
         } else {
             botonesAccion = `
-                <button onclick="verInfoUsuario(${usuario.id_usuario})" class="text-blue-600 hover:text-blue-900">Ver Información</button>
+                <button onclick="verInfoUsuario(${usuario.rut})" class="text-blue-600 hover:text-blue-900">Ver Información</button>
             `;
         }
         const nombreCompleto = `${usuario.nombre || ''}${usuario.apellido ? ' ' + usuario.apellido : ''}`.trim();
         const rutDigits = String(usuario.rut ?? '').replace(/\D/g, '');
         const rutDisplay = (rutDigits && rutDigits !== '0') ? formatRutFromDigits(rutDigits) : '—';
         row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.id_usuario}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.rut}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${nombreCompleto || '—'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rutDisplay}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.role}</td>
@@ -478,14 +478,14 @@ function cargarUsuariosDesactivados(usuarios) {
         const rutDigits2 = String(usuario.rut ?? '').replace(/\D/g, '');
         const rutDisplay2 = (rutDigits2 && rutDigits2 !== '0') ? formatRutFromDigits(rutDigits2) : '—';
         row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.id_usuario}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${usuario.rut}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${nombreCompleto || '—'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rutDisplay2}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${usuario.role}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fechaCreacion}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button onclick="activarUsuario(${usuario.id_usuario})" class="text-green-600 hover:text-green-800 font-semibold mr-3">Activar</button>
-                <button onclick="eliminarUsuarioPermanente(${usuario.id_usuario})" class="text-red-600 hover:text-red-900 font-semibold">Eliminar Permanentemente</button>
+                <button onclick="activarUsuario(${usuario.rut})" class="text-green-600 hover:text-green-800 font-semibold mr-3">Activar</button>
+                <button onclick="eliminarUsuarioPermanente(${usuario.rut})" class="text-red-600 hover:text-red-900 font-semibold">Eliminar Permanentemente</button>
             </td>
         `;
         tbody.appendChild(row);
@@ -596,7 +596,7 @@ window.verInfoUsuario = async function(id) {
     try {
         const usuario = await getData(`/api/usuarios/${id}`);
         if (usuario) {
-            document.getElementById('infoId').textContent = usuario.id_usuario ?? '—';
+            document.getElementById('infoId').textContent = usuario.rut ?? '—';
             document.getElementById('infoNombre').textContent = usuario.nombre ?? '—';
             document.getElementById('infoApellido').textContent = usuario.apellido ?? '—';
             document.getElementById('infoUsername').textContent = formatRutUI(String(usuario.rut ?? '')) ?? '—';
@@ -610,7 +610,8 @@ window.verInfoUsuario = async function(id) {
             const lista = document.getElementById('listaDespachos');
             if (lista) {
                 try {
-                    const despachos = await getData(`/api/despachos/usuario/${id}`);
+                    const rutStr = String(usuario.rut || '').toUpperCase();
+                    const despachos = await getData(`/api/despachos/usuario/${encodeURIComponent(rutStr)}`);
                     lista.innerHTML = '';
                     if (Array.isArray(despachos) && despachos.length > 0) {
                         despachos.forEach(d => {
@@ -762,13 +763,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = Object.fromEntries(formData.entries());
             const rutOriginal = String(data.rut || '');
             if (rutOriginal) {
-                const cleaned = cleanRutInput(rutOriginal);
-                let body = '';
-                if (/^[0-9]+[kK]?$/.test(cleaned)) { body = cleaned.length >= 2 ? cleaned.slice(0, -1) : cleaned; }
-                body = body.slice(0, 8);
-                data.rut = body ? Number(body) : null;
-                data.username = body || null;
-            } else { data.rut = null; data.username = null; }
+                const cleaned = cleanRutInput(rutOriginal).toUpperCase();
+                const digits = cleaned.replace(/[^0-9]/g,'').slice(0,8);
+                const dv = cleaned.slice(-1).replace(/[^0-9K]/g,'') || '';
+                const fullRut = digits ? (digits + (dv || '')) : '';
+                data.rut = fullRut || null;
+            } else { data.rut = null; }
             if (data.nombre !== undefined) { data.nombre = String(data.nombre).trim(); }
             if (data.apellido !== undefined) { data.apellido = String(data.apellido).trim(); }
             if (data.role !== undefined) { data.role = String(data.role).toLowerCase().trim(); }

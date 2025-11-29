@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from config.database import get_db
-from controllers.usuario_controller import UsuarioController, _rut_a_int
+from controllers.usuario_controller import UsuarioController
 from models.usuario import Usuario, UsuarioCreate, UsuarioUpdate
 from core.auth import get_current_user, require_admin
 from config.constants import API_PREFIX
@@ -25,13 +25,12 @@ async def obtener_usuarios(
     usuarios = await UsuarioController.obtener_usuarios(db)
     return [
         {
-            "id_usuario": usuario.id_usuario,
             "nombre": usuario.nombre,
             "apellido": usuario.apellido,
-            "rut": _rut_a_int(usuario.rut),
+            "rut": str(usuario.rut) if usuario.rut is not None else None,
             "email": usuario.email,
             "telefono": usuario.telefono,
-            "role": usuario.role,
+            "role": getattr(getattr(usuario, "rol_ref", None), "nombre", None),
             "activo": usuario.activo,
             "fecha_creacion": usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
         }
@@ -51,10 +50,9 @@ async def obtener_usuarios_desactivados(
     usuarios = await UsuarioController.obtener_usuarios_desactivados(db)
     return [
         {
-            "id_usuario": usuario.id_usuario,
             "nombre": usuario.nombre,
-            "rut": _rut_a_int(usuario.rut),
-            "role": usuario.role,
+            "rut": str(usuario.rut) if usuario.rut is not None else None,
+            "role": getattr(getattr(usuario, "rol_ref", None), "nombre", None),
             "activo": usuario.activo,
             "fecha_creacion": usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
         }
@@ -68,21 +66,20 @@ async def obtener_usuario_actual(
     current_user = Depends(get_current_user)
 ):
     return {
-        "id_usuario": current_user.id_usuario,
         "nombre": current_user.nombre,
         "apellido": current_user.apellido,
-        "rut": _rut_a_int(current_user.rut),
+        "rut": str(current_user.rut) if current_user.rut is not None else None,
         "email": current_user.email,
         "telefono": current_user.telefono,
-        "role": current_user.role,
+        "role": getattr(getattr(current_user, "rol_ref", None), "nombre", None),
         "activo": current_user.activo,
-        "fecha_creacion": current_user.fecha_creacion.isoformat() if getattr(current_user, "fecha_creacion", None) else None
+        "fecha_creacion": getattr(current_user, "fecha_creacion", None).isoformat() if getattr(current_user, "fecha_creacion", None) else None
     }
 
 
-@router.get("/{usuario_id}", response_model=Usuario)
+@router.get("/{rut}", response_model=Usuario)
 async def obtener_usuario(
-    usuario_id: int,
+    rut: str,
     db: Session = Depends(get_db),
     current_user = Depends(require_admin)
 ):
@@ -97,15 +94,14 @@ async def obtener_usuario(
     #         detail="No tienes permisos para ver este usuario"
     #     )
     
-    usuario = await UsuarioController.obtener_usuario(usuario_id, db)
+    usuario = await UsuarioController.obtener_usuario(rut, db)
     return {
-        "id_usuario": usuario.id_usuario,
         "nombre": usuario.nombre,
         "apellido": usuario.apellido,
         "rut": usuario.rut,
         "email": usuario.email,
         "telefono": usuario.telefono,
-        "role": usuario.role,
+        "role": getattr(getattr(usuario, "rol_ref", None), "nombre", None),
         "activo": usuario.activo,
         "fecha_creacion": usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
     }
@@ -126,9 +122,9 @@ async def crear_usuario(
         registrar_evento(
             db,
             entidad_tipo="usuario",
-            entidad_id=nuevo.id_usuario,
+            entidad_id=None,
             accion="crear",
-            usuario_actor_id=None,
+            usuario_rut=nuevo.rut,
             detalle=f"Usuario creado: RUT {nuevo.rut} ({nuevo.role})"
         )
     except Exception:
@@ -143,13 +139,13 @@ async def actualizar_usuario_actual(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    actualizado = await UsuarioController.actualizar_usuario(current_user.id_usuario, usuario, db)
+    actualizado = await UsuarioController.actualizar_usuario(current_user.rut, usuario, db)
     return actualizado
 
 
-@router.put("/{usuario_id}", response_model=Usuario)
+@router.put("/{rut}", response_model=Usuario)
 async def actualizar_usuario(
-    usuario_id: int,
+    rut: str,
     usuario: UsuarioUpdate,
     db: Session = Depends(get_db),
     current_user = Depends(require_admin)
@@ -158,14 +154,14 @@ async def actualizar_usuario(
 
     VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
     """
-    actualizado = await UsuarioController.actualizar_usuario(usuario_id, usuario, db)
+    actualizado = await UsuarioController.actualizar_usuario(rut, usuario, db)
     try:
         registrar_evento(
             db,
             entidad_tipo="usuario",
-            entidad_id=usuario_id,
+            entidad_id=None,
             accion="actualizar",
-            usuario_actor_id=None,
+            usuario_rut=rut,
             detalle="Datos de usuario actualizados"
         )
     except Exception:
@@ -173,9 +169,9 @@ async def actualizar_usuario(
     return actualizado
 
 
-@router.put("/{usuario_id}/desactivar")
+@router.put("/{rut}/desactivar")
 async def desactivar_usuario(
-    usuario_id: int,
+    rut: str,
     db: Session = Depends(get_db),
     current_user = Depends(require_admin)
 ):
@@ -183,14 +179,14 @@ async def desactivar_usuario(
 
     VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
     """
-    resp = await UsuarioController.eliminar_usuario(usuario_id, db)
+    resp = await UsuarioController.eliminar_usuario(rut, db)
     try:
         registrar_evento(
             db,
             entidad_tipo="usuario",
-            entidad_id=usuario_id,
+            entidad_id=None,
             accion="desactivar",
-            usuario_actor_id=None,
+            usuario_rut=rut,
             detalle="Usuario desactivado (baja lógica)"
         )
     except Exception:
@@ -198,9 +194,9 @@ async def desactivar_usuario(
     return resp
 
 
-@router.put("/{usuario_id}/activar")
+@router.put("/{rut}/activar")
 async def activar_usuario(
-    usuario_id: int,
+    rut: str,
     db: Session = Depends(get_db),
     current_user = Depends(require_admin)
 ):
@@ -208,14 +204,14 @@ async def activar_usuario(
 
     VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
     """
-    resp = await UsuarioController.activar_usuario(usuario_id, db)
+    resp = await UsuarioController.activar_usuario(rut, db)
     try:
         registrar_evento(
             db,
             entidad_tipo="usuario",
-            entidad_id=usuario_id,
+            entidad_id=None,
             accion="activar",
-            usuario_actor_id=None,
+            usuario_rut=rut,
             detalle="Usuario activado (alta lógica)"
         )
     except Exception:
@@ -223,9 +219,9 @@ async def activar_usuario(
     return resp
 
 
-@router.delete("/{usuario_id}/eliminar-permanente")
+@router.delete("/{rut}/eliminar-permanente")
 async def eliminar_usuario_permanente(
-    usuario_id: int,
+    rut: str,
     db: Session = Depends(get_db),
     current_user = Depends(require_admin)
 ):
@@ -233,14 +229,14 @@ async def eliminar_usuario_permanente(
 
     VALIDACIÓN TEMPORALMENTE DESACTIVADA: acceso sin token ni rol
     """
-    result = await UsuarioController.eliminar_usuario_permanente(usuario_id, db)
+    result = await UsuarioController.eliminar_usuario_permanente(rut, db)
     try:
         registrar_evento(
             db,
             entidad_tipo="usuario",
-            entidad_id=usuario_id,
+            entidad_id=None,
             accion="eliminar",
-            usuario_actor_id=None,
+            usuario_rut=rut,
             detalle="Usuario eliminado permanentemente"
         )
     except Exception:

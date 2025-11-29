@@ -101,13 +101,13 @@ async def obtener_metricas_dashboard(
         actividad = obtener_auditoria(db, skip=0, limit=limite_actividad)
         actividad_reciente = [
             {
-                "id": evt.id,
+                "id_evento": evt.id_evento,
                 "accion": evt.accion,
                 "entidad_tipo": evt.entidad_tipo,
                 "entidad_id": evt.entidad_id,
                 "detalle": evt.detalle,
                 "fecha_evento": evt.fecha_evento,
-                "usuario_id": evt.usuario_id,
+                "usuario_rut": evt.usuario_rut,
             }
             for evt in actividad.get("data", [])
         ]
