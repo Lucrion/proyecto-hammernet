@@ -42,7 +42,6 @@ test_production_api.cjs
 .md
 # Ignorar utilitarios y scripts del backend (uso local, no producción)
 backend/utils/
-backend/scripts/
 
 # Permitir scripts críticos de despliegue en Render
 !backend/scripts/setup_postgres.py
