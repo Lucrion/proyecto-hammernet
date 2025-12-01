@@ -37,7 +37,7 @@ try {
 		<script src="https://unpkg.com/htmx.org@1.9.9" integrity="sha384-QFjmbokDn2DjBjq+fM+8LUIVrAgqcNW2s0PjAxHETgRn9l4fvX31ZxDxvwQnyMOX" crossorigin="anonymous"></script>
         <script type="module" src="/scripts/user-icon.js"></script>
 	</head>
-	<body class="min-h-screen bg-gray-100">
+    <body class="min-h-screen bg-gray-100 flex flex-col">
 		{Astro.url.pathname !== '/login' && (
 			<header class="bg-white shadow-md relative z-30">
 				<nav class="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -83,9 +83,9 @@ try {
 				</nav>
 			</header>
 		)}
-		<main>
-			<slot />
-		</main>
+        <main class="flex-1">
+            <slot />
+        </main>
 
 		{Astro.url.pathname !== '/login' && (
 			<Footer />
@@ -111,7 +111,7 @@ try {
 				<p class="text-gray-600 mb-6">Selecciona una opción para continuar</p>
                 <div class="grid grid-cols-3 gap-4">
                     <button id="btnLoginCliente" class="bg-blue-600 text-white py-3 rounded hover:bg-blue-700">Cliente</button>
-                    <button id="btnLoginTrabajador" class="bg-gray-800 text-white py-3 rounded hover:bg-gray-900">Trabajador</button>
+                    <button id="btnLoginTrabajador" class="bg-gray-800 text-white py-3 rounded hover:bg-gray-900">Administrativo</button>
                     <button id="btnLoginInvitado" class="bg-green-600 text-white py-3 rounded hover:bg-green-700">Invitado</button>
                 </div>
 				<button id="cerrarModalLogin" class="mt-6 w-full bg-gray-200 text-gray-800 py-2 rounded hover:bg-gray-300">Cancelar</button>
@@ -223,7 +223,9 @@ try {
                         url.searchParams.delete('payment_status');
                         url.searchParams.delete('reason');
                         url.searchParams.delete('message');
-                        url.searchParams.delete('bo');
+                        if (!url.pathname.startsWith('/orden-compra')) {
+                          url.searchParams.delete('bo');
+                        }
                         const qs = url.searchParams.toString();
                         history.replaceState({}, '', url.pathname + (qs ? ('?' + qs) : '') + url.hash);
                     }
@@ -268,8 +270,8 @@ try {
             const user = userRaw ? JSON.parse(userRaw) : null;
             const nombreUsuario = (user && user.nombre) || localStorage.getItem('nombreUsuario') || '';
             const rol = (user && (user.rol || user.role)) || 'cliente';
-
-            if (isLoggedIn && token && (tipo === 'cliente' || rol !== 'admin')) {
+            const guestFlag = (sessionStorage.getItem('guest_order_session') === '1') || (localStorage.getItem('guest_order_session') === '1');
+            if (!guestFlag && isLoggedIn && token && (tipo === 'cliente' || rol !== 'admin')) {
               if (userNameDisplay) userNameDisplay.textContent = nombreUsuario || 'Cliente';
               if (userLoggedContainer) {
                 userLoggedContainer.classList.remove('hidden');

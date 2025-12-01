@@ -750,16 +750,31 @@ if (!producto) {
             const nombre = PRODUCTO.nombre;
             const precio = Number(PRODUCTO.precio) || 0;
             const imagen = PRODUCTO.imagen || '';
-			
-			// Obtener carrito actual del localStorage
-			let carrito = JSON.parse(localStorage.getItem('carrito')) || [];
-			
-			// Buscar si el producto ya existe en el carrito
-			const productoExistente = carrito.find(item => item.id === productoId);
-			
-			if (productoExistente) {
-				productoExistente.cantidad += cantidad;
-			} else {
+            
+            // Obtener carrito actual del localStorage
+            let carrito = JSON.parse(localStorage.getItem('carrito')) || [];
+            carrito = (Array.isArray(carrito) ? carrito : []).map(it => {
+                const nid = Number(it.id ?? it.id_producto);
+                return { ...it, id: nid || it.id };
+            }).reduce((acc, it) => {
+                const key = String(it.id);
+                const idx = acc.findIndex(x => String(x.id) === key);
+                if (idx >= 0) {
+                    const base = Number(acc[idx].cantidad || 0);
+                    const add = Number(it.cantidad || 0);
+                    acc[idx].cantidad = base + add;
+                    return acc;
+                }
+                acc.push(it);
+                return acc;
+            }, []);
+            
+            // Buscar si el producto ya existe en el carrito
+            const productoExistente = carrito.find(item => String(item.id) === String(productoId));
+            
+            if (productoExistente) {
+                productoExistente.cantidad += cantidad;
+            } else {
                 carrito.push({
                     id: productoId,
                     cantidad: cantidad,
@@ -768,8 +783,8 @@ if (!producto) {
                     imagen_url: imagen,   // usar clave imagen_url para layout
                     stock_max: typeof maxStock === 'number' ? maxStock : undefined
                 });
-			}
-			
+            }
+            
             // Guardar carrito actualizado
             localStorage.setItem('carrito', JSON.stringify(carrito));
             // Notificar a otras vistas para actualizar badge/panel

@@ -94,11 +94,61 @@ import EnvLoader from '../components/EnvLoader.astro';
         } catch { return '/api'; }
       };
 
-      const getUserId = () => {
+      const computeDV = (d) => {
+        const body = String(d || '').replace(/\D/g, '');
+        if (!body) return '';
+        let sum = 0, f = 2;
+        for (let i = body.length - 1; i >= 0; i--) {
+          sum += Number(body[i]) * f;
+          f = f === 7 ? 2 : f + 1;
+        }
+        const rest = 11 - (sum % 11);
+        if (rest === 11) return '0';
+        if (rest === 10) return 'K';
+        return String(rest);
+      };
+
+      const normalizeRut = (input) => {
+        const s = String(input || '').toUpperCase().trim();
+        const digits = s.replace(/\D/g, '').slice(0, 8);
+        if (!digits) return null;
+        let dvProvided = null;
+        const m = s.match(/-([0-9K])$/);
+        if (m) dvProvided = m[1];
+        else {
+          const last = s.slice(-1);
+          if (/^[^0-9]$/.test(last)) dvProvided = last === 'K' ? 'K' : last;
+        }
+        const dv = dvProvided || computeDV(digits);
+        return (digits + dv).toUpperCase();
+      };
+
+      const getUserRut = () => {
         try {
-          const raw = localStorage.getItem('user');
+          const raw = localStorage.getItem('user') || localStorage.getItem('usuario') || '';
           const u = raw ? JSON.parse(raw) : null;
-          return (u && (u.id_usuario || u.id || u.idUsuario)) || null;
+          const rutStored = u && u.rut ? String(u.rut).toUpperCase() : '';
+          if (rutStored) return normalizeRut(rutStored);
+          const tok = sessionStorage.getItem('token') || localStorage.getItem('token') || localStorage.getItem('access_token') || '';
+          const parts = String(tok).split('.');
+          if (parts.length === 3) {
+            try {
+              let b = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+              const pad = b.length % 4 === 0 ? '' : '='.repeat(4 - (b.length % 4));
+              const json = atob(b + pad);
+              const payload = JSON.parse(json);
+              const sub = String(payload?.sub || '').toUpperCase();
+              if (sub) return normalizeRut(sub);
+            } catch {}
+          }
+          const digits = (() => {
+            try { return String((u && (u.rut_sin_dv || u.rutDV || u.rut_dv)) || '').replace(/\D/g, ''); } catch { return ''; }
+          })();
+          if (digits) {
+            const dv = (localStorage.getItem('rut_dv') || computeDV(digits)).toUpperCase();
+            return (digits + dv).toUpperCase();
+          }
+          return null;
         } catch { return null; }
       };
 
@@ -147,8 +197,20 @@ import EnvLoader from '../components/EnvLoader.astro';
       };
 
       const renderDetalle = async (venta) => {
+        let orden = null;
+        try {
+          const API = getApiBase();
+          const ctrl = new AbortController();
+          const to = setTimeout(() => ctrl.abort(), 2500);
+          const r = await fetch(`${API}/pagos/estado/${venta.id_venta}`, { signal: ctrl.signal });
+          clearTimeout(to);
+          if (r.ok) {
+            const info = await r.json();
+            orden = info && info.buy_order ? String(info.buy_order) : null;
+          }
+        } catch {}
         detalleHeader.innerHTML = `
-          <div><span class="text-gray-500">Nº venta:</span> <span class="font-medium">${venta.id_venta}</span></div>
+          <div><span class="text-gray-500">Orden de compra:</span> <span class="font-medium">${orden || `#${venta.id_venta}`}</span></div>
           <div><span class="text-gray-500">Fecha:</span> <span class="font-medium">${fmtFecha(venta.fecha_venta)}</span></div>
           <div><span class="text-gray-500">Estado:</span> <span class="font-medium">${venta.estado}</span></div>
           <div><span class="text-gray-500">Total:</span> <span class="font-semibold">${fmtPrecio(venta.total_venta)}</span></div>
@@ -194,25 +256,60 @@ import EnvLoader from '../components/EnvLoader.astro';
       };
 
       const init = async () => {
-        const idUsuario = getUserId();
-        if (!idUsuario) {
-          estadoCuenta.innerHTML = 'Debes iniciar sesión para ver tus compras. <a href="/login" class="text-blue-600 hover:text-blue-800">Inicia sesión aquí</a>.';
+        const rut = getUserRut();
+        if (!rut) {
+          estadoCuenta.innerHTML = 'Debes iniciar sesión para ver tus compras. <a href="/login-cliente" class="text-blue-600 hover:text-blue-800">Inicia sesión aquí</a>.';
           return;
         }
         estadoCuenta.textContent = '';
         const API = getApiBase();
         try {
-          // Eliminar ventas pendientes guardadas localmente
-          try { localStorage.removeItem('ventas_pendientes'); } catch {}
-          const resp = await fetch(`${API}/ventas/usuario/${idUsuario}?limit=100`);
+          console.log('[compras] rut detectado:', rut);
+          const urlA = `${API}/ventas/usuario/${encodeURIComponent(String(rut))}?limit=100`;
+          const respA = await fetch(urlA);
           let ventasApi = [];
-          if (resp.ok) {
-            ventasApi = await resp.json();
+          if (respA.ok) {
+            ventasApi = await respA.json();
           } else {
-            console.warn('No se pudieron cargar las compras del backend, mostrando pendientes locales');
+            console.warn('[compras] respuesta no OK en A:', respA.status);
           }
-          // Mostrar únicamente las ventas del backend
-          renderCompras(ventasApi);
+          if (!Array.isArray(ventasApi) || ventasApi.length === 0) {
+            const urlB = `${API}/ventas/?rut_usuario=${encodeURIComponent(String(rut))}&limit=100`;
+            const respB = await fetch(urlB);
+            if (respB.ok) {
+              const dataB = await respB.json();
+              if (Array.isArray(dataB)) ventasApi = dataB;
+            } else {
+              console.warn('[compras] respuesta no OK en B:', respB.status);
+            }
+          }
+          if (!Array.isArray(ventasApi) || ventasApi.length === 0) {
+            const urlC = `${API}/pagos/usuario/${encodeURIComponent(String(rut))}`;
+            const respC = await fetch(urlC);
+            if (respC.ok) {
+              const dataC = await respC.json();
+              if (Array.isArray(dataC)) ventasApi = dataC;
+            } else {
+              console.warn('[compras] respuesta no OK en C:', respC.status);
+            }
+          }
+          if (!Array.isArray(ventasApi) || ventasApi.length === 0) {
+            const urlD = `${API}/pagos/session/${encodeURIComponent(String(rut))}`;
+            const respD = await fetch(urlD);
+            if (respD.ok) {
+              const dataD = await respD.json();
+              if (Array.isArray(dataD)) ventasApi = dataD;
+            } else {
+              console.warn('[compras] respuesta no OK en D:', respD.status);
+            }
+          }
+          const pendientesLocal = getPendientesLocal();
+          const byId = new Map();
+          (Array.isArray(ventasApi) ? ventasApi : []).forEach(v => byId.set(String(v.id_venta), v));
+          pendientesLocal.forEach(v => { if (!byId.has(String(v.id_venta))) byId.set(String(v.id_venta), v); });
+          const ventas = Array.from(byId.values());
+          console.log('[compras] tamaño ventas:', Array.isArray(ventas) ? ventas.length : 0);
+          renderCompras(ventas);
         } catch (err) {
           comprasBody.innerHTML = '';
           comprasEmpty.classList.remove('hidden');

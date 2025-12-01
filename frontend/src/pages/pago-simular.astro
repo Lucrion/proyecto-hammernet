@@ -17,8 +17,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         <button id="btnAprobado" class="px-4 py-2 bg-green-600 text-white rounded">Autorizar</button>
         <button id="btnRechazado" class="px-4 py-2 bg-red-600 text-white rounded">Rechazado</button>
         <button id="btnAbortado" class="px-4 py-2 bg-yellow-600 text-white rounded">Cliente canceló</button>
-        <button id="btnTimeout" class="px-4 py-2 bg-gray-700 text-white rounded">Timeout</button>
-        <button id="btnError" class="px-4 py-2 bg-black text-white rounded">Error autenticación</button>
+        <button id="btnTimeout" class="px-4 py-2 bg-gray-700 text-white rounded">Tiempo expirado</button>
       </div>
       <div id="banner" class="mt-4 hidden p-3 rounded"></div>
     </div>
@@ -37,7 +36,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           if (status === 'AUTHORIZED') { cls = 'bg-green-100 text-green-800'; msg = `Pago aprobado. Orden ${data?.buy_order || ''}`; }
           else if (status === 'REJECTED' || status === 'FAILED') { cls = 'bg-red-100 text-red-800'; msg = `Pago rechazado${reason?`: ${reason}`:''}`; }
           else if (status === 'ABORTED') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago cancelado por el cliente'; }
-          else if (status === 'TIMEOUT') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago expirado por timeout'; }
+          else if (status === 'TIMEOUT') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago expirado por tiempo'; }
           else if (status === 'ERROR') { cls = 'bg-red-100 text-red-800'; msg = `Error de autenticación${reason?`: ${reason}`:''}`; }
           banner.className = `mt-4 p-3 rounded ${cls}`;
           banner.textContent = msg;

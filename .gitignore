@@ -40,11 +40,10 @@ yarn-error.log*
 .parcel-cache
 test_production_api.cjs
 .md
-# Ignorar utilitarios y scripts del backend (uso local, no producción)
-backend/utils/
 
 # Permitir scripts críticos de despliegue en Render
 !backend/scripts/setup_postgres.py
 !backend/scripts/migrate_sqlite_to_postgres.py
 
 README.MD
+.env.production

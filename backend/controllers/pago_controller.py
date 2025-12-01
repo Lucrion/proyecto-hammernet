@@ -131,4 +131,116 @@ class PagoController:
             "moneda": ultimo_pago.moneda,
             "proveedor": ultimo_pago.proveedor,
             "token": ultimo_pago.token,
+            "buy_order": ultimo_pago.buy_order,
+            "session_id": ultimo_pago.session_id,
         }
+
+    @staticmethod
+    def listar_ventas_pagadas_por_usuario(db: Session, rut_usuario: str):
+        """
+        Lista ventas del usuario cuyo pago más reciente está aprobado.
+        Devuelve objetos Venta construidos por el controlador de ventas.
+        """
+        try:
+            s = str(rut_usuario or '').strip().upper()
+            cuerpo = ''.join(ch for ch in s if ch.isdigit())
+            if not cuerpo:
+                return []
+            # Calcular DV para comparar formatos uniformes
+            acc, f = 0, 2
+            for ch in reversed(cuerpo):
+                acc += int(ch) * f
+                f = 2 if f == 7 else f + 1
+            rest = 11 - (acc % 11)
+            dv = '0' if rest == 11 else ('K' if rest == 10 else str(rest))
+            rut_norm = f"{cuerpo}{dv}"
+
+            from models.venta import VentaDB, DetalleVentaDB
+            from sqlalchemy.orm import joinedload
+            from controllers.venta_controller import VentaController
+            from models.pago import PagoDB
+
+            # Ventas del usuario
+            ventas_q = (
+                db.query(VentaDB)
+                .options(
+                    joinedload(VentaDB.usuario),
+                    joinedload(VentaDB.detalles_venta).joinedload(DetalleVentaDB.producto)
+                )
+                .filter(VentaDB.rut_usuario == str(rut_norm))
+            )
+
+            ventas = ventas_q.all()
+            if not ventas:
+                return []
+
+            result = []
+            for v in ventas:
+                # Tomar estado del último pago
+                ultimo = (
+                    db.query(PagoDB)
+                    .filter(PagoDB.id_venta == v.id_venta)
+                    .order_by(PagoDB.id_pago.desc())
+                    .first()
+                )
+                if ultimo and str(ultimo.estado or '').lower() in {"aprobado", "authorized"}:
+                    result.append(VentaController._construir_venta_response(db, v))
+            return result
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error al listar compras pagadas: {str(e)}")
+
+    @staticmethod
+    def listar_ventas_pagadas_por_session(db: Session, rut_usuario: str):
+        """
+        Lista ventas cuyo último pago tiene session_id igual al RUT del usuario
+        (útil si la venta no quedó con rut_usuario correcto).
+        Devuelve objetos Venta.
+        """
+        try:
+            s = str(rut_usuario or '').strip().upper()
+            cuerpo = ''.join(ch for ch in s if ch.isdigit())
+            if not cuerpo:
+                return []
+            # Normalizar a cuerpo+DV
+            acc, f = 0, 2
+            for ch in reversed(cuerpo):
+                acc += int(ch) * f
+                f = 2 if f == 7 else f + 1
+            rest = 11 - (acc % 11)
+            dv = '0' if rest == 11 else ('K' if rest == 10 else str(rest))
+            rut_norm = f"{cuerpo}{dv}"
+
+            from models.pago import PagoDB
+            from models.venta import VentaDB, DetalleVentaDB
+            from sqlalchemy.orm import joinedload
+            from controllers.venta_controller import VentaController
+
+            pagos = (
+                db.query(PagoDB)
+                .filter(PagoDB.session_id == str(rut_norm))
+                .order_by(PagoDB.id_pago.desc())
+                .all()
+            )
+            if not pagos:
+                return []
+            ventas_ids = []
+            for p in pagos:
+                if str(p.estado or '').lower() in {"aprobado", "authorized"}:
+                    ventas_ids.append(p.id_venta)
+            if not ventas_ids:
+                return []
+            ventas = (
+                db.query(VentaDB)
+                .options(
+                    joinedload(VentaDB.usuario),
+                    joinedload(VentaDB.detalles_venta).joinedload(DetalleVentaDB.producto)
+                )
+                .filter(VentaDB.id_venta.in_(ventas_ids))
+                .all()
+            )
+            uniq = {}
+            for v in ventas:
+                uniq[str(v.id_venta)] = VentaController._construir_venta_response(db, v)
+            return list(uniq.values())
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error al listar compras por sesión: {str(e)}")

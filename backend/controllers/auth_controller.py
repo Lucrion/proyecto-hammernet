@@ -10,6 +10,8 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from models.usuario import UsuarioDB, Token
+from models.pago import PagoDB
+from models.venta import VentaDB
 from controllers.auditoria_controller import registrar_evento
 from core.auth import verificar_contraseña, crear_token
 
@@ -113,6 +115,48 @@ class AuthController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error interno del servidor: {str(e)}"
             )
+
+    @staticmethod
+    async def login_por_orden(db: Session, rut: str, buy_order: str) -> Token:
+        try:
+            s = str(rut or '').strip().upper()
+            cuerpo = ''.join(ch for ch in s if ch.isdigit())
+            if not cuerpo or len(cuerpo) < 7 or len(cuerpo) > 8:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="RUT inválido")
+            def _dv_calc(b: str) -> str:
+                acc = 0; f = 2
+                for ch in reversed(b):
+                    acc += int(ch) * f
+                    f = 2 if f == 7 else f + 1
+                rest = 11 - (acc % 11)
+                return '0' if rest == 11 else ('K' if rest == 10 else str(rest))
+            rut_full = f"{cuerpo}{_dv_calc(cuerpo)}"
+            usuario = db.query(UsuarioDB).filter(UsuarioDB.rut == rut_full).first()
+            if not usuario or not usuario.activo:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario inválido")
+            # Buscar pago por buy_order
+            pago = db.query(PagoDB).filter(PagoDB.buy_order == str(buy_order)).first()
+            if not pago:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden no encontrada")
+            venta = db.query(VentaDB).filter(VentaDB.id_venta == pago.id_venta).first()
+            if not venta:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Venta no encontrada")
+            # Validar correspondencia
+            if venta.rut_usuario and str(rut_full) != str(venta.rut_usuario):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="La orden no corresponde al usuario")
+            subject = str(usuario.rut)
+            token = crear_token(data={"sub": subject})
+            return Token(
+                access_token=token,
+                token_type="bearer",
+                nombre=usuario.nombre,
+                rut=usuario.rut,
+                role=(getattr(getattr(usuario, "rol_ref", None), "nombre", None))
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno del servidor: {str(e)}")
 
     @staticmethod
     async def login_cliente(form_data: OAuth2PasswordRequestForm, db: Session) -> Token:

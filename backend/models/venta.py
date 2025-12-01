@@ -22,21 +22,38 @@ class VentaDB(Base):
         Index('ix_ventas_fecha_venta', 'fecha_venta'),
         Index('ix_ventas_estado', 'estado'),
         Index('ix_ventas_usuario', 'rut_usuario'),
-        Index('ix_ventas_cliente', 'cliente_rut'),
+        Index('ix_ventas_estado_envio', 'estado_envio'),
+        Index('ix_ventas_repartidor', 'repartidor_rut'),
+        Index('ix_ventas_despacho', 'despacho_id'),
+        Index('ix_ventas_fecha_entrega', 'fecha_entrega'),
     )
     
     id_venta = Column(Integer, primary_key=True, index=True)
     rut_usuario = Column(String(9), ForeignKey("usuarios.rut"), nullable=True)
-    cliente_rut = Column(String(9), ForeignKey("usuarios.rut"), nullable=True)
     fecha_venta = Column(DateTime, default=func.now(), nullable=False)
     total_venta = Column(Numeric(10, 2), nullable=False)
     estado = Column(String(20), default="completada", nullable=False)  # completada, cancelada, pendiente
     observaciones = Column(Text, nullable=True)
     fecha_creacion = Column(DateTime, default=func.now())
     fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
+    despacho_id = Column(Integer, ForeignKey("despachos.id_despacho"), nullable=True)
+    metodo_entrega = Column(String(20), default="despacho", nullable=True)
+    estado_envio = Column(String(30), default="pendiente", nullable=True)
+    repartidor_rut = Column(String(9), ForeignKey("usuarios.rut"), nullable=True)
+    ventana_inicio = Column(DateTime, nullable=True)
+    ventana_fin = Column(DateTime, nullable=True)
+    fecha_asignacion = Column(DateTime, nullable=True)
+    fecha_despacho = Column(DateTime, nullable=True)
+    fecha_entrega = Column(DateTime, nullable=True)
+    prueba_entrega_url = Column(String(255), nullable=True)
+    geo_entrega_lat = Column(Numeric(9, 6), nullable=True)
+    geo_entrega_lng = Column(Numeric(9, 6), nullable=True)
+    motivo_no_entrega = Column(String(255), nullable=True)
     
     # Relaciones
     usuario = relationship("UsuarioDB", foreign_keys=[rut_usuario], back_populates="ventas")
+    repartidor = relationship("UsuarioDB", foreign_keys=[repartidor_rut])
+    direccion_despacho = relationship("DespachoDB")
     detalles_venta = relationship("DetalleVentaDB", back_populates="venta", cascade="all, delete-orphan")
     movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="venta")
     pagos = relationship("PagoDB", back_populates="venta")
@@ -95,7 +112,12 @@ class VentaBase(BaseModel):
     total_venta: Decimal
     estado: Optional[str] = "completada"
     observaciones: Optional[str] = None
-    cliente_rut: Optional[str] = None
+    despacho_id: Optional[int] = None
+    metodo_entrega: Optional[str] = None
+    estado_envio: Optional[str] = None
+    repartidor_rut: Optional[str] = None
+    ventana_inicio: Optional[datetime] = None
+    ventana_fin: Optional[datetime] = None
 
 
 class VentaCreate(VentaBase):
@@ -116,6 +138,15 @@ class VentaUpdate(BaseModel):
     """Modelo para actualizar venta"""
     estado: Optional[str] = None
     observaciones: Optional[str] = None
+    estado_envio: Optional[str] = None
+    despacho_id: Optional[int] = None
+    repartidor_rut: Optional[str] = None
+    ventana_inicio: Optional[datetime] = None
+    ventana_fin: Optional[datetime] = None
+    prueba_entrega_url: Optional[str] = None
+    geo_entrega_lat: Optional[float] = None
+    geo_entrega_lng: Optional[float] = None
+    motivo_no_entrega: Optional[str] = None
 
 
 class Venta(VentaBase):
@@ -125,7 +156,15 @@ class Venta(VentaBase):
     fecha_creacion: datetime
     fecha_actualizacion: datetime
     usuario_rut: Optional[str] = None
-    cliente_rut: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+    cliente_nombre: Optional[str] = None
+    repartidor_nombre: Optional[str] = None
+    usuario_apellido: Optional[str] = None
+    cliente_apellido: Optional[str] = None
+    repartidor_apellido: Optional[str] = None
+    fecha_asignacion: Optional[datetime] = None
+    fecha_despacho: Optional[datetime] = None
+    fecha_entrega: Optional[datetime] = None
     detalles_venta: Optional[List['DetalleVenta']] = []
     class Config:
         from_attributes = True

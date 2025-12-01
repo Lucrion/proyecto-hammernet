@@ -166,6 +166,63 @@ def _ensure_producto_extra_indexes_sqlite():
 
 # Ejecutar verificación de índices
 _ensure_producto_extra_indexes_sqlite()
+def _ensure_venta_delivery_columns_sqlite():
+    try:
+        if engine.dialect.name != 'sqlite':
+            return
+        with engine.begin() as conn:
+            cols = [row[1] for row in conn.execute(text("PRAGMA table_info(ventas)")).fetchall()]
+            if 'despacho_id' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN despacho_id INTEGER"))
+            if 'metodo_entrega' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN metodo_entrega TEXT"))
+            if 'estado_envio' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN estado_envio TEXT"))
+            if 'repartidor_rut' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN repartidor_rut TEXT"))
+            if 'ventana_inicio' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN ventana_inicio TEXT"))
+            if 'ventana_fin' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN ventana_fin TEXT"))
+            if 'fecha_asignacion' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN fecha_asignacion TEXT"))
+            if 'fecha_despacho' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN fecha_despacho TEXT"))
+            if 'fecha_entrega' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN fecha_entrega TEXT"))
+            if 'prueba_entrega_url' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN prueba_entrega_url TEXT"))
+            if 'geo_entrega_lat' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN geo_entrega_lat NUMERIC"))
+            if 'geo_entrega_lng' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN geo_entrega_lng NUMERIC"))
+            if 'motivo_no_entrega' not in cols:
+                conn.execute(text("ALTER TABLE ventas ADD COLUMN motivo_no_entrega TEXT"))
+            # Remover columnas obsoletas si existen
+            try:
+                if 'cliente_rut' in cols:
+                    conn.execute(text("DROP INDEX IF EXISTS ix_ventas_cliente"))
+                    conn.execute(text("ALTER TABLE ventas DROP COLUMN cliente_rut"))
+            except Exception:
+                pass
+            try:
+                if 'eta' in cols:
+                    conn.execute(text("ALTER TABLE ventas DROP COLUMN eta"))
+            except Exception:
+                pass
+            try:
+                if 'prioridad' in cols:
+                    conn.execute(text("ALTER TABLE ventas DROP COLUMN prioridad"))
+            except Exception:
+                pass
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ventas_estado_envio ON ventas (estado_envio)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ventas_repartidor ON ventas (repartidor_rut)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ventas_despacho ON ventas (despacho_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ventas_fecha_entrega ON ventas (fecha_entrega)"))
+    except Exception as e:
+        print(f"[DB] Aviso: migración ventas (entrega) parcialmente fallida: {e}")
+
+_ensure_venta_delivery_columns_sqlite()
 # Gestión de dependencias y acceso a datos
 # --------------------------------------
 

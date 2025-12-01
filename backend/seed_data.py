@@ -167,8 +167,7 @@ def seed_20_ejemplos_por_tabla(db):
             rut_usuario=str(usr.rut),
             total_venta=subtotal,
             estado="completada",
-            observaciones=f"Venta demo #{i}",
-            cliente_rut=str(usr.rut),
+            observaciones="retiro",
         )
         db.add(venta)
         db.flush()
@@ -394,8 +393,7 @@ def seed_venta_simple(db):
         rut_usuario=str(usuario.rut),
         total_venta=subtotal,
         estado="completada",
-        observaciones="Venta de ejemplo",
-        cliente_rut=str(usuario.rut),
+        observaciones="retiro",
     )
     db.add(venta)
     db.flush()
@@ -1187,7 +1185,7 @@ def seed_fill_tables(db, count: int = 200):
             rut_usuario=str(u.rut),
             total_venta=total,
             estado=estado,
-            observaciones=f"Seed bulk #{i}"
+            observaciones=("despacho" if i % 2 == 0 else "retiro")
         )
         db.add(venta)
         db.flush()
@@ -1581,13 +1579,12 @@ def recreate_database_with_admin(rut_formatted: str = "00.000.000-0", password_p
             email='admin@localhost',
             telefono=None,
             password=hash_contraseña(password_plain),
-            role='administrador',
             id_rol=rol_admin.id_rol,
             activo=True,
         )
         db.add(admin)
         db.commit()
-        return {'status': 'ok', 'admin_id': admin.id_usuario, 'rut': rut_int}
+        return {'status': 'ok', 'rut': rut_int}
     except Exception as e:
         db.rollback()
         return {'status': 'error', 'detail': str(e)}
@@ -1599,6 +1596,36 @@ def recreate_database_with_admin_main():
     out = recreate_database_with_admin()
     print(out)
 
+
+def ensure_admin_if_missing(db, rut: str = "203477937", password_plain: str = "123"):
+    from models.rol import RolDB
+    from models.usuario import UsuarioDB
+    rol_admin = db.query(RolDB).filter(RolDB.nombre == 'administrador').first()
+    if not rol_admin:
+        rol_admin = RolDB(nombre='administrador')
+        db.add(rol_admin)
+        db.flush()
+    admin = db.query(UsuarioDB).filter(UsuarioDB.email == 'admin@localhost').first()
+    if not admin:
+        admin = UsuarioDB(
+            nombre='Administrador',
+            apellido=None,
+            rut=str(rut),
+            email='admin@localhost',
+            telefono=None,
+            password=hash_contraseña(password_plain),
+            id_rol=rol_admin.id_rol,
+            activo=True,
+        )
+        db.add(admin)
+        db.commit()
+        return {"admin_creado": str(rut)}
+    admin.rut = str(rut)
+    admin.password = hash_contraseña(password_plain)
+    admin.id_rol = rol_admin.id_rol
+    admin.activo = True
+    db.commit()
+    return {"admin_actualizado": admin.rut}
 
 def seed_real_dataset_2025(db):
     from models.usuario import UsuarioDB
@@ -1813,7 +1840,7 @@ def seed_real_dataset_2025(db):
         if not detalles_tmp:
             continue
         estado = random.choice(["completada","pendiente","completada","completada"]) if i % 9 else "cancelada"
-        venta = VentaDB(rut_usuario=str(u.rut), total_venta=total, estado=estado, observaciones="venta real", cliente_rut=str(u.rut), fecha_venta=dt)
+        venta = VentaDB(rut_usuario=str(u.rut), total_venta=total, estado=estado, observaciones=("despacho" if (estado != "cancelada" and (i % 2 == 0)) else "retiro"), fecha_venta=dt)
         db.add(venta)
         db.flush()
         for it, qty, price in detalles_tmp:
@@ -1916,9 +1943,7 @@ def seed_client_purchases(db, cantidad: int = 30):
                 rut_usuario=str(cli.rut),
                 total_venta=total,
                 estado="completada",
-                observaciones=f"compra cliente {cli.rut}",
-                cliente_rut=str(cli.rut),
-                tipo_documento="boleta",
+                observaciones="despacho",
             )
             db.add(venta)
             db.flush()
@@ -2115,12 +2140,110 @@ def improve_categories_and_subcategories_main():
         db.close()
 
 
+def seed_logistica_reparto_demo(db, ventas: int = 5):
+    from datetime import datetime, timedelta
+    from models.rol import RolDB
+    from models.usuario import UsuarioDB
+    from models.producto import ProductoDB
+    from models.despacho import DespachoDB
+    from models.venta import VentaDB, DetalleVentaDB, MovimientoInventarioDB
+    from models.pago import PagoDB
+    # Rol repartidor
+    rol_repartidor = db.query(RolDB).filter(RolDB.nombre == 'repartidor').first()
+    if not rol_repartidor:
+        rol_repartidor = RolDB(nombre='repartidor')
+        db.add(rol_repartidor)
+        db.flush()
+    # Crear 2 repartidores demo
+    reps = []
+    for i in range(1, 3):
+        rut = 90000000 + i
+        u = db.query(UsuarioDB).filter(UsuarioDB.rut == rut).first()
+        if not u:
+            u = UsuarioDB(nombre=f"Repartidor {i}", apellido=f"Ruta {i}", rut=rut, email=f"repartidor{i}@example.com", telefono=f"+5698{i:07d}", password=hash_contraseña("reparto123"), id_rol=rol_repartidor.id_rol, activo=True)
+            db.add(u)
+            db.flush()
+        reps.append(u)
+    db.commit()
+    # Clientes y productos
+    clientes = db.query(UsuarioDB).filter(UsuarioDB.activo == True).all()
+    productos = db.query(ProductoDB).filter(ProductoDB.en_catalogo == True).all()
+    if not clientes or not productos:
+        return {"ventas_logistica": 0}
+    estados = ['pendiente','preparando','asignado','en camino','entregado','fallido']
+    res = {"ventas_logistica": 0, "pods": 0}
+    base_dt = datetime.now()
+    for i in range(ventas):
+        cli = clientes[i % len(clientes)]
+        prod = productos[i % len(productos)]
+        if (prod.cantidad_disponible or 0) <= 0:
+            continue
+        # Dirección
+        despacho = DespachoDB(
+            rut_usuario=str(cli.rut),
+            buscar=f"Av. Providencia {100+i}, Santiago",
+            calle="Av. Providencia",
+            numero=str(100+i),
+            depto=None,
+            adicional="Departamento logística demo"
+        )
+        db.add(despacho)
+        db.flush()
+        qty = 1 + (i % 2)
+        precio = Decimal(str(prod.precio_venta or 0))
+        total = precio * qty
+        estado_envio = estados[i % len(estados)]
+        repartidor = reps[i % len(reps)] if estado_envio in {'asignado','en camino','entregado','fallido'} else None
+        ventana_inicio = base_dt + timedelta(days=i, hours=9)
+        ventana_fin = base_dt + timedelta(days=i, hours=12)
+        venta = VentaDB(
+            rut_usuario=str(cli.rut),
+            total_venta=total,
+            estado='completada' if estado_envio == 'entregado' else ('pendiente' if estado_envio in {'pendiente','preparando','asignado','en camino'} else 'cancelada'),
+            observaciones='despacho',
+            despacho_id=despacho.id_despacho,
+            metodo_entrega='despacho',
+            estado_envio=estado_envio,
+            repartidor_rut=str(repartidor.rut) if repartidor else None,
+            ventana_inicio=ventana_inicio,
+            ventana_fin=ventana_fin,
+        )
+        db.add(venta)
+        db.flush()
+        # Detalle y movimiento
+        det = DetalleVentaDB(id_venta=venta.id_venta, id_producto=prod.id_producto, cantidad=qty, precio_unitario=precio, subtotal=total)
+        db.add(det)
+        anterior = int(prod.cantidad_disponible or 0)
+        nuevo = max(0, anterior - qty)
+        prod.cantidad_disponible = nuevo
+        mov = MovimientoInventarioDB(id_producto=prod.id_producto, rut_usuario=str(cli.rut), id_venta=venta.id_venta, tipo_movimiento='venta', cantidad=-qty, cantidad_anterior=anterior, cantidad_nueva=nuevo, motivo=f"Logistica demo {venta.id_venta}")
+        db.add(mov)
+        # Hitos
+        venta.fecha_asignacion = ventana_inicio if estado_envio in {'asignado','en camino','entregado','fallido'} else None
+        venta.fecha_despacho = ventana_inicio if estado_envio in {'en camino','entregado','fallido'} else None
+        if estado_envio == 'entregado':
+            venta.fecha_entrega = ventana_fin
+            venta.prueba_entrega_url = f"https://picsum.photos/seed/pod{venta.id_venta}/400/300"
+            venta.geo_entrega_lat = Decimal('-33.4429')
+            venta.geo_entrega_lng = Decimal('-70.6538')
+            res["pods"] += 1
+        if estado_envio == 'fallido':
+            venta.motivo_no_entrega = 'Dirección no encontrada'
+        # Pago
+        pago = PagoDB(id_venta=venta.id_venta, proveedor='transbank', estado=('aprobado' if venta.estado == 'completada' else 'iniciado'), monto=total, moneda='CLP')
+        db.add(pago)
+        res["ventas_logistica"] += 1
+    db.commit()
+    return res
+
 def main():
     db = SessionLocal()
     try:
         resumen = {}
-        # Solo ejecutar el seed solicitado de 15 productos realistas
+        resumen.update(ensure_admin_if_missing(db))
+        # Dataset base y logística de reparto
         resumen.update(seed_ferreteria_15_realistas(db))
+        resumen.update(seed_logistica_reparto_demo(db, ventas=8))
         print(resumen)
     finally:
         db.close()

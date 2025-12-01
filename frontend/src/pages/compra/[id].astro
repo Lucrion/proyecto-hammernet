@@ -1,0 +1,125 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import EnvLoader from '../../components/EnvLoader.astro';
+const idParam = Astro.params.id;
+---
+
+<EnvLoader />
+<Layout title={`Compra #${idParam}`}>
+  <div class="container mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl font-bold text-gray-900">Detalle de la compra</h1>
+      <a href="/compras" class="text-blue-600 hover:text-blue-800">Volver a Mis compras</a>
+    </div>
+    <div id="detalleHeader" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 text-sm text-gray-700"></div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio unitario</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody id="detalleBody" class="bg-white divide-y divide-gray-200"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const detalleHeader = document.getElementById('detalleHeader');
+      const detalleBody = document.getElementById('detalleBody');
+      const fmtPrecio = (v) => '$' + Number(v || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      const fmtFecha = (iso) => { try { const d = new Date(iso); return d.toLocaleDateString('es-CL', { dateStyle: 'medium' }); } catch { return iso; } };
+      const getApiBase = () => { try { const env = window.__ENV__ || {}; return env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api'; } catch { return '/api'; } };
+      const productoCache = {};
+      const getProductoInfo = async (id) => {
+        if (!id) return { nombre: 'Producto', imagen_url: '/images/default-product.jpg' };
+        if (productoCache[id]) return productoCache[id];
+        const API = getApiBase();
+        try {
+          const resp = await fetch(`${API}/productos/${id}`);
+          if (resp.ok) {
+            const p = await resp.json();
+            const info = { nombre: p.nombre || `Producto #${id}`, imagen_url: p.imagen_url || '/images/default-product.jpg' };
+            productoCache[id] = info;
+            return info;
+          }
+        } catch {}
+        const fallback = { nombre: `Producto #${id}`, imagen_url: '/images/default-product.jpg' };
+        productoCache[id] = fallback;
+        return fallback;
+      };
+      const idVenta = Number(`${idParam}`);
+      const API = getApiBase();
+      const render = async (venta) => {
+        let orden = null;
+        try {
+          const ctrl = new AbortController();
+          const to = setTimeout(() => ctrl.abort(), 2500);
+          const r = await fetch(`${API}/pagos/estado/${venta.id_venta}`, { signal: ctrl.signal });
+          clearTimeout(to);
+          if (r.ok) {
+            const info = await r.json();
+            orden = info && info.buy_order ? String(info.buy_order) : null;
+          }
+        } catch {}
+        detalleHeader.innerHTML = `
+          <div><span class="text-gray-500">Orden de compra:</span> <span class="font-medium">${orden || `#${venta.id_venta}`}</span></div>
+          <div><span class="text-gray-500">Fecha:</span> <span class="font-medium">${fmtFecha(venta.fecha_venta)}</span></div>
+          <div><span class="text-gray-500">Estado:</span> <span class="font-medium">${venta.estado}</span></div>
+          <div><span class="text-gray-500">Total:</span> <span class="font-semibold">${fmtPrecio(venta.total_venta)}</span></div>
+        `;
+        const detalles = Array.isArray(venta.detalles_venta) ? venta.detalles_venta : [];
+        const filas = [];
+        for (const d of detalles) {
+          let nombre = d.producto_nombre || null;
+          let imagen = null;
+          if (!nombre || !imagen) {
+            const info = await getProductoInfo(d.id_producto);
+            nombre = nombre || info.nombre;
+            imagen = info.imagen_url;
+          }
+          filas.push(`
+            <tr>
+              <td class="px-4 py-3 text-sm">
+                <div class="flex items-center gap-3">
+                  <img src="${imagen}" alt="${nombre}" class="w-10 h-10 rounded object-cover border" />
+                  <div class="text-gray-800">${nombre}</div>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-sm">${d.cantidad}</td>
+              <td class="px-4 py-3 text-sm">${fmtPrecio(d.precio_unitario)}</td>
+              <td class="px-4 py-3 text-sm font-medium">${fmtPrecio(d.subtotal)}</td>
+            </tr>
+          `);
+        }
+        detalleBody.innerHTML = filas.join('');
+      };
+      (async () => {
+        try {
+          const resp = await fetch(`${API}/ventas/${idVenta}`);
+          if (!resp.ok) return;
+          const venta = await resp.json();
+          await render(venta);
+        } catch {}
+      })();
+
+      const clearGuest = () => {
+        try { sessionStorage.removeItem('isLoggedIn'); sessionStorage.removeItem('token'); sessionStorage.removeItem('user'); sessionStorage.removeItem('role'); sessionStorage.removeItem('nombreUsuario'); } catch {}
+        try { localStorage.removeItem('isLoggedIn'); localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.removeItem('role'); localStorage.removeItem('nombreUsuario'); } catch {}
+        try { sessionStorage.removeItem('guest_order_session'); localStorage.removeItem('guest_order_session'); sessionStorage.removeItem('guest_order_rut'); localStorage.removeItem('guest_order_rut'); } catch {}
+      };
+      try {
+        const flag = (sessionStorage.getItem('guest_order_session') === '1') || (localStorage.getItem('guest_order_session') === '1');
+        if (flag) {
+          window.addEventListener('pagehide', clearGuest);
+          document.addEventListener('visibilitychange', () => { if (document.hidden) clearGuest(); });
+          document.addEventListener('click', (e) => { const a = e.target.closest('a[href^="/"]'); if (a) clearGuest(); });
+        }
+      } catch {}
+    });
+  </script>
+</Layout>

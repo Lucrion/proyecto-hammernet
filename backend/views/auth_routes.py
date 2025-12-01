@@ -40,6 +40,14 @@ async def login_trabajador(
 ):
     return await AuthController.login_trabajador(form_data, db)
 
+@router.post("/login-orden", response_model=Token)
+async def login_por_orden(payload: dict, db: Session = Depends(get_db)):
+    rut = str(payload.get('rut') or '')
+    buy_order = str(payload.get('buy_order') or '')
+    if not rut or not buy_order:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="rut y buy_order son requeridos")
+    return await AuthController.login_por_orden(db, rut, buy_order)
+
 @router.post("/register", response_model=Usuario)
 async def register(
     usuario: UsuarioCreate,

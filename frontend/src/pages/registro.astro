@@ -78,7 +78,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           <!-- Integración Google removida -->
 
           <div id="statusMessage" class="mt-2 text-sm text-center hidden"></div>
-          <p class="text-center text-sm text-gray-600 mt-4">¿Ya tienes cuenta? <a href="/login" class="text-blue-600 hover:text-blue-700">Inicia sesión</a></p>
+          <p class="text-center text-sm text-gray-600 mt-4">¿Ya tienes cuenta? <a href="/login-cliente" class="text-blue-600 hover:text-blue-700">Inicia sesión</a></p>
         </form>
       </div>
     </div>
@@ -375,10 +375,6 @@ function checkGoogleCallback() {
     // Limpiar URL
     window.history.replaceState({}, document.title, window.location.pathname);
   }
-}
-    </script>
-  </body>
-</html>
   if (emailEl) {
     emailEl.addEventListener('blur', () => {
       const ep = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
@@ -386,3 +382,7 @@ function checkGoogleCallback() {
       try { emailEl.setCustomValidity(ok ? '' : 'Correo inválido'); } catch {}
     });
   }
+}
+    </script>
+  </body>
+  

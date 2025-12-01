@@ -7,6 +7,7 @@ import EnvLoader from '../components/EnvLoader.astro';
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <title>Buscar Orden de Compra</title>
+    <EnvLoader />
   </head>
   <body class="min-h-screen bg-gray-100">
     <div class="min-h-screen flex relative">
@@ -19,15 +20,22 @@ import EnvLoader from '../components/EnvLoader.astro';
       </div>
       <div class="w-1/2 bg-white flex items-center justify-center p-12">
         <div class="w-full max-w-md">
-          <h2 class="text-2xl font-semibold text-gray-900 mb-8">Orden de compra</h2>
+          <h2 class="text-2xl font-semibold text-gray-900 mb-8">Ver mi despacho</h2>
+          
           <form id="orderForm" class="space-y-6" onsubmit="return false">
             <div>
-              <label for="buy_order" class="block text-sm font-medium text-gray-700 mb-1">Ingrese su orden</label>
-              <input id="buy_order" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ej: ORD-123-173..." required />
+              <label for="rut" class="block text-sm font-medium text-gray-700 mb-1">RUT</label>
+              <input id="rut" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ej: 12.345.678-9" required autocomplete="off" inputmode="numeric" />
             </div>
             <div>
-              <button id="searchBtn" type="submit" class="w-full py-2 px-4 rounded-md text-sm font-medium text-white bg-gray-900 hover:bg-gray-800">Buscar</button>
+              <label for="buy_order" class="block text-sm font-medium text-gray-700 mb-1">Orden de compra</label>
+              <input id="buy_order" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ej: ORD-123-173..." required />
             </div>
+            <p class="text-xs text-gray-500 mt-1">Para ver su despacho, ingrese su RUT y la orden de compra.</p>
+            <div>
+              <button id="searchBtn" type="submit" class="w-full py-2 px-4 rounded-md text-sm font-medium text-white bg-gray-900 hover:bg-gray-800">Ingresar</button>
+            </div>
+            
             <div id="status" class="mt-2 text-sm text-center hidden"></div>
           </form>
           <div id="detalle" class="mt-6 hidden">
@@ -47,20 +55,45 @@ import EnvLoader from '../components/EnvLoader.astro';
         const detalle = document.getElementById('detalle');
         const detalleJson = document.getElementById('detalleJson');
         const verCompras = document.getElementById('verCompras');
-        const API_BASE = window.API_BASE || '/api';
-        const showStatus=(m,t='info')=>{ status.textContent=m; status.className='mt-2 text-sm text-center'; status.classList.remove('hidden'); status.classList.add(t==='error'?'text-red-600':t==='success'?'text-green-600':'text-gray-600'); };
+        const API_BASE = (typeof window !== 'undefined' && window.API_BASE) ? window.API_BASE : '/api';
+        const API_TIMEOUT = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.PUBLIC_API_TIMEOUT) ? Number(window.__ENV__.PUBLIC_API_TIMEOUT) : 10000;
+        const showStatus = (m, type='info') => { const el=status; if(!el) return; el.textContent=m; el.className='mt-2 text-sm text-center'; el.classList.add(type==='error'?'text-red-600':type==='success'?'text-green-600':type==='warning'?'text-yellow-600':'text-gray-600'); el.classList.remove('hidden'); };
+        const digitsOnly = (s) => String(s||'').replace(/\D/g,'');
+        const computeRutDV = (d) => { const body=String(d||'').replace(/\D/g,''); if(!body) return ''; let sum=0,f=2; for(let i=body.length-1;i>=0;i--){ sum+=Number(body[i])*f; f = f===7?2:f+1; } const rest=11-(sum%11); if(rest===11) return '0'; if(rest===10) return 'K'; return String(rest); };
+        const isRutValid = (str) => { const s=String(str||'').toUpperCase().replace(/[^0-9K]/g,''); if(!s||s.length<2) return false; const body=s.slice(0,-1); const dv=s.slice(-1); const expected=computeRutDV(body); return String(expected).toUpperCase()===dv; };
+        const rutEl=document.getElementById('rut');
+        if (rutEl) {
+          const addDots=(b)=>b.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+          rutEl.addEventListener('beforeinput',()=>{ rutEl._prevValue=rutEl.value; rutEl._prevPos=rutEl.selectionStart||0; });
+          rutEl.addEventListener('input', () => { const raw=String(rutEl.value||'').replace(/[^0-9kK]/g,'').toUpperCase(); const body=raw.replace(/[^0-9]/g,'').slice(0,8); const dvPart=raw.length>body.length? raw.slice(-1).replace(/[^0-9K]/g,'') : ''; const formattedBody=addDots(body); const formatted = dvPart? `${formattedBody}-${dvPart}` : formattedBody; const prevDigits = String(rutEl._prevValue||'').slice(0, rutEl._prevPos||0).replace(/\D/g,'').length; rutEl.value = formatted; const pos = Math.min(formatted.length); rutEl.setSelectionRange(pos,pos); rutEl._prevValue=formatted; rutEl._prevPos=pos; });
+          rutEl.addEventListener('blur', () => { const ok=isRutValid(rutEl.value||''); rutEl.setCustomValidity(ok? '':'RUT inválido'); if(!ok){ showStatus('RUT inválido','error'); } else { showStatus('', 'info'); status.classList.add('hidden'); } });
+          rutEl.addEventListener('input', () => { rutEl.setCustomValidity(''); });
+        }
         form.addEventListener('submit', async (e)=>{
           e.preventDefault();
           const bo = (document.getElementById('buy_order').value||'').trim();
-          if (!bo) { showStatus('Ingrese la orden', 'error'); return; }
-          showStatus('Buscando orden...', 'info');
+          const rut = (document.getElementById('rut').value||'').trim();
+          if (!bo || !rut) { showStatus('Ingrese RUT y la orden', 'error'); return; }
+          if (!isRutValid(rut)) { showStatus('RUT inválido','error'); return; }
+          const baseRut = rut.includes('-') ? rut.split('-')[0] : rut;
+          const bodyDigits = digitsOnly(baseRut);
+          const dvCalc = computeRutDV(bodyDigits);
+          const rutNorm = `${bodyDigits}${dvCalc}`;
+          showStatus('Validando usuario y orden...', 'info');
           try {
-            const resp = await fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`, { method:'GET', headers:{ 'Accept':'application/json' } });
+            // Login por orden para obtener token
+            const lr = await fetch(`${API_BASE}/auth/login-orden`, { method:'POST', headers:{ 'Content-Type':'application/json','Accept':'application/json' }, body: JSON.stringify({ rut: rutNorm, buy_order: bo }) });
+            if (!lr.ok) { const txt = await lr.text(); showStatus(txt||'Credenciales inválidas','error'); return; }
+            const tokenData = await lr.json();
+            try { sessionStorage.setItem('token', tokenData.access_token); localStorage.setItem('token', tokenData.access_token); } catch {}
+            // Recuperar detalle de la orden
+            const resp = await fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`, { method:'GET', headers:{ 'Accept':'application/json','Authorization': `Bearer ${tokenData.access_token}` } });
             if (!resp.ok) { const txt = await resp.text(); showStatus(txt||'Orden no encontrada','error'); return; }
             const data = await resp.json();
-            detalleJson.textContent = JSON.stringify(data,null,2);
-            detalle.classList.remove('hidden');
-            showStatus('Orden encontrada','success');
+            const idv = Number(data?.id_venta || data?.id);
+            try { sessionStorage.setItem('guest_order_session','1'); localStorage.setItem('guest_order_session','1'); sessionStorage.setItem('guest_order_rut', rutNorm); localStorage.setItem('guest_order_rut', rutNorm); } catch {}
+            if (idv) { window.location.href = `/compra/${idv}?bo=${encodeURIComponent(bo)}`; return; }
+            showStatus('Orden encontrada', 'success');
             verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`;
           } catch (err) {
             showStatus('Error de conexión','error');

@@ -43,6 +43,10 @@ import Layout from '../layouts/Layout.astro';
             <label for="perfilPassword" class="block text-sm font-medium text-gray-700">Contraseña</label>
             <input id="perfilPassword" type="password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="************" />
           </div>
+          <div>
+            <label for="perfilPasswordConfirm" class="block text-sm font-medium text-gray-700">Confirmar contraseña</label>
+            <input id="perfilPasswordConfirm" type="password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="************" />
+          </div>
           <div class="flex justify-end gap-3">
             <button type="button" id="btnEditarPerfil" class="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300">Editar</button>
             <button type="submit" id="btnGuardarPerfil" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Guardar</button>
@@ -270,6 +274,11 @@ import Layout from '../layouts/Layout.astro';
         telefono: normalizePhoneCL(document.getElementById('perfilTelefono').value.trim()),
       };
       const nuevaPassword = document.getElementById('perfilPassword').value.trim();
+      const confirmPassword = document.getElementById('perfilPasswordConfirm').value.trim();
+      if (nuevaPassword && nuevaPassword !== confirmPassword) {
+        status.textContent = 'Las contraseñas no coinciden.';
+        return;
+      }
       if (nuevaPassword) payload.password = nuevaPassword;
 
       status.textContent = 'Guardando perfil...';
@@ -288,6 +297,7 @@ import Layout from '../layouts/Layout.astro';
         status.textContent = data ? 'Perfil guardado correctamente.' : 'Perfil guardado localmente (pendiente de sincronización).';
         // Limpiar campo de contraseña para evitar retenerla en UI
         document.getElementById('perfilPassword').value = '';
+        document.getElementById('perfilPasswordConfirm').value = '';
       } catch (err) {
         console.error(err);
         status.textContent = 'No se pudo guardar el perfil.';

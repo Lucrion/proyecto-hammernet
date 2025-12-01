@@ -64,12 +64,19 @@ class VentaController:
                 })
             
             # Crear la venta
+            metodo = (getattr(venta_data, 'metodo_entrega', None) or 'retiro')
+            obs = metodo if metodo in {'retiro','despacho'} else None
             db_venta = VentaDB(
                 rut_usuario=str(rut_usuario),
                 total_venta=total_calculado,
                 estado=venta_data.estado,
-                observaciones=venta_data.observaciones,
-                cliente_rut=getattr(venta_data, 'cliente_rut', None)
+                observaciones=obs,
+                despacho_id=getattr(venta_data, 'despacho_id', None),
+                metodo_entrega=metodo,
+                estado_envio=(venta_data.estado_envio or 'pendiente') if hasattr(venta_data, 'estado_envio') else 'pendiente',
+                repartidor_rut=getattr(venta_data, 'repartidor_rut', None),
+                ventana_inicio=getattr(venta_data, 'ventana_inicio', None),
+                ventana_fin=getattr(venta_data, 'ventana_fin', None)
             )
             db.add(db_venta)
             db.flush()  # Para obtener el ID de la venta
@@ -130,7 +137,7 @@ class VentaController:
                 joinedload(VentaDB.detalles_venta).joinedload(DetalleVentaDB.producto)
             ).filter(VentaDB.id_venta == db_venta.id_venta).first()
             
-            return VentaController._construir_venta_response(venta_completa)
+            return VentaController._construir_venta_response(db, venta_completa)
         
         except HTTPException:
             db.rollback()
@@ -141,47 +148,56 @@ class VentaController:
 
     @staticmethod
     def _get_or_create_guest_user(db: Session) -> UsuarioDB:
-        """Obtiene o crea un usuario de sistema para ventas de invitado"""
+        """Obtiene o crea un usuario genérico 'Invitado' con RUT sintético"""
         from models.rol import RolDB
+        def _dv_calc(b: str) -> str:
+            acc = 0; f = 2
+            for ch in reversed(b):
+                acc += int(ch) * f
+                f = 2 if f == 7 else f + 1
+            rest = 11 - (acc % 11)
+            return '0' if rest == 11 else ('K' if rest == 10 else str(rest))
+        rol = db.query(RolDB).filter(RolDB.nombre == "invitado").first()
+        if not rol:
+            rol = RolDB(nombre="invitado")
+            db.add(rol)
+            db.flush()
         usuario = (
             db.query(UsuarioDB)
-            .join(RolDB, UsuarioDB.id_rol == RolDB.id_rol)
-            .filter(RolDB.nombre == "invitado", UsuarioDB.nombre == "Invitado")
+            .filter(UsuarioDB.nombre == "Invitado", UsuarioDB.id_rol == rol.id_rol)
             .first()
         )
-        if usuario:
+        if usuario and usuario.rut:
             return usuario
-        # Crear usuario de sistema 'Invitado' sin RUT ni teléfono
-        try:
-            rol = db.query(RolDB).filter(RolDB.nombre == "invitado").first()
-            if not rol:
-                rol = RolDB(nombre="invitado")
-                db.add(rol)
-                db.flush()
-            usuario = UsuarioDB(
-                nombre="Invitado",
-                rut=None,
-                email=None,
-                password=hash_contraseña("guest_checkout"),
-                id_rol=rol.id_rol,
-                activo=True
-            )
-            db.add(usuario)
-            db.commit()
-            db.refresh(usuario)
-            return usuario
-        except Exception:
-            db.rollback()
-            # Fallback: intentar obtener nuevamente por si existe tras rollback
-            usuario = (
-                db.query(UsuarioDB)
-                .join(RolDB, UsuarioDB.id_rol == RolDB.id_rol)
-                .filter(RolDB.nombre == "invitado", UsuarioDB.nombre == "Invitado")
-                .first()
-            )
-            if usuario:
-                return usuario
-            raise HTTPException(status_code=500, detail="No se pudo crear usuario de invitado para ventas")
+        # Crear uno nuevo con RUT sintético único
+        base = 87000000
+        intento = 0
+        nuevo_rut = None
+        while intento < 100:
+            cuerpo = str(base + intento)
+            dv = _dv_calc(cuerpo)
+            candidato = f"{cuerpo}{dv}"
+            ya = db.query(UsuarioDB).filter(UsuarioDB.rut == candidato).first()
+            if not ya:
+                nuevo_rut = candidato
+                break
+            intento += 1
+        if not nuevo_rut:
+            nuevo_rut = "87999999K"
+        usuario = UsuarioDB(
+            nombre="Invitado",
+            apellido=None,
+            rut=nuevo_rut,
+            email=None,
+            telefono=None,
+            password=hash_contraseña("guest_checkout"),
+            id_rol=rol.id_rol,
+            activo=True
+        )
+        db.add(usuario)
+        db.commit()
+        db.refresh(usuario)
+        return usuario
 
     @staticmethod
     def crear_venta_invitado(db: Session, venta_guest: VentaGuestCreate) -> Venta:
@@ -189,7 +205,7 @@ class VentaController:
         Crear una venta como invitado (sin autenticación), guardando datos esenciales del cliente en observaciones.
         """
         try:
-            # Usar usuario de sistema para atribuir la venta y movimientos
+            # Usar usuario invitado (crear/obtener) para atribuir la venta y movimientos
             usuario_guest = None
             # Intentar usar rut del formulario para crear/obtener usuario invitado único
             guest_info = venta_guest.guest_info or {}
@@ -221,6 +237,7 @@ class VentaController:
                         db.flush()
                     usuario_guest = UsuarioDB(
                         nombre=(guest_info.get('nombre') or 'Invitado'),
+                        apellido=(guest_info.get('apellido') or None),
                         rut=rut_norm,
                         email=(guest_info.get('email') or None),
                         telefono=(guest_info.get('telefono') or None),
@@ -230,10 +247,27 @@ class VentaController:
                     )
                     db.add(usuario_guest)
                     db.flush()
+                else:
+                    try:
+                        usuario_guest.nombre = guest_info.get('nombre') or usuario_guest.nombre
+                        usuario_guest.apellido = guest_info.get('apellido') or usuario_guest.apellido
+                        usuario_guest.email = guest_info.get('email') or usuario_guest.email
+                        usuario_guest.telefono = guest_info.get('telefono') or usuario_guest.telefono
+                        db.flush()
+                    except Exception:
+                        pass
                 rut_usuario = rut_norm
             else:
                 usuario_guest = VentaController._get_or_create_guest_user(db)
-                rut_usuario = None
+                try:
+                    usuario_guest.nombre = guest_info.get('nombre') or usuario_guest.nombre
+                    usuario_guest.apellido = guest_info.get('apellido') or usuario_guest.apellido
+                    usuario_guest.email = guest_info.get('email') or usuario_guest.email
+                    usuario_guest.telefono = guest_info.get('telefono') or usuario_guest.telefono
+                    db.flush()
+                except Exception:
+                    pass
+                rut_usuario = usuario_guest.rut
 
             # Verificar disponibilidad de productos y calcular total
             total_calculado = Decimal('0.00')
@@ -261,21 +295,19 @@ class VentaController:
                 # Ajustar al calculado para coherencia
                 enviado = total_calculado
 
-            # Preparar observaciones con guest_info
-            obs = venta_guest.observaciones or ""
-            try:
-                info = venta_guest.guest_info or {}
-                etiqueta = f"VENTA_INVITADO:{json.dumps(info, ensure_ascii=False)}"
-                obs = f"{obs}\n{etiqueta}".strip()
-            except Exception:
-                pass
+            # Observaciones simplificadas: solo tipo de entrega
+            info = venta_guest.guest_info or {}
+            metodo = (info.get('entrega') or 'retiro')
+            obs = metodo if metodo in {'retiro','despacho'} else None
 
             # Crear la venta
             db_venta = VentaDB(
                 rut_usuario=rut_usuario,
                 total_venta=enviado,
                 estado=venta_guest.estado,
-                observaciones=obs
+                observaciones=obs,
+                metodo_entrega=metodo,
+                estado_envio='pendiente'
             )
             db.add(db_venta)
             db.flush()
@@ -332,7 +364,7 @@ class VentaController:
                 joinedload(VentaDB.detalles_venta).joinedload(DetalleVentaDB.producto)
             ).filter(VentaDB.id_venta == db_venta.id_venta).first()
 
-            return VentaController._construir_venta_response(venta_completa)
+            return VentaController._construir_venta_response(db, venta_completa)
 
         except HTTPException:
             db.rollback()
@@ -364,7 +396,7 @@ class VentaController:
             
             ventas = query.order_by(desc(VentaDB.fecha_venta)).offset(skip).limit(limit).all()
             
-            return [VentaController._construir_venta_response(venta) for venta in ventas]
+            return [VentaController._construir_venta_response(db, venta) for venta in ventas]
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error al obtener ventas: {str(e)}")
@@ -383,7 +415,7 @@ class VentaController:
             if not venta:
                 raise HTTPException(status_code=404, detail="Venta no encontrada")
             
-            return VentaController._construir_venta_response(venta)
+            return VentaController._construir_venta_response(db, venta)
             
         except HTTPException:
             raise
@@ -445,7 +477,7 @@ class VentaController:
             except Exception:
                 pass
             
-            return VentaController._construir_venta_response(venta)
+            return VentaController._construir_venta_response(db, venta)
             
         except HTTPException:
             db.rollback()
@@ -470,10 +502,13 @@ class VentaController:
                 raise HTTPException(status_code=404, detail="Venta no encontrada")
 
             if venta.estado == "completada":
-                return VentaController._construir_venta_response(venta)
+                return VentaController._construir_venta_response(db, venta)
 
             venta.estado = "completada"
             venta.fecha_actualizacion = datetime.now()
+            if metodo == 'despacho' or venta.metodo_entrega == 'despacho':
+                venta.estado_envio = 'entregado'
+                venta.fecha_entrega = datetime.now()
             db.commit()
 
             try:
@@ -492,7 +527,7 @@ class VentaController:
                 )
             except Exception:
                 pass
-            return VentaController._construir_venta_response(venta)
+            return VentaController._construir_venta_response(db, venta)
         except HTTPException:
             raise
         except Exception as e:
@@ -517,7 +552,7 @@ class VentaController:
                 return {"ventas_eliminadas": 0, "pagos_eliminados": 0, "movimientos_eliminados": 0, "detalles_eliminados": 0}
 
             ventas = db.query(VentaDB.id_venta).filter(
-                or_(VentaDB.cliente_rut.in_(cliente_ruts), VentaDB.rut_usuario.in_(cliente_ruts))
+                VentaDB.rut_usuario.in_(cliente_ruts)
             ).all()
             venta_ids = [row.id_venta for row in ventas]
             if not venta_ids:
@@ -559,22 +594,17 @@ class VentaController:
             if not venta:
                 raise HTTPException(status_code=404, detail="Venta no encontrada")
             estado_envio = (estado_envio or '').strip().lower()
-            if estado_envio not in { 'pendiente', 'preparando', 'en camino', 'entregado' }:
+            if estado_envio not in { 'pendiente', 'preparando', 'asignado', 'en camino', 'entregado', 'fallido' }:
                 raise HTTPException(status_code=400, detail="Estado de envío inválido")
-            obs = (venta.observaciones or '')
-            tag = 'ENVIO_ESTADO:'
-            # Reemplazar o agregar
-            if tag in obs:
-                parts = obs.split('\n')
-                parts = [p for p in parts if not p.startswith(tag)]
-                parts.append(f"{tag}{estado_envio}")
-                obs = '\n'.join(parts)
-            else:
-                obs = (obs + '\n' if obs else '') + f"{tag}{estado_envio}"
-            venta.observaciones = obs
+            venta.estado_envio = estado_envio
+            if estado_envio == 'en camino' and not venta.fecha_despacho:
+                venta.fecha_despacho = datetime.now()
+            if estado_envio == 'entregado':
+                venta.fecha_entrega = datetime.now()
+                venta.estado = 'completada'
             venta.fecha_actualizacion = datetime.now()
             db.commit()
-            return VentaController._construir_venta_response(venta)
+            return VentaController._construir_venta_response(db, venta)
         except HTTPException:
             raise
         except Exception as e:
@@ -783,7 +813,7 @@ class VentaController:
             raise HTTPException(status_code=500, detail=f"Error al agrupar ventas por categoría: {str(e)}")
     
     @staticmethod
-    def _construir_venta_response(venta: VentaDB) -> Venta:
+    def _construir_venta_response(db: Session, venta: VentaDB) -> Venta:
         """
         Construir respuesta de venta con todos los campos necesarios
         """
@@ -800,29 +830,115 @@ class VentaController:
                 producto_nombre=detalle.producto.nombre if detalle.producto else None
             ))
         
-        # Fallback: extraer rut de invitado desde observaciones si rut_usuario es nulo
-        guest_rut = None
+        # Cliente = usuario de la venta
+        cliente = venta.usuario
+        rep = None
         try:
-            if not venta.rut_usuario and venta.observaciones and 'VENTA_INVITADO:' in venta.observaciones:
-                import json
-                payload = venta.observaciones.split('VENTA_INVITADO:', 1)[1].strip()
-                info = json.loads(payload)
-                guest_rut = (info or {}).get('rut') or None
+            if venta.repartidor_rut:
+                rep = db.query(UsuarioDB).filter(UsuarioDB.rut == venta.repartidor_rut).first()
         except Exception:
-            guest_rut = None
+            rep = None
 
         return Venta(
             id_venta=venta.id_venta,
-            rut_usuario=venta.rut_usuario or guest_rut,
+            rut_usuario=venta.rut_usuario,
             fecha_venta=venta.fecha_venta,
             total_venta=venta.total_venta,
             estado=venta.estado,
             observaciones=venta.observaciones,
             fecha_creacion=venta.fecha_creacion,
             fecha_actualizacion=venta.fecha_actualizacion,
-            usuario=venta.usuario.nombre if venta.usuario else ("Invitado" if guest_rut else None),
-            detalles_venta=detalles
+            usuario_nombre=venta.usuario.nombre if venta.usuario else None,
+            usuario_apellido=(venta.usuario.apellido if venta.usuario else None),
+            cliente_nombre=(cliente.nombre if cliente else None),
+            cliente_apellido=(cliente.apellido if cliente else None),
+            detalles_venta=detalles,
+            despacho_id=venta.despacho_id,
+            metodo_entrega=venta.metodo_entrega,
+            estado_envio=venta.estado_envio,
+            repartidor_rut=venta.repartidor_rut,
+            repartidor_nombre=(rep.nombre if rep else None),
+            repartidor_apellido=(rep.apellido if rep else None),
+            ventana_inicio=venta.ventana_inicio,
+            ventana_fin=venta.ventana_fin,
+            fecha_asignacion=venta.fecha_asignacion,
+            fecha_despacho=venta.fecha_despacho,
+            fecha_entrega=venta.fecha_entrega,
+            prueba_entrega_url=venta.prueba_entrega_url,
+            geo_entrega_lat=float(venta.geo_entrega_lat) if venta.geo_entrega_lat is not None else None,
+            geo_entrega_lng=float(venta.geo_entrega_lng) if venta.geo_entrega_lng is not None else None,
+            motivo_no_entrega=venta.motivo_no_entrega
         )
+
+    @staticmethod
+    def asignar_repartidor(
+        db: Session,
+        id_venta: int,
+        repartidor_rut: Optional[str] = None,
+        ventana_inicio: Optional[str] = None,
+        ventana_fin: Optional[str] = None,
+        eta: Optional[str] = None,
+    ) -> Venta:
+        try:
+            venta = db.query(VentaDB).filter(VentaDB.id_venta == id_venta).first()
+            if not venta:
+                raise HTTPException(status_code=404, detail="Venta no encontrada")
+            if repartidor_rut:
+                venta.repartidor_rut = str(repartidor_rut)
+            def _parse_dt(s: Optional[str]):
+                if not s:
+                    return None
+                try:
+                    return datetime.fromisoformat(s)
+                except Exception:
+                    return None
+            vi = _parse_dt(ventana_inicio)
+            vf = _parse_dt(ventana_fin)
+            venta.ventana_inicio = vi or venta.ventana_inicio
+            venta.ventana_fin = vf or venta.ventana_fin
+            venta.fecha_asignacion = datetime.now()
+            venta.estado_envio = 'asignado'
+            venta.fecha_actualizacion = datetime.now()
+            db.commit()
+            return VentaController._construir_venta_response(db, venta)
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al asignar repartidor: {str(e)}")
+
+    @staticmethod
+    def registrar_pod(
+        db: Session,
+        id_venta: int,
+        entregado: bool,
+        prueba_entrega_url: Optional[str] = None,
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+        motivo_no_entrega: Optional[str] = None,
+    ) -> Venta:
+        try:
+            venta = db.query(VentaDB).filter(VentaDB.id_venta == id_venta).first()
+            if not venta:
+                raise HTTPException(status_code=404, detail="Venta no encontrada")
+            venta.prueba_entrega_url = prueba_entrega_url or venta.prueba_entrega_url
+            venta.geo_entrega_lat = lat if lat is not None else venta.geo_entrega_lat
+            venta.geo_entrega_lng = lng if lng is not None else venta.geo_entrega_lng
+            venta.motivo_no_entrega = motivo_no_entrega if not entregado else None
+            if entregado:
+                venta.estado_envio = 'entregado'
+                venta.estado = 'completada'
+                venta.fecha_entrega = datetime.now()
+            else:
+                venta.estado_envio = 'fallido'
+            venta.fecha_actualizacion = datetime.now()
+            db.commit()
+            return VentaController._construir_venta_response(venta)
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al registrar POD: {str(e)}")
     
     @staticmethod
     def _construir_movimiento_response(movimiento: MovimientoInventarioDB) -> MovimientoInventario:

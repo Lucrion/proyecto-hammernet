@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import List
 from models.usuario import UsuarioDB, UsuarioCreate, UsuarioUpdate, Usuario
 from core.auth import hash_contraseña
+import re
 
 
 def _rut_normalizado(rut: str) -> str:

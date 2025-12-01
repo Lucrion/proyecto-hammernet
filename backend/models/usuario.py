@@ -29,7 +29,6 @@ class UsuarioDB(Base):
     
     # Relaciones
     ventas = relationship("VentaDB", back_populates="usuario", primaryjoin="UsuarioDB.rut==VentaDB.rut_usuario")
-    ventas_como_cliente = relationship("VentaDB", primaryjoin="UsuarioDB.rut==VentaDB.cliente_rut")
     movimientos_inventario = relationship("MovimientoInventarioDB", back_populates="usuario")
     direcciones_despacho = relationship("DespachoDB", back_populates="usuario", cascade="all, delete-orphan")
     rol_ref = relationship("RolDB", back_populates="usuarios")

@@ -35,8 +35,12 @@ import EnvLoader from '../components/EnvLoader.astro';
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre y apellido*</label>
-            <input id="dp-nombre" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Jeremi Toro" required>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nombres*</label>
+            <input id="dp-nombres" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Jeremi Andrés" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos*</label>
+            <input id="dp-apellido" type="text" class="w-full border rounded px-3 py-2" placeholder="Ej: Toro Pérez" required>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">RUT*</label>
@@ -53,7 +57,7 @@ import EnvLoader from '../components/EnvLoader.astro';
             <label class="block text-sm font-medium text-gray-700 mb-1">E-mail*</label>
             <input id="dp-email" type="email" class="w-full border rounded px-3 py-2" placeholder="Ej: mail@ferretería_patricio.cl" required>
           </div>
-          <div class="md:col-span-2">
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Confirmar E-mail*</label>
             <input id="dp-email2" type="email" class="w-full border rounded px-3 py-2" placeholder="Ej: mail@ferretería_patricio.cl" required>
           </div>
@@ -97,6 +101,9 @@ import EnvLoader from '../components/EnvLoader.astro';
           <span class="font-semibold">Ya tienes tu sesión iniciada</span>
           <span id="login-session-user" class="text-sm"></span>
         </div>
+        <div class="mt-3">
+          <button id="login-session-continue" type="button" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 hidden" onclick="mostrarSectionTipoEntrega()">Continuar</button>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -104,7 +111,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         <div id="login-option-card" class="border rounded-lg p-6 flex flex-col items-center text-center">
           <h3 class="text-lg font-semibold text-gray-800 mb-2">¿Ya tienes cuenta?</h3>
           <p class="text-sm text-gray-600 mb-4">Inicia sesión para usar tus datos guardados.</p>
-          <a href="/login" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Iniciar sesión</a>
+          <a href="/login-cliente" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Iniciar sesión</a>
         </div>
 
         <!-- Opción invitado (solo botón centrado) -->
@@ -256,8 +263,8 @@ import EnvLoader from '../components/EnvLoader.astro';
   <script type="module">
     function trackEvent(name, payload){ try { console.debug('[trackEvent]', name, payload||{}); } catch {} }
     function digitsOnly(v){ return String(v||'').replace(/\D/g,''); }
-    function computeRutDV(digits){ const body = digitsOnly(digits); if(!body) return ''; let sum=0,f=2; for(let i=body.length-1;i>=0;i--){ sum += Number(body[i])*f; f = f===7?2:f+1; } const rest=11-(sum%11); if(rest===11) return '0'; if(rest===10) return 'K'; return String(rest); }
-    function formatRutFromDigits(val){ const body = digitsOnly(val); if(!body) return ''; const dv = computeRutDV(body); let res=''; let tmp=body; while(tmp.length>3){ res='.'+tmp.slice(-3)+res; tmp=tmp.slice(0,-3); } return tmp+res+'-'+dv; }
+    function computeRutDV(digits){ const body = digitsOnly(digits).slice(0,8); if(!body) return ''; let sum=0,f=2; for(let i=body.length-1;i>=0;i--){ sum += Number(body[i])*f; f = f===7?2:f+1; } const rest=11-(sum%11); if(rest===11) return '0'; if(rest===10) return 'K'; return String(rest); }
+    function formatRutFromDigits(val){ const body = digitsOnly(val).slice(0,8); if(!body) return ''; const dv = computeRutDV(body); let res=''; let tmp=body; while(tmp.length>3){ res='.'+tmp.slice(-3)+res; tmp=tmp.slice(0,-3); } return tmp+res+'-'+dv; }
     function formatRutUI(v){ const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase(); if(!s) return ''; if(s.length===1) return s; const body=s.slice(0,-1); const dv=s.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return `${withDots}-${dv}`; }
     function isRutValid(str){ const s=String(str||'').toUpperCase().replace(/[^0-9K]/g,''); if(!s||s.length<2) return false; const body=s.slice(0,-1); const dv=s.slice(-1); const expected=computeRutDV(body); return String(expected).toUpperCase()===dv; }
     const ENVIO_COSTO = 2000;
@@ -274,11 +281,26 @@ import EnvLoader from '../components/EnvLoader.astro';
 
     const getCarrito = () => {
       try {
-        const c = JSON.parse(localStorage.getItem('carrito')) || [];
-        return Array.isArray(c) ? c : [];
-      } catch {
-        return [];
-      }
+        const raw = JSON.parse(localStorage.getItem('carrito')) || [];
+        const base = Array.isArray(raw) ? raw : [];
+        const norm = base.map(it => {
+          const nid = Number(it.id ?? it.id_producto);
+          return { ...it, id: nid || it.id };
+        });
+        const dedup = norm.reduce((acc, it) => {
+          const key = String(it.id);
+          const idx = acc.findIndex(x => String(x.id) === key);
+          if (idx >= 0) {
+            const a = Number(acc[idx].cantidad || 0);
+            const b = Number(it.cantidad || 0);
+            acc[idx].cantidad = a + b;
+            return acc;
+          }
+          acc.push(it);
+          return acc;
+        }, []);
+        return dedup;
+      } catch { return []; }
     };
 
     const setCarrito = (carrito) => {
@@ -580,11 +602,25 @@ import EnvLoader from '../components/EnvLoader.astro';
       if (token) headers['Authorization'] = `Bearer ${token}`;
       // Prefill de datos personales (prioridad a datos del backend si hay token)
       try {
-        if (token && user?.id_usuario) {
-          const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
-          if (uResp.ok) {
+        if (token) {
+          let rutParam = String(user?.rut || user?.rut_usuario || '').toUpperCase();
+          if (!rutParam) {
+            try {
+              const parts = String(token).split('.');
+              if (parts.length === 3) {
+                let b = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+                const pad = b.length % 4 === 0 ? '' : '='.repeat(4 - (b.length % 4));
+                const json = atob(b + pad);
+                const payload = JSON.parse(json);
+                rutParam = String(payload?.sub || '').toUpperCase();
+              }
+            } catch {}
+          }
+          const uResp = rutParam ? await fetch(`${API}/usuarios/${rutParam}`, { headers }) : null;
+          if (uResp && uResp.ok) {
             const uData = await safeJson(uResp);
             if (uData) prefillPersonalData(uData);
+            else prefillPersonalData(user || {});
           } else {
             prefillPersonalData(user || {});
           }
@@ -595,13 +631,14 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       // Fallback: si quedaron vacíos, intentar con datos guardados localmente
       try {
-        const nombreEl = document.getElementById('dp-nombre');
+        const nombresEl = document.getElementById('dp-nombres');
+        const apellidoEl = document.getElementById('dp-apellido');
         const emailEl = document.getElementById('dp-email');
         const rutEl = document.getElementById('dp-rut');
         const telEl = document.getElementById('dp-telefono');
         const empty = (el) => !el || !String(el.value || '').trim();
         const ep=/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-        if ((empty(nombreEl) || empty(emailEl) || empty(rutEl) || empty(telEl)) || (emailEl && !ep.test(emailEl.value||''))) {
+        if ((empty(nombresEl) || empty(apellidoEl) || empty(emailEl) || empty(rutEl) || empty(telEl)) || (emailEl && !ep.test(emailEl.value||''))) {
           const raw = localStorage.getItem('user') || localStorage.getItem('usuario') || '';
           if (raw) {
             try { const uLocal = JSON.parse(raw); if (uLocal) prefillPersonalData(uLocal); } catch {}
@@ -632,7 +669,7 @@ import EnvLoader from '../components/EnvLoader.astro';
                 if (emailEl && empty(emailEl)) emailEl.value = sub;
                 if (email2El && empty(email2El)) email2El.value = sub;
               } else {
-                const digits = String(sub).replace(/\D/g, '');
+                const digits = String(sub).replace(/\D/g, '').slice(0,8);
                 if (rutEl && empty(rutEl) && digits) rutEl.value = formatRutFromDigits(digits);
               }
             }
@@ -642,12 +679,12 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       // Fallback extra: usar 'nombreUsuario' guardado si el nombre sigue vacío
       try {
-        const nombreEl = document.getElementById('dp-nombre');
+        const nombresEl = document.getElementById('dp-nombres');
         const empty = (el) => !el || !String(el.value || '').trim();
-        if (nombreEl && empty(nombreEl)) {
+        if (nombresEl && empty(nombresEl)) {
           const nombreUsuario = localStorage.getItem('nombreUsuario');
           if (nombreUsuario && /[a-zA-ZÁÉÍÓÚÑáéíóúñ]/.test(nombreUsuario)) {
-            nombreEl.value = nombreUsuario;
+            nombresEl.value = nombreUsuario;
           }
         }
       } catch {}
@@ -677,24 +714,24 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       list.innerHTML = carrito.map(item => `
         <div class="flex items-center gap-4 border rounded-md p-3">
-          <button aria-label="Ver detalle" onclick="irADetalle('${item.id ?? item.id_producto}')" class="shrink-0">
+          <button aria-label="Ver detalle" onclick="irADetalle('${item.id}')" class="shrink-0">
             <img src="${item.imagen_url || '/images/logos/logo_bn.webp'}" onerror="this.src='/images/logos/logo_bn.webp';this.onerror=null;" alt="${item.nombre}" class="w-16 h-16 object-cover rounded" loading="eager" decoding="async" crossorigin="anonymous" referrerpolicy="no-referrer">
           </button>
           <div class="flex-1">
-            <button class="text-left" aria-label="Ir al detalle" onclick="irADetalle('${item.id ?? item.id_producto}')">
+            <button class="text-left" aria-label="Ir al detalle" onclick="irADetalle('${item.id}')">
               <p class="text-sm font-medium text-gray-900 hover:text-blue-600">${item.nombre}</p>
             </button>
             <p class="text-xs text-gray-600">Precio: $${formatearPrecio(Number(item.precio_venta ?? item.precio))}</p>
-            <p class="text-xs text-gray-600">Stock: <span id="stock-${item.id ?? item.id_producto}">${item.stock_max ?? '-'}</span></p>
+            <p class="text-xs text-gray-600">Stock: <span id="stock-${item.id}">${item.stock_max ?? '-'}</span></p>
           </div>
           <div class="ml-auto flex items-center gap-3">
             <div class="flex items-center border rounded w-28 overflow-hidden">
-              <button aria-label="Menos" onclick="decQty('${item.id ?? item.id_producto}')" class="w-9 h-8 text-gray-700" ${Number(item.cantidad||1) <= 1 ? 'disabled' : ''}>-</button>
-              <div id="qty-${item.id ?? item.id_producto}" class="flex-1 text-center text-sm">${item.cantidad}</div>
-              <button aria-label="Más" onclick="incQty('${item.id ?? item.id_producto}')" class="w-9 h-8 text-gray-700" ${item.stock_max && Number(item.cantidad||1) >= Number(item.stock_max) ? 'disabled' : ''}>+</button>
+              <button aria-label="Menos" onclick="decQty('${item.id}')" class="w-9 h-8 text-gray-700" ${Number(item.cantidad||1) <= 1 ? 'disabled' : ''}>-</button>
+              <div id="qty-${item.id}" class="flex-1 text-center text-sm">${item.cantidad}</div>
+              <button aria-label="Más" onclick="incQty('${item.id}')" class="w-9 h-8 text-gray-700" ${item.stock_max && Number(item.cantidad||1) >= Number(item.stock_max) ? 'disabled' : ''}>+</button>
             </div>
             <div class="text-sm font-semibold min-w-[90px] text-right">$${formatearPrecio(Number(item.precio_venta ?? item.precio) * item.cantidad)}</div>
-            <button aria-label="Eliminar" onclick="eliminarItem('${item.id ?? item.id_producto}')" class="text-red-600 hover:text-red-700 ml-2">&times;</button>
+            <button aria-label="Eliminar" onclick="eliminarItem('${item.id}')" class="text-red-600 hover:text-red-700 ml-2">&times;</button>
           </div>
         </div>
       `).join('');
@@ -785,7 +822,7 @@ import EnvLoader from '../components/EnvLoader.astro';
     };
     const findItem = (id) => {
       const c = getCarrito();
-      const idx = c.findIndex(i => String(i.id ?? i.id_producto) === String(id));
+      const idx = c.findIndex(i => String(i.id) === String(id));
       return { c, idx };
     };
     window.incQty = async (id) => {
@@ -812,7 +849,7 @@ import EnvLoader from '../components/EnvLoader.astro';
     };
     const loadStockForItems = async () => {
       const c = getCarrito();
-      const ids = c.map(it => Number(it.id ?? it.id_producto)).filter(Boolean);
+      const ids = c.map(it => Number(it.id)).filter(Boolean);
       try {
         const stocks = await Promise.all(ids.map(id => getStock(id)));
         for (let i = 0; i < c.length; i++) {
@@ -844,7 +881,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       // Construir detalles de la venta desde el carrito
       const detalles = carrito.map(it => ({
-        id_producto: Number(it.id ?? it.id_producto),
+        id_producto: Number(it.id),
         cantidad: Number(it.cantidad || 1),
         precio_unitario: Number(it.precio_venta ?? it.precio ?? 0)
       }));
@@ -867,11 +904,30 @@ import EnvLoader from '../components/EnvLoader.astro';
         let resp;
         if (idUsuario) {
           const entregaTipoAuth = (localStorage.getItem('checkoutEntrega') || 'retiro');
+          let rutRaw = String((user && (user.rut || user.rut_usuario)) || '').toUpperCase();
+          let cuerpo = digitsOnly(rutRaw).slice(0,8);
+          if (!cuerpo && token) {
+            try {
+              const parts = String(token).split('.');
+              if (parts.length === 3) {
+                let b = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+                const pad = b.length % 4 === 0 ? '' : '='.repeat(4 - (b.length % 4));
+                const json = atob(b + pad);
+                const payload = JSON.parse(json);
+                const sub = String(payload?.sub || '').toUpperCase();
+                cuerpo = digitsOnly(sub).slice(0,8);
+              }
+            } catch {}
+          }
+          const dv = computeRutDV(cuerpo);
+          const rut_usuario = cuerpo ? (cuerpo + dv).toUpperCase() : cuerpo;
           const bodyAuth = {
             id_usuario: Number(idUsuario),
+            rut_usuario,
             total_venta: Number(total),
             estado: 'pendiente',
             observaciones: `${entregaTipoAuth}${envio > 0 ? ` | envío ${ENVIO_COSTO}` : ''}`,
+            metodo_entrega: entregaTipoAuth,
             detalles
           };
           resp = await fetch(`${API}/ventas/`, { method: 'POST', headers, body: JSON.stringify(bodyAuth) });
@@ -887,8 +943,12 @@ import EnvLoader from '../components/EnvLoader.astro';
         const rv = rutInput.value || '';
         if (!isRutValid(rv)) { if (rutInput.reportValidity) rutInput.reportValidity(); return; }
       }
+          const nombresVal = getVal('dp-nombres');
+          const apellidoVal = getVal('dp-apellido');
+          if (!nombresVal || !apellidoVal) { alert('Ingresa nombres y apellidos.'); return; }
           const guestInfo = {
-            nombre: getVal('dp-nombre') || 'Invitado',
+            nombre: nombresVal || 'Invitado',
+            apellido: apellidoVal || '',
             rut: getVal('dp-rut') || '',
             email: getVal('dp-email') || getVal('dp-email2') || '',
             telefono: getVal('dp-telefono') || '',
@@ -1027,6 +1087,9 @@ import EnvLoader from '../components/EnvLoader.astro';
       try {
         const ss = window.sessionStorage;
         const ls = window.localStorage;
+        if ((ss.getItem('guest_order_session') === '1') || (ls.getItem('guest_order_session') === '1')) {
+          return { isLoggedIn: false, token: '', user: {} };
+        }
         const isLoggedIn = (ss.getItem('isLoggedIn') === 'true') || (ls.getItem('isLoggedIn') === 'true');
         const token = ss.getItem('token') || ls.getItem('token') || ls.getItem('access_token') || '';
         const userStr = ss.getItem('user') || ls.getItem('user') || ss.getItem('usuario') || ls.getItem('usuario') || '{}';
@@ -1039,6 +1102,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       const { isLoggedIn, user } = getAuth();
       const statusEl = document.getElementById('login-session-status');
       const userEl = document.getElementById('login-session-user');
+      const contEl = document.getElementById('login-session-continue');
       const loginCard = document.getElementById('login-option-card');
       const guestCard = document.getElementById('guest-option-card');
       if (!statusEl) return;
@@ -1050,6 +1114,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         if (userEl) userEl.textContent = nombreCompleto ? `(${nombreCompleto})` : '';
         if (loginCard) loginCard.classList.add('hidden');
         if (guestCard) guestCard.classList.add('hidden');
+        if (contEl) contEl.classList.remove('hidden');
         Steps.mark('step1', true);
 
         // Prellenar datos personales de inmediato al reconocer sesión
@@ -1082,6 +1147,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         } catch {}
       } else {
         statusEl.classList.add('hidden');
+        if (contEl) contEl.classList.add('hidden');
         if (loginCard) loginCard.classList.remove('hidden');
         if (guestCard) guestCard.classList.remove('hidden');
         Steps.mark('step1', false);
@@ -1099,7 +1165,8 @@ import EnvLoader from '../components/EnvLoader.astro';
 
     const prefillPersonalData = (u) => {
       try {
-        const nombreEl = document.getElementById('dp-nombre');
+        const nombresEl = document.getElementById('dp-nombres');
+        const apellidoEl = document.getElementById('dp-apellido');
         const rutEl = document.getElementById('dp-rut');
         const telEl = document.getElementById('dp-telefono');
         const emailEl = document.getElementById('dp-email');
@@ -1108,8 +1175,8 @@ import EnvLoader from '../components/EnvLoader.astro';
         // Nombre y apellido con distintos posibles claves
         const nombre = u?.nombre ?? u?.name ?? '';
         const apellido = u?.apellido ?? u?.apellidos ?? u?.last_name ?? '';
-        const nombreCompleto = [nombre, apellido].filter(Boolean).join(' ');
-        if (nombreEl && nombreCompleto) nombreEl.value = nombreCompleto;
+        if (nombresEl && nombre) nombresEl.value = nombre;
+        if (apellidoEl && apellido) apellidoEl.value = apellido;
 
         // RUT admitiendo variantes y normalizando a dígitos
         const rutRaw = u?.rut ?? u?.rut_sin_dv ?? u?.rutDV ?? u?.rut_dv ?? '';
@@ -1128,9 +1195,6 @@ import EnvLoader from '../components/EnvLoader.astro';
 
         // Fallback adicional: tomar valores previamente guardados en localStorage si siguen vacíos
         try {
-          const emailStored = (emailEl && !emailEl.value) ? (localStorage.getItem('checkoutEmail') || '') : '';
-          if (emailEl && emailStored) emailEl.value = emailStored;
-          if (email2El && !email2El.value && emailStored) email2El.value = emailStored;
           const telStored = (telEl && !telEl.value) ? (localStorage.getItem('checkoutTelefono') || '') : '';
           if (telEl && telStored) telEl.value = telStored.replace(/^\+?56\s?9\s?/, '').replace(/\D/g, '');
         } catch {}
@@ -1161,7 +1225,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       try {
         const API = computeApiUrl();
         for (const it of carrito) {
-          const id = Number(it.id ?? it.id_producto);
+          const id = Number(it.id);
           if (!id) continue;
           const resp = await fetch(`${API}/productos/${id}`);
           if (!resp.ok) {
@@ -1219,11 +1283,25 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       // 1) Cargar usuario y prellenar datos personales si hay token; si no, usar datos locales
       try {
-        if (token && user?.id_usuario) {
-          const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
-          if (uResp.ok) {
+        if (token) {
+          let rutParam = String(user?.rut || user?.rut_usuario || '').toUpperCase();
+          if (!rutParam) {
+            try {
+              const parts = String(token).split('.');
+              if (parts.length === 3) {
+                let b = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+                const pad = b.length % 4 === 0 ? '' : '='.repeat(4 - (b.length % 4));
+                const json = atob(b + pad);
+                const payload = JSON.parse(json);
+                rutParam = String(payload?.sub || '').toUpperCase();
+              }
+            } catch {}
+          }
+          const uResp = rutParam ? await fetch(`${API}/usuarios/${rutParam}`, { headers }) : null;
+          if (uResp && uResp.ok) {
             const uData = await safeJson(uResp);
             if (uData) prefillPersonalData(uData);
+            else prefillPersonalData(user || {});
           } else {
             prefillPersonalData(user || {});
           }
@@ -1261,7 +1339,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       // Fallback adicional: si email o RUT siguen vacíos, intentar desde token y storage
       try {
-        const nombreEl = document.getElementById('dp-nombre');
+        const nombresEl = document.getElementById('dp-nombres');
         const rutEl = document.getElementById('dp-rut');
         const emailEl = document.getElementById('dp-email');
         const email2El = document.getElementById('dp-email2');
@@ -1288,9 +1366,9 @@ import EnvLoader from '../components/EnvLoader.astro';
           rutEl.value = formatRutFromDigits(String(sub));
         }
         // Nombre de respaldo
-        if (nombreEl && !nombreEl.value) {
+        if (nombresEl && !nombresEl.value) {
           const nombreAlt = (localStorage.getItem('nombreUsuario') || '').trim();
-          if (nombreAlt) nombreEl.value = nombreAlt;
+          if (nombreAlt) nombresEl.value = nombreAlt;
         }
         // Email desde objetos alternos en storage
         if (emailEl && !emailEl.value) {
@@ -1314,7 +1392,6 @@ import EnvLoader from '../components/EnvLoader.astro';
           try { localStorage.setItem('checkoutTelefono', telEl.value || ''); } catch {}
         });
         if (emailEl) emailEl.addEventListener('blur', () => {
-          try { localStorage.setItem('checkoutEmail', emailEl.value || ''); } catch {}
           const ep=/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/; try { emailEl.setCustomValidity(ep.test(emailEl.value||'')?'':'Correo inválido'); } catch {}
         });
       } catch {}
@@ -1355,9 +1432,22 @@ import EnvLoader from '../components/EnvLoader.astro';
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         try {
-          if (token && user?.id_usuario) {
-            const uResp = await fetch(`${API}/usuarios/${user.id_usuario}`, { headers });
-            if (uResp.ok) {
+          if (token) {
+            let rutParam = String(user?.rut || user?.rut_usuario || '').toUpperCase();
+            if (!rutParam) {
+              try {
+                const parts = String(token).split('.');
+                if (parts.length === 3) {
+                  let b = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+                  const pad = b.length % 4 === 0 ? '' : '='.repeat(4 - (b.length % 4));
+                  const json = atob(b + pad);
+                  const payload = JSON.parse(json);
+                  rutParam = String(payload?.sub || '').toUpperCase();
+                }
+              } catch {}
+            }
+            const uResp = rutParam ? await fetch(`${API}/usuarios/${rutParam}`, { headers }) : null;
+            if (uResp && uResp.ok) {
               const uData = await safeJson(uResp);
               if (uData) prefillPersonalData(uData);
               else prefillPersonalData(user || {});

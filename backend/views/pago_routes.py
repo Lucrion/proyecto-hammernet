@@ -52,6 +52,18 @@ async def estado_pago(id_venta: int, db: Session = Depends(get_db)):
     return estado
 
 
+@router.get("/usuario/{rut}")
+async def listar_compras_pagadas_por_usuario(rut: str, db: Session = Depends(get_db)):
+    """Lista ventas del usuario con pago aprobado (completadas)."""
+    return PagoController.listar_ventas_pagadas_por_usuario(db, rut)
+
+
+@router.get("/session/{rut}")
+async def listar_compras_pagadas_por_session(rut: str, db: Session = Depends(get_db)):
+    """Lista ventas cuyo pago tiene session_id igual al RUT del usuario."""
+    return PagoController.listar_ventas_pagadas_por_session(db, rut)
+
+
 @router.get("/return")
 async def pago_return(venta_id: int, token: str, db: Session = Depends(get_db)):
     """Retorno informal del portal de pagos: redirige al frontend raíz con flag de compra."""

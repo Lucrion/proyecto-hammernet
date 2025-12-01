@@ -6,7 +6,7 @@ const estadoMap = {
   REJECTED: { label: 'Pago rechazado', cls: 'bg-red-100 text-red-800' },
   FAILED: { label: 'Pago fallido', cls: 'bg-red-100 text-red-800' },
   ABORTED: { label: 'Pago cancelado por el cliente', cls: 'bg-yellow-100 text-yellow-800' },
-  TIMEOUT: { label: 'Pago expirado por timeout', cls: 'bg-yellow-100 text-yellow-800' },
+  TIMEOUT: { label: 'Pago expirado por tiempo', cls: 'bg-yellow-100 text-yellow-800' },
   ERROR: { label: 'Error de pago', cls: 'bg-red-100 text-red-800' },
 };
 const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg-gray-100 text-gray-800' };
@@ -31,8 +31,6 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
     <div id="json" class="mt-6 bg-gray-50 rounded p-3 text-xs overflow-auto hidden"></div>
     <div class="mt-6 flex gap-3">
       <a href="/" class="px-4 py-2 bg-blue-600 text-white rounded">Volver al inicio</a>
-      <a id="verCompras" href="/compras" class="px-4 py-2 bg-gray-900 text-white rounded">Ver en Mis Compras</a>
-      <a href="/orden-compra" class="px-4 py-2 bg-gray-700 text-white rounded">Buscar otra orden</a>
     </div>
   </div>
 
@@ -58,6 +56,8 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
 
       const show = (el) => el.classList.remove('hidden');
       const fmtPrecio = (v) => '$' + Number(v||0).toLocaleString('es-CL');
+      const digitsOnly = (s) => String(s||'').replace(/\D/g,'');
+      const formatRut = (str) => { const raw=String(str||'').toUpperCase().replace(/[^0-9K]/g,''); if(!raw||raw.length<2) return String(str||''); const body=raw.slice(0,-1); const dv=raw.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return `${withDots}-${dv}`; };
 
       const statusMsg = () => {
         if (estado === 'AUTHORIZED') return bo ? `Pago aprobado. Orden ${bo}` : 'Pago aprobado';
@@ -70,43 +70,17 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
 
       banner.textContent = statusMsg();
 
-      orden.textContent = bo ? `Orden: ${bo}` : '';
+      orden.textContent = bo ? `Orden de compra: ${bo}` : '';
       if (!bo) {
-        estadoBox.textContent = 'No se proporcionó una orden de compra';
+        estadoBox.textContent = 'No se realizo una orden de compra';
         verCompras.href = '/compras';
         return;
       }
 
-      estadoBox.textContent = 'Detalle';
+      estadoBox.textContent = '';
       fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`,{ headers:{ 'Accept':'application/json' }})
         .then(r=>{ if(!r.ok) throw new Error('No encontrada'); return r.json(); })
-        .then(data=>{
-          const fecha = data?.fecha_venta ? new Date(data.fecha_venta).toLocaleString() : '';
-          ventaInfo.textContent = `Venta #${data?.id_venta || ''} · Fecha: ${fecha}`;
-          let cliente = data?.usuario_rut || data?.rut_usuario || '';
-          try {
-            if ((!cliente || cliente === 'Invitado') && typeof data?.observaciones === 'string' && data.observaciones.includes('VENTA_INVITADO:')) {
-              const payload = data.observaciones.split('VENTA_INVITADO:',1)[1].trim();
-              const info = JSON.parse(payload);
-              cliente = info?.rut || cliente;
-            }
-          } catch {}
-          clienteInfo.textContent = `Cliente: ${cliente || 'Invitado'}`;
-          totalInfo.textContent = `Total: ${fmtPrecio(data?.total_venta)}`;
-          show(resumen);
-          const detalles = data?.detalles_venta || [];
-          itemsList.innerHTML = '';
-          detalles.forEach(d=>{
-            const li = document.createElement('li');
-            const nombre = d?.producto_nombre || `ID ${d?.id_producto}`;
-            li.textContent = `${nombre} · Cant: ${d?.cantidad} · Subtotal: ${fmtPrecio(d?.subtotal)}`;
-            itemsList.appendChild(li);
-          });
-          show(itemsBox);
-          jsonBox.textContent = JSON.stringify(data,null,2);
-          verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`;
-        })
-        .catch(()=>{ estadoBox.textContent='Orden no encontrada'; });
+        .then(data=>{ const idv = Number(data?.id_venta || data?.id); try { sessionStorage.setItem('guest_order_session','1'); localStorage.setItem('guest_order_session','1'); } catch {} if (idv) { window.location.href = `/compra/${idv}?bo=${encodeURIComponent(bo)}`; } else { window.location.href = '/compras?bo='+encodeURIComponent(bo); } })
     })();
   </script>
 </Layout>

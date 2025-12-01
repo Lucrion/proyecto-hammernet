@@ -110,11 +110,36 @@ async def completar_venta(
 @router.put("/{id_venta}/envio-estado")
 async def actualizar_estado_envio(
     id_venta: int,
-    estado: str = Query(..., description="Estado de envío: pendiente|preparando|en camino|entregado"),
+    estado: str = Query(..., description="Estado de envío: pendiente|preparando|asignado|en camino|entregado|fallido"),
     db: Session = Depends(get_db),
 ):
     resultado = VentaController.set_envio_estado(db, id_venta, estado)
     return {"message": "Estado de envío actualizado", "venta": resultado}
+
+@router.put("/{id_venta}/asignar")
+async def asignar_repartidor(
+    id_venta: int,
+    repartidor_rut: Optional[str] = Query(None, description="RUT del repartidor"),
+    ventana_inicio: Optional[str] = Query(None, description="Inicio ventana horaria ISO"),
+    ventana_fin: Optional[str] = Query(None, description="Fin ventana horaria ISO"),
+    eta: Optional[str] = Query(None, description="ETA ISO"),
+    db: Session = Depends(get_db),
+):
+    resultado = VentaController.asignar_repartidor(db, id_venta, repartidor_rut, ventana_inicio, ventana_fin, eta)
+    return {"message": "Repartidor asignado", "venta": resultado}
+
+@router.put("/{id_venta}/pod")
+async def registrar_prueba_entrega(
+    id_venta: int,
+    entregado: bool = Query(..., description="Indica si se entregó"),
+    prueba_entrega_url: Optional[str] = Query(None, description="URL de evidencia"),
+    lat: Optional[float] = Query(None, description="Latitud"),
+    lng: Optional[float] = Query(None, description="Longitud"),
+    motivo_no_entrega: Optional[str] = Query(None, description="Motivo si no se entregó"),
+    db: Session = Depends(get_db),
+):
+    resultado = VentaController.registrar_pod(db, id_venta, entregado, prueba_entrega_url, lat, lng, motivo_no_entrega)
+    return {"message": "Prueba de entrega registrada", "venta": resultado}
 
 @router.post("/seed")
 async def seed_ventas_extra(
