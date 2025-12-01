@@ -105,9 +105,6 @@ def migrate_sqlite():
                 total_venta NUMERIC,
                 estado TEXT,
                 observaciones TEXT,
-                tipo_documento TEXT,
-                folio_documento TEXT,
-                fecha_emision_sii DATE,
                 cliente_rut TEXT,
                 fecha_creacion DATETIME,
                 fecha_actualizacion DATETIME
@@ -126,9 +123,7 @@ def migrate_sqlite():
             total_venta = v[idx.get('total_venta')]
             estado = v[idx.get('estado')]
             observaciones = v[idx.get('observaciones')]
-            tipo_documento = v[idx.get('tipo_documento')] if 'tipo_documento' in idx else None
-            folio_documento = v[idx.get('folio_documento')] if 'folio_documento' in idx else None
-            fecha_emision_sii = v[idx.get('fecha_emision_sii')] if 'fecha_emision_sii' in idx else None
+            # columnas eliminadas: tipo_documento, folio_documento, fecha_emision_sii
             cliente_id = v[idx.get('cliente_id')] if 'cliente_id' in idx else None
             fcrea = v[idx.get('fecha_creacion')]
             factual = v[idx.get('fecha_actualizacion')]
@@ -144,10 +139,10 @@ def migrate_sqlite():
                 """
                 INSERT OR IGNORE INTO ventas_new (
                     id_venta, rut_usuario, fecha_venta, total_venta, estado, observaciones,
-                    tipo_documento, folio_documento, fecha_emision_sii, cliente_rut, fecha_creacion, fecha_actualizacion
+                    cliente_rut, fecha_creacion, fecha_actualizacion
                 ) VALUES (
                     :id_venta, :rut_usuario, :fecha_venta, :total_venta, :estado, :observaciones,
-                    :tipo_documento, :folio_documento, :fecha_emision_sii, :cliente_rut, :fecha_creacion, :fecha_actualizacion
+                    :cliente_rut, :fecha_creacion, :fecha_actualizacion
                 )
                 """
             ), {
@@ -157,9 +152,6 @@ def migrate_sqlite():
                 'total_venta': total_venta,
                 'estado': estado,
                 'observaciones': observaciones,
-                'tipo_documento': tipo_documento,
-                'folio_documento': folio_documento,
-                'fecha_emision_sii': fecha_emision_sii,
                 'cliente_rut': rut_cli,
                 'fecha_creacion': fcrea,
                 'fecha_actualizacion': factual,
@@ -298,4 +290,3 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ Error en migración: {e}")
         sys.exit(1)
-

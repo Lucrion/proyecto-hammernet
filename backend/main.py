@@ -100,7 +100,7 @@ try:
             db.add(p)
             db.flush()
         created_perms[name] = p.id_permiso
-    roles = ["administrador", "vendedor", "bodeguero", "cliente"]
+    roles = ["administrador", "repartidor", "bodeguero", "cliente"]
     created_roles = {}
     for rname in roles:
         r = db.query(RolDB).filter(RolDB.nombre == rname).first()

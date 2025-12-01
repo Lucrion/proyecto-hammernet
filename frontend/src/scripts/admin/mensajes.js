@@ -100,7 +100,7 @@ async function obtenerMensajes() {
         // Mostrar estado de carga
         mostrarEstado('loading');
         
-        mensajes = await getData('/api/mensajes');
+        mensajes = await getData('/api/mensajes/');
             console.log('Mensajes obtenidos:', mensajes);
             cargarMensajes();
     } catch (error) {

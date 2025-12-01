@@ -168,9 +168,6 @@ def seed_20_ejemplos_por_tabla(db):
             total_venta=subtotal,
             estado="completada",
             observaciones=f"Venta demo #{i}",
-            tipo_documento="boleta",
-            folio_documento=f"B-{str(i).zfill(6)}",
-            fecha_emision_sii=date.today(),
             cliente_rut=str(usr.rut),
         )
         db.add(venta)
@@ -398,9 +395,6 @@ def seed_venta_simple(db):
         total_venta=subtotal,
         estado="completada",
         observaciones="Venta de ejemplo",
-        tipo_documento="boleta",
-        folio_documento="B-000001",
-        fecha_emision_sii=date.today(),
         cliente_rut=str(usuario.rut),
     )
     db.add(venta)
@@ -1819,7 +1813,7 @@ def seed_real_dataset_2025(db):
         if not detalles_tmp:
             continue
         estado = random.choice(["completada","pendiente","completada","completada"]) if i % 9 else "cancelada"
-        venta = VentaDB(rut_usuario=str(u.rut), total_venta=total, estado=estado, observaciones="venta real", tipo_documento="boleta", folio_documento=f"B-{1000+i}", fecha_emision_sii=dt.date(), cliente_rut=str(u.rut), fecha_venta=dt)
+        venta = VentaDB(rut_usuario=str(u.rut), total_venta=total, estado=estado, observaciones="venta real", cliente_rut=str(u.rut), fecha_venta=dt)
         db.add(venta)
         db.flush()
         for it, qty, price in detalles_tmp:

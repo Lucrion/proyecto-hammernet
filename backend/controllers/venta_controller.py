@@ -69,9 +69,6 @@ class VentaController:
                 total_venta=total_calculado,
                 estado=venta_data.estado,
                 observaciones=venta_data.observaciones,
-                tipo_documento=getattr(venta_data, 'tipo_documento', None),
-                folio_documento=getattr(venta_data, 'folio_documento', None),
-                fecha_emision_sii=getattr(venta_data, 'fecha_emision_sii', None),
                 cliente_rut=getattr(venta_data, 'cliente_rut', None)
             )
             db.add(db_venta)
@@ -193,8 +190,50 @@ class VentaController:
         """
         try:
             # Usar usuario de sistema para atribuir la venta y movimientos
-            usuario_guest = VentaController._get_or_create_guest_user(db)
-            rut_usuario = None
+            usuario_guest = None
+            # Intentar usar rut del formulario para crear/obtener usuario invitado único
+            guest_info = venta_guest.guest_info or {}
+            rut_input = str(guest_info.get('rut') or '').upper()
+            rut_norm = None
+            try:
+                s = ''.join(ch for ch in rut_input if ch.isdigit() or ch == 'K')
+                if len(s) >= 2:
+                    body = ''.join(ch for ch in s[:-1] if ch.isdigit())
+                    dv_in = s[-1]
+                    acc, f = 0, 2
+                    for ch in reversed(body):
+                        acc += int(ch) * f
+                        f = 2 if f == 7 else f + 1
+                    rest = 11 - (acc % 11)
+                    dv_exp = '0' if rest == 11 else ('K' if rest == 10 else str(rest))
+                    if body and dv_in == dv_exp:
+                        rut_norm = body + dv_in
+            except Exception:
+                rut_norm = None
+            from models.rol import RolDB
+            if rut_norm:
+                usuario_guest = db.query(UsuarioDB).filter(UsuarioDB.rut == rut_norm).first()
+                if not usuario_guest:
+                    rol = db.query(RolDB).filter(RolDB.nombre == "invitado").first()
+                    if not rol:
+                        rol = RolDB(nombre="invitado")
+                        db.add(rol)
+                        db.flush()
+                    usuario_guest = UsuarioDB(
+                        nombre=(guest_info.get('nombre') or 'Invitado'),
+                        rut=rut_norm,
+                        email=(guest_info.get('email') or None),
+                        telefono=(guest_info.get('telefono') or None),
+                        password=hash_contraseña("guest_checkout"),
+                        id_rol=rol.id_rol,
+                        activo=True
+                    )
+                    db.add(usuario_guest)
+                    db.flush()
+                rut_usuario = rut_norm
+            else:
+                usuario_guest = VentaController._get_or_create_guest_user(db)
+                rut_usuario = None
 
             # Verificar disponibilidad de productos y calcular total
             total_calculado = Decimal('0.00')
@@ -761,16 +800,27 @@ class VentaController:
                 producto_nombre=detalle.producto.nombre if detalle.producto else None
             ))
         
+        # Fallback: extraer rut de invitado desde observaciones si rut_usuario es nulo
+        guest_rut = None
+        try:
+            if not venta.rut_usuario and venta.observaciones and 'VENTA_INVITADO:' in venta.observaciones:
+                import json
+                payload = venta.observaciones.split('VENTA_INVITADO:', 1)[1].strip()
+                info = json.loads(payload)
+                guest_rut = (info or {}).get('rut') or None
+        except Exception:
+            guest_rut = None
+
         return Venta(
             id_venta=venta.id_venta,
-            rut_usuario=venta.rut_usuario,
+            rut_usuario=venta.rut_usuario or guest_rut,
             fecha_venta=venta.fecha_venta,
             total_venta=venta.total_venta,
             estado=venta.estado,
             observaciones=venta.observaciones,
             fecha_creacion=venta.fecha_creacion,
             fecha_actualizacion=venta.fecha_actualizacion,
-            usuario=venta.usuario.nombre if venta.usuario else None,
+            usuario=venta.usuario.nombre if venta.usuario else ("Invitado" if guest_rut else None),
             detalles_venta=detalles
         )
     

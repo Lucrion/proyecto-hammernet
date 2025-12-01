@@ -101,7 +101,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 							</div>
 					<div class="mb-4">
 						<label for="correo" class="block text-sm font-medium text-gray-700 mb-2">Correo</label>
-						<input type="email" id="correo" name="correo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="email" id="correo" name="correo" pattern="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
 					</div>
 					<div class="mb-4">
 						<label for="telefono" class="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
@@ -238,14 +238,14 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             direccion: formData.get('direccion')
         };
         try {
-            if (proveedorEditando) { await updateData(`/api/proveedores/${proveedorEditando.id_proveedor}`, proveedorData); cerrarModal(); obtenerProveedores(); alert('Proveedor actualizado correctamente'); }
-            else { await postData('/api/proveedores/', proveedorData); cerrarModal(); obtenerProveedores(); alert('Proveedor creado correctamente'); }
-        } catch (error) { console.error('Error:', error); alert('Error de conexión'); }
+            if (proveedorEditando) { await updateData(`/api/proveedores/${proveedorEditando.id_proveedor}`, proveedorData); cerrarModal(); obtenerProveedores(); try { window.showToast('Proveedor actualizado correctamente', 'success'); } catch { alert('Proveedor actualizado correctamente'); } }
+            else { await postData('/api/proveedores/', proveedorData); cerrarModal(); obtenerProveedores(); try { window.showToast('Proveedor creado correctamente', 'success'); } catch { alert('Proveedor creado correctamente'); } }
+        } catch (error) { console.error('Error:', error); try { window.showToast('Error de conexión', 'error'); } catch { alert('Error de conexión'); } }
     }
     window.eliminarProveedor = function(id) { proveedorAEliminar = id; modalConfirmar.classList.remove('hidden'); };
     function cerrarModal() { modalProveedor.classList.add('hidden'); proveedorEditando = null; }
     window.cerrarModalConfirmar = function() { modalConfirmar.classList.add('hidden'); proveedorAEliminar = null; };
-    window.confirmarEliminar = async function() { if (proveedorAEliminar) { try { await deleteData(`/api/proveedores/${proveedorAEliminar}`); obtenerProveedores(); alert('Proveedor eliminado correctamente'); } catch (error) { console.error('Error:', error); alert('Error de conexión'); } } cerrarModalConfirmar(); };
+    window.confirmarEliminar = async function() { if (proveedorAEliminar) { try { await deleteData(`/api/proveedores/${proveedorAEliminar}`); obtenerProveedores(); try { window.showToast('Proveedor eliminado correctamente', 'success'); } catch { alert('Proveedor eliminado correctamente'); } } catch (error) { console.error('Error:', error); try { window.showToast('Error de conexión', 'error'); } catch { alert('Error de conexión'); } } } cerrarModalConfirmar(); };
     </script>
 </AdminLayout>
 <script>

@@ -99,7 +99,7 @@ class UsuarioController:
                 nombre=usuario.nombre,
                 apellido=usuario.apellido,
                 rut=rut_str,
-                email=usuario.email,
+                email=(usuario.email if usuario.email and re.match(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", usuario.email or '') else None),
                 telefono=usuario.telefono,
                 password=hashed_password,
                 id_rol=rol.id_rol
@@ -257,6 +257,11 @@ class UsuarioController:
                     db.add(rol)
                     db.flush()
                 usuario.id_rol = rol.id_rol
+            if usuario_update.email is not None:
+                import re
+                if usuario_update.email and not re.match(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", usuario_update.email):
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Correo inválido")
+                usuario.email = usuario_update.email or None
             
             db.commit()
             db.refresh(usuario)

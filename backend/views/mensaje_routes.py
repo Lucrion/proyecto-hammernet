@@ -9,7 +9,7 @@ from typing import List, Optional
 from config.database import get_db
 from controllers.mensaje_controller import MensajeController
 from models.mensaje import MensajeContacto, MensajeContactoCreate
-# TODO: Reactivar después - from auth import get_current_user, require_admin
+from core.auth import require_admin
 from config.constants import API_PREFIX
 
 router = APIRouter(prefix=f"{API_PREFIX}/mensajes", tags=["Mensajes"])
@@ -18,7 +18,7 @@ router = APIRouter(prefix=f"{API_PREFIX}/mensajes", tags=["Mensajes"])
 @router.get("/", response_model=List[MensajeContacto])
 async def obtener_mensajes(
     db: Session = Depends(get_db),
-    # TODO: Reactivar después - current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin)
 ):
     """Obtener todos los mensajes (solo administradores)"""
     return await MensajeController.obtener_mensajes(db)
@@ -28,7 +28,7 @@ async def obtener_mensajes(
 async def obtener_mensaje(
     mensaje_id: int,
     db: Session = Depends(get_db),
-    # TODO: Reactivar después - current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin)
 ):
     """Obtener un mensaje por ID (solo administradores)"""
     return await MensajeController.obtener_mensaje(mensaje_id, db)
@@ -38,7 +38,7 @@ async def obtener_mensaje(
 async def crear_mensaje(
     mensaje: MensajeContactoCreate,
     db: Session = Depends(get_db),
-    # TODO: Reactivar después - current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin)
 ):
     """Crear un nuevo mensaje (solo administradores)"""
     return await MensajeController.crear_mensaje(mensaje, db)
@@ -48,7 +48,7 @@ async def crear_mensaje(
 async def marcar_mensaje_leido(
     mensaje_id: int,
     db: Session = Depends(get_db),
-    # TODO: Reactivar después - current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin)
 ):
     """Marcar un mensaje como leído (solo administradores)"""
     return await MensajeController.marcar_como_leido(mensaje_id, db)
@@ -58,7 +58,7 @@ async def marcar_mensaje_leido(
 async def eliminar_mensaje(
     mensaje_id: int,
     db: Session = Depends(get_db),
-    # TODO: Reactivar después - current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin)
 ):
     """Eliminar un mensaje (solo administradores)"""
     return await MensajeController.eliminar_mensaje(mensaje_id, db)

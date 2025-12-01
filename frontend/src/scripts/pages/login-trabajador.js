@@ -27,11 +27,16 @@ async function handleLogin(e){ e.preventDefault(); const usernameInput=(document
     }
     clearTimeout(timeoutId);
     if(!response || !response.ok){ const txt= response ? (await response.text()) : ''; let msg = response && response.status===401 ? 'Credenciales incorrectas' : `Error de autenticación (${response ? response.status : 'sin respuesta'})`; try{ const j=JSON.parse(txt); if(j?.detail) msg = typeof j.detail==='string'? j.detail : JSON.stringify(j.detail); }catch{} showStatus(msg,'error'); showLoading(false); return; }
-    const data=await response.json(); const user={ id_usuario:data.id_usuario, nombre:data.nombre, rut:data.rut ?? username, rol:(data.role||data.rol||'trabajador') };
-    const workerRoles=['administrador','admin','trabajador','vendedor','bodeguero']; const isWorker=workerRoles.includes(String(user.rol).toLowerCase());
+    const data=await response.json();
+    const rawRole = String((data.role||data.rol||'')||'').toLowerCase();
+    const normalizedRole = rawRole === 'admin' ? 'administrador' : rawRole;
+    const user={ id_usuario:data.id_usuario, nombre:data.nombre, rut:data.rut ?? username, rol: normalizedRole };
+    const workerRoles=['administrador','repartidor','bodeguero'];
+    const isWorker=workerRoles.includes(String(user.rol).toLowerCase());
     sessionStorage.setItem('isLoggedIn','true'); sessionStorage.setItem('token',data.access_token); sessionStorage.setItem('user',JSON.stringify(user)); sessionStorage.setItem('role',user.rol); sessionStorage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
     document.cookie = `isLoggedIn=true; path=/; SameSite=Lax`;
     document.cookie = `role=${encodeURIComponent(user.rol)}; path=/; SameSite=Lax`;
+    document.cookie = `access_token=${encodeURIComponent(data.access_token)}; path=/; SameSite=Lax`;
     showStatus('Autenticación exitosa. Redirigiendo...','success'); setTimeout(()=>{ window.location.href = isWorker ? '/admin' : '/'; },800);
   } catch(err){ showLoading(false); showStatus('Error de autenticación','error'); }
 }

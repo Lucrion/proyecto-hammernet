@@ -1,8 +1,4 @@
 ---
-interface Props {
-	title: string;
-}
-
 const { title } = Astro.props;
 import EnvLoader from '../components/EnvLoader.astro';
 ---
@@ -38,40 +34,40 @@ import EnvLoader from '../components/EnvLoader.astro';
 							Inicio
 						</a>
 					</li>
-					<li>
-						<a href="/admin/usuarios" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    <li class="role-admin-only">
+                        <a href="/admin/usuarios" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
 							</svg>
 							Usuarios
 						</a>
 					</li>
-					<li>
-						<a href="/admin/catalogo" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    <li class="role-admin-bodeguero-only">
+                        <a href="/admin/catalogo" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
 							</svg>
 							Catálogo
 						</a>
 					</li>
-					<li>
-						<a href="/admin/inventario" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    <li class="role-admin-bodeguero-only">
+                        <a href="/admin/inventario" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
 							</svg>
 							Inventario
 						</a>
 					</li>
-					<li>
-						<a href="/admin/mensajes" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    <li class="role-admin-only">
+                        <a href="/admin/mensajes" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
 							</svg>
 							Mensajes
 						</a>
 					</li>
-					<li>
-						<a href="/admin/ventas" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    <li class="role-admin-repartidor-only">
+                        <a href="/admin/ventas" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
 							</svg>
@@ -105,7 +101,7 @@ import EnvLoader from '../components/EnvLoader.astro';
                     </div>
                     <div class="flex items-center space-x-2">
                         <img src="/images/logos/logo_bn.webp" alt="Usuario" class="h-8 w-8 rounded-full bg-gray-200">
-                        <span class="text-gray-700" id="nombreUsuario">Administrador</span>
+                        <span class="text-gray-700" id="nombreUsuario">Usuario</span>
                     </div>
                 </div>
 			</div>
@@ -143,20 +139,40 @@ document.addEventListener('DOMContentLoaded', () => {
         storedUserRole = u && (u.rol || u.role) ? (u.rol || u.role) : null;
     } catch {}
     const role = String(storedUserRole || storedRole || loginTipo || '').toLowerCase();
-    const allowedRoles = ['administrador','admin','trabajador','vendedor','bodeguero'];
+    const roleNormalized = role === 'admin' ? 'administrador' : role;
+    const allowedRoles = ['administrador','repartidor','bodeguero'];
 
     if (!isLoggedIn) {
         window.location.href = '/login?tipo=trabajador';
         return;
     }
-    if (!allowedRoles.includes(role)) {
+    if (!allowedRoles.includes(roleNormalized)) {
         window.location.href = '/';
         return;
     }
 
-    if (nombreUsuario && nombreUsuarioElement) {
-        nombreUsuarioElement.textContent = nombreUsuario;
-    }
+    // Ocultar elementos de navegación según rol
+    try {
+        const roleName = roleNormalized;
+        if (roleName === 'administrador') {
+            // Admin ve todo sin restricciones
+        } else {
+            const hide = (selector, allowRoles) => {
+                document.querySelectorAll(selector).forEach(li => {
+                    if (!allowRoles.includes(roleName)) li.style.display = 'none';
+                });
+            };
+            hide('aside nav li.role-admin-only', ['administrador']);
+            hide('aside nav li.role-admin-bodeguero-only', ['administrador','bodeguero']);
+            hide('aside nav li.role-admin-repartidor-only', ['administrador','repartidor']);
+        }
+    } catch {}
+    try {
+        const userRaw = sessionStorage.getItem('user') || localStorage.getItem('user') || '{}';
+        const user = JSON.parse(userRaw);
+        const nombre = user?.nombre || nombreUsuario || 'Usuario';
+        if (nombreUsuarioElement) nombreUsuarioElement.textContent = nombre;
+    } catch { if (nombreUsuarioElement && nombreUsuario) nombreUsuarioElement.textContent = nombreUsuario; }
 
     function doLogout() {
             try {
@@ -177,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.cookie = 'isLoggedIn=; Max-Age=0; path=/; SameSite=Lax';
                 document.cookie = 'role=; Max-Age=0; path=/; SameSite=Lax';
                 document.cookie = 'loginTipo=; Max-Age=0; path=/; SameSite=Lax';
+                document.cookie = 'access_token=; Max-Age=0; path=/; SameSite=Lax';
             } catch {}
             window.location.href = '/';
     }
@@ -195,15 +212,28 @@ document.addEventListener('DOMContentLoaded', () => {
             notifBadge.textContent = String(count);
             notifBadge.classList.remove('hidden');
             notifList.innerHTML = items.map(p => `
-                <button data-name="${encodeURIComponent(p.nombre)}" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-2">
-                    <span class="inline-block w-2 h-2 rounded-full bg-red-600 mt-1"></span>
-                    <span class="text-sm text-gray-800">${p.nombre} — Stock: ${p.cantidad_disponible}</span>
+                <button data-id="${String(p.id || '')}" data-type="${String(p.type || 'low_stock')}" data-name="${encodeURIComponent(p.nombre || '')}" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full ${p.type==='offer_end' ? 'bg-indigo-600' : 'bg-red-600'} mt-1"></span>
+                    <span class="text-sm text-gray-800">${p.type==='offer_end' ? 'Oferta finalizada: ' : 'Bajo stock: '} ${p.nombre}</span>
                 </button>
             `).join('');
             Array.from(notifList.querySelectorAll('button')).forEach(b => {
                 b.onclick = () => {
-                    const n = decodeURIComponent(b.getAttribute('data-name'));
-                    window.location.href = '/admin/inventario?q=' + encodeURIComponent(n);
+                    const type = b.getAttribute('data-type');
+                    const id = b.getAttribute('data-id');
+                    const name = decodeURIComponent(b.getAttribute('data-name')||'');
+                    if (type === 'offer_end' && id) {
+                        try {
+                            const key = 'notif_dismissed_offers';
+                            const arr = JSON.parse(localStorage.getItem(key)||'[]');
+                            if (!arr.includes(id)) { arr.push(id); localStorage.setItem(key, JSON.stringify(arr)); }
+                        } catch {}
+                        const rest = items.filter(it => String(it.id) !== String(id) || it.type !== 'offer_end');
+                        renderNotifs(rest);
+                        window.location.href = '/admin/catalogo?edit=' + encodeURIComponent(id);
+                    } else {
+                        window.location.href = '/admin/inventario?q=' + encodeURIComponent(name);
+                    }
                 };
             });
         } else {
@@ -212,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadLowStock() {
+    async function loadNotifications() {
         try {
             const productos = await fetchJSON(`${window.API_BASE || '/api'}/productos/`);
             const low = Array.isArray(productos) ? productos.filter(p => {
@@ -220,14 +250,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 const min = Number(p.stock_minimo || 0);
                 const thr = min > 0 ? min : 5;
                 return c >= 0 && c <= thr;
-            }) : [];
-            renderNotifs(low.slice(0, 50));
+            }).map(p => ({ id: p.id_producto, nombre: p.nombre, type: 'low_stock', cantidad_disponible: p.cantidad_disponible })) : [];
+            let offers = [];
+            try {
+                const catalogo = await fetchJSON(`${window.API_BASE || '/api'}/productos/catalogo`);
+                const dismissed = JSON.parse(localStorage.getItem('notif_dismissed_offers')||'[]');
+                offers = Array.isArray(catalogo) ? catalogo.filter(p => {
+                    const fin = p.fecha_fin_oferta ? new Date(p.fecha_fin_oferta).getTime() : null;
+                    const now = Date.now();
+                    return p.oferta_activa && fin && fin <= now && !dismissed.includes(String(p.id_producto));
+                }).map(p => ({ id: p.id_producto, nombre: p.nombre, type: 'offer_end' })) : [];
+            } catch {}
+            const combined = [...offers, ...low].slice(0, 100);
+            renderNotifs(combined);
         } catch(e) {
             renderNotifs([]);
         }
     }
 
     if (btnNotificaciones && notifPanel) {
+        if (!['administrador','bodeguero'].includes(roleNormalized)) {
+            btnNotificaciones.style.display = 'none';
+            notifPanel.classList.add('hidden');
+        }
         btnNotificaciones.onclick = () => {
             notifPanel.classList.toggle('hidden');
         };
@@ -237,7 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 notifPanel.classList.add('hidden');
             }
         });
-        loadLowStock();
+        if (['administrador','bodeguero'].includes(roleNormalized)) {
+        loadNotifications();
+    }
     }
 });
 </script>

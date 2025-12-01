@@ -32,9 +32,6 @@ class VentaDB(Base):
     total_venta = Column(Numeric(10, 2), nullable=False)
     estado = Column(String(20), default="completada", nullable=False)  # completada, cancelada, pendiente
     observaciones = Column(Text, nullable=True)
-    tipo_documento = Column(String(30), nullable=True)
-    folio_documento = Column(String(50), nullable=True)
-    fecha_emision_sii = Column(Date, nullable=True)
     fecha_creacion = Column(DateTime, default=func.now())
     fecha_actualizacion = Column(DateTime, default=func.now(), onupdate=func.now())
     
@@ -98,10 +95,6 @@ class VentaBase(BaseModel):
     total_venta: Decimal
     estado: Optional[str] = "completada"
     observaciones: Optional[str] = None
-    # Nuevos campos opcionales
-    tipo_documento: Optional[str] = None
-    folio_documento: Optional[str] = None
-    fecha_emision_sii: Optional[date] = None
     cliente_rut: Optional[str] = None
 
 
@@ -134,10 +127,6 @@ class Venta(VentaBase):
     usuario_rut: Optional[str] = None
     cliente_rut: Optional[str] = None
     detalles_venta: Optional[List['DetalleVenta']] = []
-    # Nuevos campos opcionales
-    tipo_documento: Optional[str] = None
-    folio_documento: Optional[str] = None
-    fecha_emision_sii: Optional[date] = None
     class Config:
         from_attributes = True
 

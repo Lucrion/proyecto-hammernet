@@ -44,7 +44,7 @@ import EnvLoader from '../components/EnvLoader.astro';
             </div>
             <div>
               <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Correo</label>
-              <input id="email" name="email" type="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="tu@correo.com" />
+              <input id="email" name="email" type="email" required pattern="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="tu@correo.com" />
             </div>
             <div>
               <label for="telefono" class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
@@ -266,7 +266,7 @@ async function handleRegister(e) {
 
     showStatus(`Cuenta creada: ${formatRutFromDigits(rutNormDigits)}. Iniciando sesión...`, 'success');
     setTimeout(() => { 
-      const workerRoles=['administrador','admin','trabajador','vendedor','bodeguero'];
+      const workerRoles=['administrador','admin','trabajador','repartidor','bodeguero'];
       const isWorker = workerRoles.includes(String(user.rol).toLowerCase());
       location.replace(isWorker ? '/admin' : '/');
     }, 1000);
@@ -295,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const registerButton = document.getElementById('registerButton');
   const rutEl = document.getElementById('rut');
   const telEl = document.getElementById('telefono');
+  const emailEl = document.getElementById('email');
 
   form?.addEventListener('submit', handleRegister);
   googleButton?.addEventListener('click', handleGoogleAuth);
@@ -306,6 +307,15 @@ document.addEventListener('DOMContentLoaded', () => {
       try { rutEl.setCustomValidity('RUT inválido'); rutEl.reportValidity(); } catch {}
     } else {
       try { rutEl.setCustomValidity(''); } catch {}
+    }
+    if (emailEl) {
+      const email = emailEl.value || '';
+      const ep = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      if (!ep.test(email)) {
+        e.preventDefault();
+        showStatus('Correo inválido','error');
+        try { emailEl.setCustomValidity('Correo inválido'); emailEl.reportValidity(); } catch {}
+      } else { try { emailEl.setCustomValidity(''); } catch {} }
     }
   });
 
@@ -369,3 +379,10 @@ function checkGoogleCallback() {
     </script>
   </body>
 </html>
+  if (emailEl) {
+    emailEl.addEventListener('blur', () => {
+      const ep = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      const ok = ep.test(emailEl.value || '');
+      try { emailEl.setCustomValidity(ok ? '' : 'Correo inválido'); } catch {}
+    });
+  }

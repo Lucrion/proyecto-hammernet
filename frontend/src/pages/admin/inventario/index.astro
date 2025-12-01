@@ -115,6 +115,10 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                                         <label for="codigoInterno" class="block text-sm font-medium text-gray-700">Código Interno</label>
                                         <input type="text" name="codigoInterno" id="codigoInterno" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                     </div>
+                                    <div>
+                                        <label for="marcaProducto" class="block text-sm font-medium text-gray-700">Marca</label>
+                                        <input type="text" name="marcaProducto" id="marcaProducto" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Marca del producto">
+                                    </div>
                                     
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
@@ -436,35 +440,36 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 const producto = inventario.producto;
                 document.getElementById('precio').value = producto ? (producto.precio_venta || '') : '';
                 document.getElementById('cantidad').value = (inventario.cantidad ?? (producto ? producto.cantidad_disponible : '')) || '';
-                if (producto) {
-                    document.getElementById('nombreProducto').value = producto.nombre || '';
-                    document.getElementById('codigoInterno').value = producto.codigo_interno || '';
-                    document.getElementById('costoBruto').value = producto.costo_bruto || '0';
-                    document.getElementById('costoNeto').value = producto.costo_neto || '0';
-                    document.getElementById('porcentajeUtilidad').value = producto.porcentaje_utilidad || '0';
-                    document.getElementById('utilidadPesos').value = producto.utilidad_pesos || '0';
-                    document.getElementById('stockMinimo').value = producto.stock_minimo || '0';
+                    if (producto) {
+                        document.getElementById('nombreProducto').value = producto.nombre || '';
+                        document.getElementById('codigoInterno').value = producto.codigo_interno || '';
+                        const marcaEl = document.getElementById('marcaProducto'); if (marcaEl) { marcaEl.value = producto.marca || ''; }
+                        document.getElementById('costoBruto').value = producto.costo_bruto || '0';
+                        document.getElementById('costoNeto').value = producto.costo_neto || '0';
+                        document.getElementById('porcentajeUtilidad').value = producto.porcentaje_utilidad || '0';
+                        document.getElementById('utilidadPesos').value = producto.utilidad_pesos || '0';
+                        document.getElementById('stockMinimo').value = producto.stock_minimo || '0';
                     if (producto.id_categoria) { document.getElementById('categoriaProducto').value = producto.id_categoria; await cargarSubcategorias(producto.id_categoria); }
                     if (producto.id_subcategoria) { const subEl = document.getElementById('subcategoriaProducto'); if (subEl) { subEl.value = producto.id_subcategoria; } }
                     if (producto.id_proveedor) { document.getElementById('proveedorProducto').value = producto.id_proveedor; }
                 }
                 modalInventario.classList.remove('hidden');
             } else if (response.status === 401) {
-                alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); localStorage.removeItem('token'); window.location.href = '/login'; return;
+                try { window.showToast('Sesión expirada. Por favor, inicie sesión nuevamente.', 'error'); } catch { alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); } localStorage.removeItem('token'); window.location.href = '/login'; return;
             } else {
-                const error = await response.json(); let errorMsg = 'Error al cargar inventario'; if (error.detail) { errorMsg += ': ' + error.detail; } alert(errorMsg);
+                const error = await response.json(); let errorMsg = 'Error al cargar inventario'; if (error.detail) { errorMsg += ': ' + error.detail; } try { window.showToast(errorMsg, 'error'); } catch { alert(errorMsg); }
             }
-        } catch (error) { console.error('Error al cargar inventario:', error); alert('Error de conexión con el servidor'); }
+        } catch (error) { console.error('Error al cargar inventario:', error); try { window.showToast('Error de conexión con el servidor', 'error'); } catch { alert('Error de conexión con el servidor'); } }
     }
     function eliminarInventario(id) { inventarioAEliminar = id; modalEliminar.classList.remove('hidden'); }
     async function confirmarEliminacion() {
         try {
             const responseData = await deleteData(`/api/productos/inventario/${inventarioAEliminar}`);
-            if (responseData) { modalEliminar.classList.add('hidden'); inventarioAEliminar = null; await cargarInventario(); alert('Registro de inventario eliminado exitosamente'); }
+            if (responseData) { modalEliminar.classList.add('hidden'); inventarioAEliminar = null; await cargarInventario(); try { window.showToast('Registro de inventario eliminado exitosamente', 'success'); } catch { alert('Registro de inventario eliminado exitosamente'); } }
             else { throw new Error('Error desconocido al eliminar inventario'); }
         } catch (error) {
-            if (error && (error.message || '').includes('401')) { alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); localStorage.removeItem('token'); window.location.href = '/login'; return; }
-            console.error('Error al eliminar inventario:', error); let errorMessage = 'Error al eliminar registro'; if (error.message) { errorMessage += ': ' + error.message; } else if (typeof error === 'object') { errorMessage += ': ' + JSON.stringify(error); } alert(errorMessage);
+            if (error && (error.message || '').includes('401')) { try { window.showToast('Sesión expirada. Por favor, inicie sesión nuevamente.', 'error'); } catch { alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); } localStorage.removeItem('token'); window.location.href = '/login'; return; }
+            console.error('Error al eliminar inventario:', error); let errorMessage = 'Error al eliminar registro'; if (error.message) { errorMessage += ': ' + error.message; } else if (typeof error === 'object') { errorMessage += ': ' + JSON.stringify(error); } try { window.showToast(errorMessage, 'error'); } catch { alert(errorMessage); }
         }
     }
     async function guardarInventario(event) {
@@ -473,7 +478,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         const camposRequeridos = ['nombreProducto', 'categoriaProducto', 'precio', 'cantidad'];
         const camposFaltantes = [];
         for (const campo of camposRequeridos) { const valor = formData.get(campo); if (!valor || String(valor).trim() === '') { camposFaltantes.push(campo); } }
-        if (camposFaltantes.length > 0) { alert(`Error: Los siguientes campos son requeridos: ${camposFaltantes.join(', ')}`); return; }
+        if (camposFaltantes.length > 0) { try { window.showToast(`Error: Los siguientes campos son requeridos: ${camposFaltantes.join(', ')}`, 'error'); } catch { alert(`Error: Los siguientes campos son requeridos: ${camposFaltantes.join(', ')}`); } return; }
         try {
             if (inventarioEditando) {
                 const inventarioActualizado = { precio: parseFloat(formData.get('precio')), cantidad_disponible: parseInt(formData.get('cantidad')) };
@@ -488,6 +493,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                         id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
                         id_subcategoria: (function(){ const val = (formData.get('subcategoriaProducto') || '').trim(); if (val === '' || val.toLowerCase() === 'null') return null; const num = parseInt(val, 10); return isNaN(num) ? null : num; })(),
                         codigo_interno: formData.get('codigoInterno') || producto.codigo_interno,
+                        marca: (function(){ const m = (formData.get('marcaProducto') || '').trim(); return m ? m : null; })(),
                         costo_bruto: parseFloat(formData.get('costoBruto')) || producto.costo_bruto || 0,
                         costo_neto: parseFloat(formData.get('costoNeto')) || producto.costo_neto || 0,
                         porcentaje_utilidad: parseFloat(formData.get('porcentajeUtilidad')) || producto.porcentaje_utilidad || 0,
@@ -501,7 +507,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 }
                 modalInventario.classList.add('hidden'); inventarioEditando = null;
                 await cargarProductos(); await cargarCategorias(); await cargarProveedores(); await cargarInventario();
-                alert('Inventario actualizado exitosamente.');
+                try { window.showToast('Inventario actualizado exitosamente.', 'success'); } catch { alert('Inventario actualizado exitosamente.'); }
             } else {
                 const nuevoProducto = {
                     nombre: formData.get('nombreProducto'),
@@ -509,6 +515,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     id_proveedor: parseInt(formData.get('proveedorProducto')) || null,
                     id_subcategoria: (function(){ const val = (formData.get('subcategoriaProducto') || '').trim(); if (val === '' || val.toLowerCase() === 'null') return null; const num = parseInt(val, 10); return isNaN(num) ? null : num; })(),
                     codigo_interno: formData.get('codigoInterno') || null,
+                    marca: (function(){ const m = (formData.get('marcaProducto') || '').trim(); return m ? m : null; })(),
                     costo_bruto: parseFloat(formData.get('costoBruto')) || 0,
                     costo_neto: parseFloat(formData.get('costoNeto')) || 0,
                     precio_venta: parseFloat(formData.get('precio')) || 0,

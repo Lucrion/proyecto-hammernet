@@ -15,9 +15,7 @@ async def collect_event(payload: dict, request: Request, db: Session = Depends(g
         props = payload.get("properties") or {}
         url = payload.get("url") or None
         ts = payload.get("ts") or None
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
-        print(f"[analytics] name={name} url={url} ts={ts} ip={ip} ua={ua} props={props}")
+        print(f"[analytics] name={name} url={url} ts={ts} props={props}")
     except Exception as e:
         print(f"[analytics] error: {e}")
     return {"status": "ok"}

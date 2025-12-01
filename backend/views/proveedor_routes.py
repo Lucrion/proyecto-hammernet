@@ -35,7 +35,7 @@ async def obtener_proveedor(
 async def crear_proveedor(
     proveedor: ProveedorCreate,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
+    current_user: dict = Depends(require_admin)
 ):
     """ Crear un nuevo proveedor (solo administradores) """
     return await ProveedorController.crear_proveedor(proveedor, db)
@@ -46,7 +46,7 @@ async def actualizar_proveedor(
     proveedor_id: int,
     proveedor: ProveedorUpdate,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
+    current_user: dict = Depends(require_admin)
 ):
     """ Actualizar un proveedor (solo administradores) """
     return await ProveedorController.actualizar_proveedor(proveedor_id, proveedor, db)
@@ -56,7 +56,7 @@ async def actualizar_proveedor(
 async def eliminar_proveedor(
     proveedor_id: int,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)  # Comentado temporalmente
+    current_user: dict = Depends(require_admin)
 ):
     """ Eliminar un proveedor (solo administradores) """
     return await ProveedorController.eliminar_proveedor(proveedor_id, db)

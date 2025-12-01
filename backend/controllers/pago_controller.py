@@ -33,11 +33,20 @@ class PagoController:
             raise HTTPException(status_code=404, detail="Venta no encontrada para iniciar pago")
 
         from datetime import datetime
-        import uuid
+        import uuid, json
         buy_order = f"ORD-{id_venta}-{int(datetime.utcnow().timestamp())}"
         session_id = None
         try:
-            session_id = str(venta.rut_usuario or "GUEST")
+            # Preferir rut del invitado guardado en observaciones VENTA_INVITADO
+            guest_rut = None
+            if venta and venta.observaciones and 'VENTA_INVITADO:' in venta.observaciones:
+                try:
+                    payload = venta.observaciones.split('VENTA_INVITADO:', 1)[1].strip()
+                    info = json.loads(payload)
+                    guest_rut = (info or {}).get('rut') or None
+                except Exception:
+                    guest_rut = None
+            session_id = str(guest_rut or venta.rut_usuario or "GUEST")
         except Exception:
             session_id = str(uuid.uuid4())
 

@@ -13,26 +13,46 @@ from fastapi import HTTPException, status
 from models.auditoria import AuditoriaDB, Auditoria, AuditoriaCreate
 
 
-def registrar_evento(
+async def registrar_evento(
     db: Session,
     accion: str,
     usuario_rut: Optional[str] = None,
     entidad_tipo: Optional[str] = None,
     entidad_id: Optional[int] = None,
     detalle: Optional[str] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
 ) -> Auditoria:
     """Registra un evento de auditoría"""
     try:
+        # Permitir pasar un objeto AuditoriaCreate como primer argumento
+        try:
+            from models.auditoria import AuditoriaCreate
+            if isinstance(accion, AuditoriaCreate):
+                payload = accion
+                accion = payload.accion
+                usuario_rut = getattr(payload, 'usuario_rut', usuario_rut)
+                entidad_tipo = payload.entidad_tipo
+                entidad_id = payload.entidad_id
+                detalle = payload.detalle
+        except Exception:
+            pass
+
+        if accion and accion.strip().lower().startswith("login"):
+            from datetime import datetime
+            return Auditoria(
+                id_evento=0,
+                usuario_rut=usuario_rut,
+                accion=accion,
+                entidad_tipo=entidad_tipo,
+                entidad_id=entidad_id,
+                detalle=detalle,
+                fecha_evento=datetime.utcnow(),
+            )
         evento = AuditoriaDB(
             usuario_rut=usuario_rut,
             accion=accion,
             entidad_tipo=entidad_tipo,
             entidad_id=entidad_id,
             detalle=detalle,
-            ip_address=ip_address,
-            user_agent=user_agent,
         )
         db.add(evento)
         db.commit()

@@ -241,7 +241,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           await renderDetalle(venta);
         } catch (err) {
           console.error(err);
-          alert('No se pudo cargar el detalle de la compra');
+          try { window.showToast('No se pudo cargar el detalle de la compra', 'error'); } catch { alert('No se pudo cargar el detalle de la compra'); }
         }
       });
 

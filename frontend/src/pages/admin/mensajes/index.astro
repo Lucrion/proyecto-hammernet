@@ -31,7 +31,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.1 0-2 .9-2 2h4a2 2 0 00-2-2zM6 12h12M6 16h12" />
             </svg>
             <h3 class="mt-2 text-sm font-medium text-gray-900">No autorizado</h3>
-            <p class="mt-1 text-sm text-gray-500">Inicia sesión como trabajador para ver los mensajes.</p>
+            <p class="mt-1 text-sm text-gray-500">Inicia sesión como administrador para ver los mensajes.</p>
             <a href="/login?tipo=trabajador" class="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Ir a Login</a>
         </div>
     </div>
@@ -122,7 +122,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
 <script type="module">
 function buildUrl(endpoint){const base=(window.API_BASE||'/api');if(endpoint.startsWith('http'))return endpoint;const origin=String(base).replace(/\/api$/,'');if(endpoint.startsWith('/'))return origin+endpoint;return base+endpoint}
-async function fetchWithAuth(endpoint,options={}){const headers=options.headers||{};let token='';try{token=sessionStorage.getItem('token')||localStorage.getItem('token')||localStorage.getItem('access_token')||''}catch{}if(token)headers['Authorization']='Bearer '+token;if(!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const url=buildUrl(endpoint);const c=new AbortController();const t=setTimeout(()=>c.abort(),Number(10000));const res=await fetch(url,{...options,headers,mode:'cors',credentials:'include',signal:c.signal});clearTimeout(t);return res}
+function getToken(){try{const storTok=sessionStorage.getItem('token')||localStorage.getItem('token')||localStorage.getItem('access_token');if(storTok) return storTok;const m=String(document.cookie||'').match(/(?:^|;\s*)access_token=([^;]+)/);return m? decodeURIComponent(m[1]) : '';}catch{return ''}}
+async function fetchWithAuth(endpoint,options={}){const headers=options.headers||{};const token=getToken();if(token)headers['Authorization']='Bearer '+token;const method=String(options.method||'GET').toUpperCase();if(method!=='GET' && !(options.body instanceof FormData) && !headers['Content-Type']) headers['Content-Type']='application/json';if(!headers['Accept']) headers['Accept']='application/json';const url=buildUrl(endpoint);const c=new AbortController();const t=setTimeout(()=>c.abort(),Number(10000));const res=await fetch(url,{...options,method,headers,mode:'cors',credentials:'include',signal:c.signal});clearTimeout(t);return res}
 async function getData(endpoint){const r=await fetchWithAuth(endpoint,{method:'GET',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
 async function updateData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
 async function deleteData(endpoint){const r=await fetchWithAuth(endpoint,{method:'DELETE',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
@@ -140,7 +141,7 @@ let mensajeAEliminar = null;
 let loadingState, emptyState, tableContainer, tablaMensajes;
 
 // Inicialización cuando se carga el DOM
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Obtener elementos del DOM
     tablaMensajes = document.getElementById('tablaMensajes');
     loadingState = document.getElementById('loadingState');
@@ -195,7 +196,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (mensPagina < maxPagina) { mensPagina++; cargarMensajes(); }
     });
 
-    // Cargar mensajes
+    // Bloquear si no hay token o el token no autentica
+    const tok = getToken();
+    if (!tok) { mostrarEstado('auth'); return; }
+    try {
+        const me = await fetchWithAuth('/api/usuarios/me', { method:'GET' });
+        if (!me.ok) { mostrarEstado('auth'); return; }
+    } catch { mostrarEstado('auth'); return; }
     obtenerMensajes();
 });
 
@@ -225,7 +232,7 @@ async function obtenerMensajes() {
         // Mostrar estado de carga
         mostrarEstado('loading');
         
-        mensajes = await getData('/api/mensajes');
+        mensajes = await getData('/api/mensajes/');
             console.log('Mensajes obtenidos:', mensajes);
             cargarMensajes();
     } catch (error) {

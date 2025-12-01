@@ -230,22 +230,24 @@ async function handleLogin(e) {
             email: data.email ?? data.correo ?? data.mail,
             telefono: data.telefono ?? data.phone ?? data.celular,
             rut: data.rut ?? digitsOnly(usernameInput),
-            rol: data.role || data.rol || 'cliente'
+            rol: ((data.role || data.rol || 'cliente') || '').toLowerCase()
         };
-        const workerRoles = ['administrador','admin','trabajador','vendedor','bodeguero'];
-        const isWorkerRole = workerRoles.includes(String(user.rol).toLowerCase());
+        const normalizedRole = user.rol === 'admin' ? 'administrador' : user.rol;
+        const workerRoles = ['administrador','repartidor','bodeguero'];
+        const isWorkerRole = workerRoles.includes(normalizedRole);
         
         // Guardar estado de autenticación y token usando el nombre real
         const storage = (tipoSeleccionado === 'trabajador') ? window.sessionStorage : window.localStorage;
         storage.setItem('isLoggedIn', 'true');
         storage.setItem('token', data.access_token);
         storage.setItem('user', JSON.stringify(user));
-        storage.setItem('role', user.rol);
+        storage.setItem('role', normalizedRole);
         // Preferir el nombre real para mostrar en el header; si no viene, usar lo ingresado
         storage.setItem('nombreUsuario', user.nombre || formatRutFromDigits(user.rut));
         document.cookie = `isLoggedIn=true; path=/; SameSite=Lax`;
-        document.cookie = `role=${encodeURIComponent(user.rol)}; path=/; SameSite=Lax`;
+        document.cookie = `role=${encodeURIComponent(normalizedRole)}; path=/; SameSite=Lax`;
         document.cookie = `loginTipo=${encodeURIComponent(tipoSeleccionado || '')}; path=/; SameSite=Lax`;
+        document.cookie = `access_token=${encodeURIComponent(data.access_token)}; path=/; SameSite=Lax`;
         console.log('Token guardado:', data.access_token ? 'Token presente' : 'Token ausente');
         console.log('Autenticación exitosa');
 
@@ -272,8 +274,8 @@ async function handleLogin(e) {
         // Mostrar mensaje de éxito
         showStatus('Autenticación exitosa. Redirigiendo...', 'success');
         
-        const roleStr = String(user.rol || user.role || '').toLowerCase();
-        const workerRolesArr = ['administrador','admin','trabajador','vendedor','bodeguero'];
+        const roleStr = String(normalizedRole || '').toLowerCase();
+        const workerRolesArr = ['administrador','repartidor','bodeguero'];
         const allowWorker = workerRolesArr.includes(roleStr);
         const tipoFinal = tipoSeleccionado ? tipoSeleccionado : (allowWorker ? 'trabajador' : 'cliente');
         const destino = tipoFinal === 'trabajador' ? '/admin' : '/';

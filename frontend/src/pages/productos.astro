@@ -263,6 +263,54 @@ import Layout from '../layouts/Layout.astro';
 
   function aplicarFiltros() {
     let arr = Array.isArray(state.todosProductos) ? [...state.todosProductos] : [];
+    // Primero, construir conjunto disponible solo por búsqueda y precio para afectar otros filtros
+    const baseFiltradoPorBusquedaPrecio = arr.filter(p => {
+      const term = state.filtros.busqueda?.toLowerCase() || '';
+      if (term) {
+        const n = (p.nombre || '').toLowerCase();
+        const d = (p.descripcion || '').toLowerCase();
+        if (!n.includes(term) && !d.includes(term)) return false;
+      }
+      if (state.filtros.usarPrecio) {
+        const precio = Number(p.precio_final ?? p.precio_venta ?? p.precio ?? 0);
+        if (!(precio >= state.filtros.precioMin && precio <= state.filtros.precioMax)) return false;
+      }
+      return true;
+    });
+    const disponiblesCats = new Set(baseFiltradoPorBusquedaPrecio.map(p => p.id_categoria));
+    const disponiblesSubs = new Set(baseFiltradoPorBusquedaPrecio
+      .filter(p => !state.filtros.categoriaId || String(p.id_categoria) === String(state.filtros.categoriaId))
+      .map(p => p.id_subcategoria));
+    // Si la categoría seleccionada queda fuera por precio/búsqueda, deseleccionar
+    if (state.filtros.categoriaId && !disponiblesCats.has(state.filtros.categoriaId)) {
+      state.filtros.categoriaId = null;
+      state.filtros.subcategoriaId = null;
+      try {
+        categoriasContainer && categoriasContainer.querySelectorAll('[data-cat-id]').forEach(el => el.classList.remove('bg-black','text-white'));
+        subcatsContainer && (subcatsContainer.innerHTML = '');
+      } catch {}
+    }
+    // Actualizar disponibilidad visual de categorías y subcategorías
+    try {
+      categoriasContainer && categoriasContainer.querySelectorAll('[data-cat-id]').forEach(el => {
+        const cid = Number(el.getAttribute('data-cat-id'));
+        const habil = disponiblesCats.has(cid);
+        el.classList.toggle('opacity-50', !habil);
+        el.classList.toggle('cursor-not-allowed', !habil);
+        el.disabled = !habil;
+      });
+      subcatsContainer && subcatsContainer.querySelectorAll('[data-subcat-id]').forEach(el => {
+        const sid = Number(el.getAttribute('data-subcat-id'));
+        const habil = disponiblesSubs.has(sid);
+        el.classList.toggle('opacity-50', !habil);
+        el.classList.toggle('cursor-not-allowed', !habil);
+        el.disabled = !habil;
+      });
+      if (state.filtros.subcategoriaId && !disponiblesSubs.has(state.filtros.subcategoriaId)) {
+        state.filtros.subcategoriaId = null;
+        subcatsContainer && subcatsContainer.querySelectorAll('[data-subcat-id]').forEach(el => el.classList.remove('bg-black','text-white'));
+      }
+    } catch {}
     arr = arr.filter(p => {
       const term = state.filtros.busqueda?.toLowerCase() || '';
       if (term) {

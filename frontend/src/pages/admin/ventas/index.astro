@@ -237,7 +237,7 @@ function actualizarPaginacion() { const mostrandoDesde = document.getElementById
 function formatearFecha(fecha) { return new Date(fecha).toLocaleString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
 function mostrarLoading(mostrar) { const overlay = document.getElementById('loadingOverlay'); if (overlay) { overlay.style.display = mostrar ? 'flex' : 'none'; } }
 function mostrarError(mensaje) { mostrarErrorToast(mensaje); }
-function mostrarExito(mensaje) { alert('Éxito: ' + mensaje); }
+function mostrarExito(mensaje) { try { window.showToast && window.showToast(mensaje, 'success'); } catch { alert('Éxito: ' + mensaje); } }
 window.exportarVentasCSV = exportarVentasCSV;
 function formatearDinero(valor) { try { const num = Number(valor || 0); return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(num); } catch { return `$${Number(valor || 0).toFixed(2)}`; } }
 function debounce(fn, delay) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), delay); }; }

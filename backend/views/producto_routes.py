@@ -133,8 +133,6 @@ async def actualizar_inventario(
         inventario_data["precio"] = precio
     resultado = await ProductoController.actualizar_inventario_por_id(inventario_id, inventario_data, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(
             db,
             accion="inventario_actualizar",
@@ -142,8 +140,6 @@ async def actualizar_inventario(
             entidad_tipo="Inventario",
             entidad_id=inventario_id,
             detalle=f"cantidad={cantidad}, precio={precio}",
-            ip_address=ip,
-            user_agent=ua,
         )
     except Exception:
         pass
@@ -160,16 +156,12 @@ async def eliminar_inventario(
     """ Eliminar registro de inventario (solo administradores) """
     resultado = await ProductoController.eliminar_inventario_por_id(inventario_id, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="inventario_eliminar",
             entidad_tipo="Inventario",
             entidad_id=inventario_id,
             detalle="Inventario eliminado",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -204,16 +196,12 @@ async def crear_producto(
     """ Crear un nuevo producto (solo administradores) """
     creado = await ProductoController.crear_producto(producto, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="crear",
             entidad_tipo="Producto",
             entidad_id=creado.id_producto,
             detalle=f"Producto creado: {creado.nombre}",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -230,16 +218,12 @@ async def crear_producto_completo(
     """ Crear un producto completo con validaciones adicionales (solo administradores) """
     creado = await ProductoController.crear_producto_completo(producto, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="crear",
             entidad_tipo="Producto",
             entidad_id=creado.id_producto,
             detalle=f"Producto creado (completo): {creado.nombre}",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -258,16 +242,12 @@ async def actualizar_producto(
     actualizado = await ProductoController.actualizar_producto(producto_id, producto, db)
     try:
         cambios = producto.dict(exclude_unset=True)
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="actualizar",
             entidad_tipo="Producto",
             entidad_id=producto_id,
             detalle=f"Cambios: {cambios}",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -285,16 +265,12 @@ async def subir_imagen_producto(
     """ Subir imagen para un producto (solo administradores) """
     resultado = await ProductoController.subir_imagen_producto(producto_id, imagen, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="imagen_subir",
             entidad_tipo="Producto",
             entidad_id=producto_id,
             detalle="Imagen subida",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -311,16 +287,12 @@ async def eliminar_producto(
     """ Eliminar un producto (solo administradores) """
     resultado = await ProductoController.eliminar_producto(producto_id, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="eliminar",
             entidad_tipo="Producto",
             entidad_id=producto_id,
             detalle="Producto eliminado",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -345,16 +317,12 @@ async def actualizar_inventario_producto(
         producto_id, inventario_data, db
     )
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="inventario_actualizar",
             entidad_tipo="Producto",
             entidad_id=producto_id,
             detalle=f"cantidad_actual={cantidad_actual}, stock_minimo={stock_minimo}",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -372,16 +340,12 @@ async def agregar_producto_a_catalogo(
     """ Agregar un producto del inventario al catálogo público (solo administradores) """
     agregado = await ProductoController.agregar_producto_a_catalogo(producto_id, datos_catalogo, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="catalogo_agregar",
             entidad_tipo="Producto",
             entidad_id=producto_id,
             detalle=f"Datos catálogo: {datos_catalogo.dict()}",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -399,16 +363,12 @@ async def actualizar_producto_catalogado(
     """ Actualizar un producto que ya está en el catálogo (solo administradores) """
     actualizado = await ProductoController.actualizar_producto_catalogado(producto_id, datos_actualizacion, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="catalogo_actualizar",
             entidad_tipo="Producto",
             entidad_id=producto_id,
             detalle=f"Actualización catálogo: {datos_actualizacion}",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass
@@ -425,16 +385,12 @@ async def quitar_producto_de_catalogo(
     """ Quitar un producto del catálogo público (cambia en_catalogo a False) """
     resultado = await ProductoController.quitar_producto_de_catalogo(producto_id, db)
     try:
-        ip = request.client.host if request and request.client else None
-        ua = request.headers.get("user-agent") if request else None
         await registrar_evento(db, AuditoriaCreate(
             usuario_id=None,
             accion="catalogo_quitar",
             entidad_tipo="Producto",
             entidad_id=producto_id,
             detalle="Producto quitado del catálogo",
-            ip_address=ip,
-            user_agent=ua,
         ))
     except Exception:
         pass

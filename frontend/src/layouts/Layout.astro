@@ -93,7 +93,7 @@ try {
 
 		{Astro.url.pathname !== '/login' && (
 			<a 
-				href="https://wa.me/956998116663?text=Hola, me gustaría obtener más información"
+				href="https://wa.me/667775736?text=Hola, me gustaría obtener más información"
 				class="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-all transform hover:scale-110 z-50"
 				target="_blank"
 				aria-label="Contactar por WhatsApp"
@@ -133,6 +133,39 @@ try {
 				<button id="checkoutBtn" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Ir a pagar</button>
 			</div>
 		</div>
+
+		<script>
+		// Toast global y override de alert
+		(function(){
+		  try {
+		    const showToast = (mensaje, tipo='info') => {
+		      const div = document.createElement('div');
+		      let base = 'fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow w-max max-w-sm';
+		      let cls = 'bg-blue-600 text-white';
+		      if (tipo === 'success') cls = 'bg-green-600 text-white';
+		      else if (tipo === 'error') cls = 'bg-red-600 text-white';
+		      else if (tipo === 'warn') cls = 'bg-yellow-500 text-white';
+		      div.className = `${base} ${cls}`;
+		      div.textContent = String(mensaje || '');
+		      document.body.appendChild(div);
+		      setTimeout(() => { try { div.remove(); } catch {} }, 3500);
+		    };
+		    window.showToast = showToast;
+		    const originalAlert = window.alert;
+		    window.alert = function(msg) {
+		      try {
+		        const s = String(msg || '');
+		        const low = s.toLowerCase();
+		        let tipo = 'info';
+		        if (/(éxito|exitosamente|actualizado|creado|eliminado)/.test(low)) tipo = 'success';
+		        else if (/(error|fall|no se pudo|no autorizado|expirada)/.test(low)) tipo = 'error';
+		        else if (/(advertencia|cuidado|atención)/.test(low)) tipo = 'warn';
+		        showToast(s, tipo);
+		      } catch { originalAlert(msg); }
+		    };
+		  } catch {}
+		})();
+		</script>
 
 		<script>
             document.addEventListener('DOMContentLoaded', () => {
@@ -415,16 +448,22 @@ try {
 
 		  carritoBtn && carritoBtn.addEventListener('click', openCarrito);
 		  cerrarCarrito && cerrarCarrito.addEventListener('click', closeCarrito);
-		  checkoutBtn && checkoutBtn.addEventListener('click', () => {
-		    const carrito = getCarrito();
-		    if (!carrito.length) {
-		      alert('Tu carrito está vacío. Agrega productos antes de continuar.');
-		      return;
-		    }
-		    // Opcional: sincronizar items para checkout
-		    localStorage.setItem('checkout_items', JSON.stringify(carrito));
-		    window.location.href = '/carrito';
-		  });
+          checkoutBtn && checkoutBtn.addEventListener('click', () => {
+            const carrito = getCarrito();
+            if (!carrito.length) {
+              try {
+                const div = document.createElement('div');
+                div.className = 'fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow bg-blue-600 text-white';
+                div.textContent = 'Tu carrito está vacío. Agrega productos antes de continuar.';
+                document.body.appendChild(div);
+                setTimeout(() => { try { div.remove(); } catch {} }, 3500);
+              } catch { alert('Tu carrito está vacío. Agrega productos antes de continuar.'); }
+              return;
+            }
+            // Opcional: sincronizar items para checkout
+            localStorage.setItem('checkout_items', JSON.stringify(carrito));
+            window.location.href = '/carrito';
+          });
 
 		  // Actualizar badge y panel sin interacción:
 		  // 1) Al cargar la página

@@ -39,7 +39,7 @@ async def obtener_subcategoria(
 async def crear_subcategoria(
     subcategoria: SubCategoriaCreate,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin)
 ):
     """Crear una nueva subcategoría (solo administradores)"""
     return await SubCategoriaController.crear_subcategoria(subcategoria, db)
@@ -50,7 +50,7 @@ async def actualizar_subcategoria(
     subcategoria_id: int,
     subcategoria: SubCategoriaUpdate,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin)
 ):
     """Actualizar una subcategoría (solo administradores)"""
     return await SubCategoriaController.actualizar_subcategoria(subcategoria_id, subcategoria, db)
@@ -60,7 +60,7 @@ async def actualizar_subcategoria(
 async def eliminar_subcategoria(
     subcategoria_id: int,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin)
 ):
     """Eliminar una subcategoría (solo administradores)"""
     return await SubCategoriaController.eliminar_subcategoria(subcategoria_id, db)

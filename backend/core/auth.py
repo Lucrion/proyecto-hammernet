@@ -159,11 +159,15 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 
 def verificar_permisos_admin(current_user, accion: str = "realizar esta acción"):
     """Verifica permisos de administrador.
-    
-    TEMPORALMENTE DESACTIVADO: Se omite la verificación de rol para avanzar más rápido.
-    Las comprobaciones originales quedan comentadas y se reactivarán más adelante.
+    Acepta alias 'administrador' y 'admin'.
     """
-    if getattr(getattr(current_user, "rol_ref", None), "nombre", None) != "administrador":
+    role_name = (
+        getattr(getattr(current_user, "rol_ref", None), "nombre", None)
+        or getattr(current_user, "role", None)
+        or ""
+    )
+    role_name = str(role_name).lower()
+    if role_name not in {"administrador", "admin"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"No tienes permisos para {accion}"

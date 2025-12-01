@@ -1,10 +1,22 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import Layout from '../../layouts/Layout.astro';
+const estadoParam = Astro.params.estado || '';
+const estadoMap = {
+  AUTHORIZED: { label: 'Pago aprobado', cls: 'bg-green-100 text-green-800' },
+  REJECTED: { label: 'Pago rechazado', cls: 'bg-red-100 text-red-800' },
+  FAILED: { label: 'Pago fallido', cls: 'bg-red-100 text-red-800' },
+  ABORTED: { label: 'Pago cancelado por el cliente', cls: 'bg-yellow-100 text-yellow-800' },
+  TIMEOUT: { label: 'Pago expirado por timeout', cls: 'bg-yellow-100 text-yellow-800' },
+  ERROR: { label: 'Error de pago', cls: 'bg-red-100 text-red-800' },
+};
+const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg-gray-100 text-gray-800' };
 ---
 
-<Layout title="Detalle Orden de Compra">
+<Layout title={`Orden de Compra · ${estadoInfo.label}`}>
   <div class="container mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6">Detalle Orden de Compra</h1>
+    <h1 class="text-2xl font-bold mb-4">{estadoInfo.label}</h1>
+    <div id="banner" class={`p-3 rounded mb-6 ${estadoInfo.cls}`}></div>
+
     <div id="estado" class="mb-3 text-gray-700"></div>
     <div id="orden" class="mb-2 text-sm text-gray-600"></div>
     <div id="resumen" class="bg-white rounded shadow p-4 mb-6 hidden">
@@ -17,16 +29,23 @@ import Layout from '../layouts/Layout.astro';
       <ul id="itemsList" class="list-disc pl-5"></ul>
     </div>
     <div id="json" class="mt-6 bg-gray-50 rounded p-3 text-xs overflow-auto hidden"></div>
-    <div id="acciones" class="mt-6 flex flex-col sm:flex-row gap-3">
-      <a href="/" class="px-4 py-2 bg-blue-600 text-white rounded text-center">Volver al inicio</a>
+    <div class="mt-6 flex gap-3">
+      <a href="/" class="px-4 py-2 bg-blue-600 text-white rounded">Volver al inicio</a>
+      <a id="verCompras" href="/compras" class="px-4 py-2 bg-gray-900 text-white rounded">Ver en Mis Compras</a>
+      <a href="/orden-compra" class="px-4 py-2 bg-gray-700 text-white rounded">Buscar otra orden</a>
     </div>
   </div>
+
   <script type="module">
     (function(){
       const API_BASE = window.API_BASE || '/api';
       const u = new URL(window.location.href);
       const bo = u.searchParams.get('bo')||'';
-      const estado = document.getElementById('estado');
+      const reason = u.searchParams.get('reason')||'';
+      const message = u.searchParams.get('message')||'';
+      const estado = '{estadoParam}';
+      const banner = document.getElementById('banner');
+      const estadoBox = document.getElementById('estado');
       const orden = document.getElementById('orden');
       const resumen = document.getElementById('resumen');
       const ventaInfo = document.getElementById('ventaInfo');
@@ -36,22 +55,35 @@ import Layout from '../layouts/Layout.astro';
       const itemsList = document.getElementById('itemsList');
       const jsonBox = document.getElementById('json');
       const verCompras = document.getElementById('verCompras');
-      const show=(el)=>el.classList.remove('hidden');
+
+      const show = (el) => el.classList.remove('hidden');
+      const fmtPrecio = (v) => '$' + Number(v||0).toLocaleString('es-CL');
+
+      const statusMsg = () => {
+        if (estado === 'AUTHORIZED') return bo ? `Pago aprobado. Orden ${bo}` : 'Pago aprobado';
+        if (estado === 'REJECTED') return `Pago rechazado${reason?`: ${reason}`:''}`;
+        if (estado === 'FAILED') return 'Pago fallido';
+        if (estado === 'ABORTED') return 'Pago cancelado por el cliente';
+        if (estado === 'TIMEOUT') return 'Pago expirado por timeout';
+        if (estado === 'ERROR') return `Error de autenticación${message?`: ${message}`:''}`;
+      };
+
+      banner.textContent = statusMsg();
+
       orden.textContent = bo ? `Orden: ${bo}` : '';
       if (!bo) {
-        estado.textContent='Orden no proporcionada';
-        try { verCompras.href = '/compras'; } catch {}
+        estadoBox.textContent = 'No se proporcionó una orden de compra';
+        verCompras.href = '/compras';
         return;
       }
-      estado.textContent='Cargando detalle...';
+
+      estadoBox.textContent = 'Detalle';
       fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`,{ headers:{ 'Accept':'application/json' }})
         .then(r=>{ if(!r.ok) throw new Error('No encontrada'); return r.json(); })
         .then(data=>{
-          estado.textContent='Compra encontrada';
           const fecha = data?.fecha_venta ? new Date(data.fecha_venta).toLocaleString() : '';
           ventaInfo.textContent = `Venta #${data?.id_venta || ''} · Fecha: ${fecha}`;
           let cliente = data?.usuario_rut || data?.rut_usuario || '';
-          // Intentar obtener rut invitado desde observaciones
           try {
             if ((!cliente || cliente === 'Invitado') && typeof data?.observaciones === 'string' && data.observaciones.includes('VENTA_INVITADO:')) {
               const payload = data.observaciones.split('VENTA_INVITADO:',1)[1].trim();
@@ -60,22 +92,21 @@ import Layout from '../layouts/Layout.astro';
             }
           } catch {}
           clienteInfo.textContent = `Cliente: ${cliente || 'Invitado'}`;
-          totalInfo.textContent = `Total: $${Number(data?.total_venta||0).toLocaleString('es-CL')}`;
+          totalInfo.textContent = `Total: ${fmtPrecio(data?.total_venta)}`;
           show(resumen);
           const detalles = data?.detalles_venta || [];
           itemsList.innerHTML = '';
           detalles.forEach(d=>{
             const li = document.createElement('li');
             const nombre = d?.producto_nombre || `ID ${d?.id_producto}`;
-            li.textContent = `${nombre} · Cant: ${d?.cantidad} · Subtotal: $${Number(d?.subtotal||0).toLocaleString('es-CL')}`;
+            li.textContent = `${nombre} · Cant: ${d?.cantidad} · Subtotal: ${fmtPrecio(d?.subtotal)}`;
             itemsList.appendChild(li);
           });
           show(itemsBox);
           jsonBox.textContent = JSON.stringify(data,null,2);
-          show(jsonBox);
-          try { verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`; } catch {}
+          verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`;
         })
-        .catch(()=>{ estado.textContent='Orden no encontrada'; });
+        .catch(()=>{ estadoBox.textContent='Orden no encontrada'; });
     })();
   </script>
 </Layout>

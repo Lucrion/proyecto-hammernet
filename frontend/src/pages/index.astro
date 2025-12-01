@@ -215,8 +215,9 @@ export async function login(event) {
         mostrarNotificacion('Login exitoso', 'success');
         actualizarUI();
         const roleStr = String(state.user?.rol || state.user?.role || '').toLowerCase();
-        const workerRolesArr = ['administrador','admin','trabajador','vendedor','bodeguero'];
-        const allowWorker = workerRolesArr.includes(roleStr);
+        const normalized = roleStr === 'admin' ? 'administrador' : roleStr;
+        const workerRolesArr = ['administrador','repartidor','bodeguero'];
+        const allowWorker = workerRolesArr.includes(normalized);
         window.location.href = allowWorker ? '/admin' : '/';
     } catch (error) { console.error('Error en login:', error); mostrarNotificacion('Error en el login', 'error'); }
 }
