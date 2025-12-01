@@ -25,7 +25,6 @@ from models import (
     PagoDB, DespachoDB, RolDB, PermisoDB, RolPermisoDB,
 )
 from core.auth import hash_contraseña
-from core.auth import hash_contraseña
 
 # Cargar variables de entorno
 load_dotenv()
@@ -92,11 +91,69 @@ def crear_tablas():
         print(f"❌ Error al crear tablas: {str(e)}")
         return False
 
+def seed_roles_y_permisos():
+    """Crea roles y permisos base y asigna todos los permisos al rol administrador."""
+    try:
+        db = next(get_db())
+        # Permisos base
+        perms = [
+            "usuarios",
+            "catalogo",
+            "inventario",
+            "ventas",
+            "pagos",
+            "auditoria",
+            "dashboard",
+            "proveedores",
+            "categorias",
+            "subcategorias",
+            "despachos",
+        ]
+        created_perms = {}
+        for name in perms:
+            p = db.query(PermisoDB).filter(PermisoDB.descripcion == name).first()
+            if not p:
+                p = PermisoDB(descripcion=name)
+                db.add(p)
+                db.flush()
+            created_perms[name] = p.id_permiso
+
+        # Roles base
+        roles = ["administrador", "repartidor", "bodeguero", "cliente"]
+        created_roles = {}
+        for rname in roles:
+            r = db.query(RolDB).filter(RolDB.nombre == rname).first()
+            if not r:
+                r = RolDB(nombre=rname)
+                db.add(r)
+                db.flush()
+            created_roles[rname] = r.id_rol
+
+        # Asignar todos los permisos al rol administrador
+        admin_id = created_roles.get("administrador")
+        if admin_id:
+            for pid in created_perms.values():
+                rp = db.query(RolPermisoDB).filter(RolPermisoDB.id_rol == admin_id, RolPermisoDB.id_permiso == pid).first()
+                if not rp:
+                    db.add(RolPermisoDB(id_rol=admin_id, id_permiso=pid))
+        db.commit()
+        db.close()
+        print("✅ Roles y permisos iniciales verificados/creados")
+        return True
+    except Exception as e:
+        try:
+            db.rollback(); db.close()
+        except Exception:
+            pass
+        print(f"⚠️  Inicialización de roles/permisos parcialmente fallida: {e}")
+        return False
+
 def crear_usuario_admin():
     try:
         db = next(get_db())
 
-        admin_rut_str = os.getenv('ADMIN_RUT', '0')
+        # RUT y contraseña por defecto solicitados
+        admin_rut_str = os.getenv('ADMIN_RUT', '203477937')
         admin_rut_digits = re.sub(r"\D", "", admin_rut_str)
         admin_rut = int(admin_rut_digits) if admin_rut_digits else None
 
@@ -120,9 +177,16 @@ def crear_usuario_admin():
             if 'username' in cols_set:
                 exists_username_row = conn.execute(text("SELECT 1 FROM usuarios WHERE username = :u LIMIT 1"), {"u": username_val}).fetchone()
 
+            # Obtener id_rol de administrador si existe
+            admin_role_row = conn.execute(text("SELECT id_rol FROM roles WHERE nombre='administrador' LIMIT 1")).fetchone()
+            admin_role_id = int(admin_role_row[0]) if admin_role_row else None
+
             if exists_username_row:
                 set_parts = ["nombre=:nombre", "password=:password", "role=:role", "activo=:activo"]
                 params = {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "username": username_val}
+                if 'id_rol' in cols_set and admin_role_id:
+                    set_parts.append("id_rol=:id_rol")
+                    params["id_rol"] = admin_role_id
                 up_sql = "UPDATE usuarios SET nombre=:nombre, password=:password, role=:role, activo=:activo WHERE username=:username"
                 conn.execute(text(up_sql), params)
                 db.commit()
@@ -135,6 +199,9 @@ def crear_usuario_admin():
             elif exists_row:
                 set_parts = ["nombre=:nombre", "password=:password", "role=:role", "activo=:activo"]
                 params = {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "rut_txt": admin_rut_str}
+                if 'id_rol' in cols_set and admin_role_id:
+                    set_parts.append("id_rol=:id_rol")
+                    params["id_rol"] = admin_role_id
                 up_sql = f"UPDATE usuarios SET {', '.join(set_parts)} WHERE CAST(rut AS TEXT) = :rut_txt"
                 conn.execute(text(up_sql), params)
                 db.commit()
@@ -156,12 +223,16 @@ def crear_usuario_admin():
                             candidate = f"{username_val}{i}"
                     username_val = candidate
                     insert_cols.append('username')
+                if 'id_rol' in cols_set and admin_role_id:
+                    insert_cols.append('id_rol')
                 placeholders = ",".join([f":{c}" for c in insert_cols])
                 cols_str = ",".join(insert_cols)
                 ins_sql = f"INSERT INTO usuarios ({cols_str}) VALUES ({placeholders})"
                 params = {"nombre": nombre_val, "rut": admin_rut_str, "email": admin_email, "password": password_hash, "role": role_val, "activo": activo_val}
                 if 'username' in cols_set:
                     params['username'] = username_val
+                if 'id_rol' in cols_set and admin_role_id:
+                    params['id_rol'] = admin_role_id
                 conn.execute(text(ins_sql), params)
                 db.commit()
                 print("✅ Usuario administrador creado exitosamente")
@@ -201,6 +272,9 @@ def main():
     if not crear_tablas():
         print("❌ Error al crear las tablas")
         raise SystemExit(1)
+
+    # Paso 2.1: Inicializar roles y permisos
+    seed_roles_y_permisos()
 
     # Paso 3: Crear usuario administrador
     if not crear_usuario_admin():
