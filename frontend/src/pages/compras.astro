@@ -187,6 +187,13 @@ import EnvLoader from '../components/EnvLoader.astro';
         return fallback;
       };
 
+      const envioBadge = (v) => {
+        const s = String(v || '').toLowerCase();
+        const cls = s === 'entregado' ? 'bg-green-600' : (s === 'despachado' || s === 'en_camino' || s === 'en camino' ? 'bg-blue-600' : (s === 'pendiente' ? 'bg-yellow-600' : (s === 'no_entregado' || s === 'no entregado' ? 'bg-red-600' : 'bg-gray-500')));
+        const label = s ? s.replace('_',' ') : '—';
+        return `<span class="px-2 py-1 rounded text-white ${cls}">${label}</span>`;
+      };
+
       const renderCompras = (ventas) => {
         if (!Array.isArray(ventas) || ventas.length === 0) {
           comprasBody.innerHTML = '';
@@ -380,7 +387,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       init();
     });
-  </script>
+</script>
 </Layout>
 <script>
 (function(){
@@ -392,9 +399,3 @@ import EnvLoader from '../components/EnvLoader.astro';
   } catch {}
 })();
 </script>
-      const envioBadge = (v) => {
-        const s = String(v || '').toLowerCase();
-        const cls = s === 'entregado' ? 'bg-green-600' : (s === 'despachado' || s === 'en_camino' || s === 'en camino' ? 'bg-blue-600' : (s === 'pendiente' ? 'bg-yellow-600' : (s === 'no_entregado' || s === 'no entregado' ? 'bg-red-600' : 'bg-gray-500')));
-        const label = s ? s.replace('_',' ') : '—';
-        return `<span class="px-2 py-1 rounded text-white ${cls}">${label}</span>`;
-      };
