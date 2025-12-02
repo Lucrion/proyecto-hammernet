@@ -42,6 +42,15 @@ async def crear_mensaje(
     """Crear un nuevo mensaje (público)"""
     return await MensajeController.crear_mensaje(mensaje, db)
 
+# Alias sin barra final para compatibilidad
+@router.post("", response_model=MensajeContacto)
+async def crear_mensaje_alias(
+    mensaje: MensajeContactoCreate,
+    db: Session = Depends(get_db)
+):
+    """Alias: Crear mensaje (público) sin barra final"""
+    return await MensajeController.crear_mensaje(mensaje, db)
+
 
 @router.put("/{mensaje_id}/marcar-leido")
 async def marcar_mensaje_leido(
