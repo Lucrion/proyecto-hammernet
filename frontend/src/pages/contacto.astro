@@ -215,23 +215,19 @@ async function ensureApiBase(){
   try {
     const urlParam = new URLSearchParams(window.location.search).get('api');
     if (urlParam) window.API_BASE = urlParam;
-    const base = window.API_BASE || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
-    try {
-      const r = await fetch(String(base).replace(/\/$/,'') + '/health', { method:'GET' });
-      if (r && r.ok) { window.API_BASE = base; return; }
-    } catch {}
+    const base = window.API_BASE || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || 'https://hammernet.onrender.com/api');
+    window.API_BASE = base;
     try {
       const host = window.location.hostname || '';
       if (/\.onrender\.com$/.test(host)) {
         const alt = `https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;
-        const r2 = await fetch(alt + '/health', { method:'GET' });
-        if (r2 && r2.ok) { window.API_BASE = alt; return; }
+        try { const r = await fetch(alt + '/health', { method:'GET' }); if (r && r.ok) window.API_BASE = alt; } catch {}
       }
     } catch {}
   } catch {}
 }
 function getApiBase(){
-  try { return window.API_BASE || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api'); } catch { return '/api'; }
+  try { return window.API_BASE || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || 'https://hammernet.onrender.com/api'); } catch { return 'https://hammernet.onrender.com/api'; }
 }
 function buildUrl(endpoint){
   const base = getApiBase();
@@ -242,7 +238,7 @@ function buildUrl(endpoint){
   const path = endpoint.startsWith('/') ? endpoint : ('/' + endpoint);
   return root + path;
 }
-async function fetchWithAuth(endpoint,options={}){const headers=options.headers||{};let token='';try{token=sessionStorage.getItem('token')||localStorage.getItem('token')||localStorage.getItem('access_token')||''}catch{}if(token)headers['Authorization']='Bearer '+token;if(!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const url=buildUrl(endpoint);const c=new AbortController();const t=setTimeout(()=>c.abort(),Number(10000));const res=await fetch(url,{...options,headers,mode:'cors',credentials:'include',signal:c.signal});clearTimeout(t);return res}
+async function fetchWithAuth(endpoint,options={}){const headers=options.headers||{};let token='';try{token=sessionStorage.getItem('token')||localStorage.getItem('token')||localStorage.getItem('access_token')||''}catch{}if(token)headers['Authorization']='Bearer '+token;if(!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const url=buildUrl(endpoint);const c=new AbortController();const t=setTimeout(()=>c.abort(),Number(10000));const res=await fetch(url,{...options,headers,mode:'cors',credentials:'omit',signal:c.signal});clearTimeout(t);return res}
 async function getData(endpoint){const r=await fetchWithAuth(endpoint,{method:'GET',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
 async function postData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){let t='';try{t=await r.text();}catch{}const isHtml=/<\s*html\b|<!DOCTYPE\s+html/i.test(String(t||''));const safeMsg=isHtml?`Error ${r.status}: Servicio no disponible`:`Error ${r.status}: ${t}`;throw new Error(safeMsg)}return r.json()}
 
@@ -403,7 +399,7 @@ try {
 (function(){
   try {
     const env = window.__ENV__ || {};
-    const base = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || (location.origin + '/api');
+    const base = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || 'https://hammernet.onrender.com/api';
     if (!window.API_BASE) window.API_BASE = base;
   } catch {}
 })();

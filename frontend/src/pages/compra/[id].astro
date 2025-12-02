@@ -28,6 +28,18 @@ const idParam = Astro.params.id;
   </div>
 
   <script>
+    (function(){
+      try {
+        const ls = window.localStorage; const ss = window.sessionStorage;
+        const isGuest = (ss.getItem('guest_order_session') === '1') || (ls.getItem('guest_order_session') === '1');
+        const isLogged = ((ls.getItem('isLoggedIn') === 'true') && !!ls.getItem('token')) || ((ss.getItem('isLoggedIn') === 'true') && !!ss.getItem('token'));
+        if (!isLogged && !isGuest) {
+          const next = encodeURIComponent(window.location.pathname + window.location.search);
+          window.location.href = '/login-cliente?next=' + next;
+          return;
+        }
+      } catch {}
+    })();
     document.addEventListener('DOMContentLoaded', () => {
       const detalleHeader = document.getElementById('detalleHeader');
       const detalleBody = document.getElementById('detalleBody');
