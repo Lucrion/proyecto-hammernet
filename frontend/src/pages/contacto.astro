@@ -211,12 +211,27 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script type="module">
-function getApiBase(){
+async function ensureApiBase(){
   try {
-    if (window.API_BASE) return window.API_BASE;
-    const env = window.__ENV__ || {};
-    return env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
-  } catch { return '/api'; }
+    const urlParam = new URLSearchParams(window.location.search).get('api');
+    if (urlParam) window.API_BASE = urlParam;
+    const base = window.API_BASE || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
+    try {
+      const r = await fetch(String(base).replace(/\/$/,'') + '/health', { method:'GET' });
+      if (r && r.ok) { window.API_BASE = base; return; }
+    } catch {}
+    try {
+      const host = window.location.hostname || '';
+      if (/\.onrender\.com$/.test(host)) {
+        const alt = `https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;
+        const r2 = await fetch(alt + '/health', { method:'GET' });
+        if (r2 && r2.ok) { window.API_BASE = alt; return; }
+      }
+    } catch {}
+  } catch {}
+}
+function getApiBase(){
+  try { return window.API_BASE || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api'); } catch { return '/api'; }
 }
 function buildUrl(endpoint){
   const base = getApiBase();
@@ -229,9 +244,10 @@ function buildUrl(endpoint){
 }
 async function fetchWithAuth(endpoint,options={}){const headers=options.headers||{};let token='';try{token=sessionStorage.getItem('token')||localStorage.getItem('token')||localStorage.getItem('access_token')||''}catch{}if(token)headers['Authorization']='Bearer '+token;if(!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const url=buildUrl(endpoint);const c=new AbortController();const t=setTimeout(()=>c.abort(),Number(10000));const res=await fetch(url,{...options,headers,mode:'cors',credentials:'include',signal:c.signal});clearTimeout(t);return res}
 async function getData(endpoint){const r=await fetchWithAuth(endpoint,{method:'GET',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
-async function postData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){const t=await r.text();throw new Error(`Error ${r.status}: ${t}`)}return r.json()}
+async function postData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){let t='';try{t=await r.text();}catch{}const isHtml=/<\s*html\b|<!DOCTYPE\s+html/i.test(String(t||''));const safeMsg=isHtml?`Error ${r.status}: Servicio no disponible`:`Error ${r.status}: ${t}`;throw new Error(safeMsg)}return r.json()}
 
-function init() {
+async function init() {
+    await ensureApiBase();
     const form = document.getElementById('contactForm');
     const charCount = document.getElementById('charCount');
     const mensajeTextarea = document.getElementById('mensaje');
@@ -357,7 +373,10 @@ function init() {
                         msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
                     }
                 } catch {
-                    if (text) msg = text;
+                    if (text) {
+                        const isHtml = /<\s*html\b|<!DOCTYPE\s+html/i.test(text);
+                        msg = isHtml ? 'Servicio temporalmente no disponible. Intenta más tarde.' : text;
+                    }
                 }
                 try { window.showToast(msg, 'error'); } catch { alert(msg); }
             } finally {

@@ -21,24 +21,11 @@ import Layout from '../layouts/Layout.astro';
     try {
       const env = window.__ENV__ || {};
       const urlParam = new URLSearchParams(window.location.search).get('api');
-      const primary = urlParam || env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
-      const candidates = [primary];
-      try {
-        const host = window.location.hostname || '';
-        if (/\.onrender\.com$/.test(host)) {
-          const guess = `https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;
-          if (!candidates.includes(guess)) candidates.push(guess);
-        }
-      } catch {}
-      for (const base of candidates) {
-        try {
-          const r = await fetch(`${String(base).replace(/\/$/,'')}/health`, { method:'GET' });
-          if (r && r.ok) { apiBaseResolved = base; return base; }
-        } catch {}
-      }
-      apiBaseResolved = primary;
-      return primary;
-    } catch { apiBaseResolved = '/api'; return '/api'; }
+      const base = urlParam || env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      apiBaseResolved = base;
+      window.API_BASE = base;
+      return base;
+    } catch { apiBaseResolved = '/api'; window.API_BASE = '/api'; return '/api'; }
   }
 
   function normalizeImageUrl(u) {

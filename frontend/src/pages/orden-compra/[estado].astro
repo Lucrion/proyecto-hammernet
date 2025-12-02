@@ -36,6 +36,19 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
 
   <script type="module">
     (function(){
+      try {
+        const ls = window.localStorage; const ss = window.sessionStorage;
+        const isGuest = (ss.getItem('guest_order_session') === '1') || (ls.getItem('guest_order_session') === '1');
+        const isLogged = ls.getItem('isLoggedIn') === 'true' && Boolean(ls.getItem('token'));
+        if (!isLogged || isGuest) {
+          const next = encodeURIComponent(window.location.pathname + window.location.search);
+          window.location.href = '/login-cliente?next=' + next;
+          return;
+        }
+      } catch {}
+      async function ensureApiBase(){
+        try{const urlParam=new URLSearchParams(window.location.search).get('api');if(urlParam) window.API_BASE=urlParam;const base=window.API_BASE|| (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');try{const r=await fetch(String(base).replace(/\/$/,'') + '/health',{method:'GET'});if(r&&r.ok){window.API_BASE=base;return;}}catch{}try{const host=window.location.hostname||'';if(/\.onrender\.com$/.test(host)){const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;const r2=await fetch(alt + '/health',{method:'GET'});if(r2&&r2.ok){window.API_BASE=alt;return;}}}catch{} }
+      await ensureApiBase();
       const API_BASE = window.API_BASE || '/api';
       const u = new URL(window.location.href);
       const bo = u.searchParams.get('bo')||'';
@@ -78,9 +91,11 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
       }
 
       estadoBox.textContent = '';
-      fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`,{ headers:{ 'Accept':'application/json' }})
+      const token = (localStorage.getItem('token') || sessionStorage.getItem('token') || '');
+      if (!token) { window.location.href = '/login-cliente'; return; }
+      fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`,{ headers:{ 'Accept':'application/json', 'Authorization': `Bearer ${token}` }, cache:'no-store'})
         .then(r=>{ if(!r.ok) throw new Error('No encontrada'); return r.json(); })
-        .then(data=>{ const idv = Number(data?.id_venta || data?.id); try { sessionStorage.setItem('guest_order_session','1'); localStorage.setItem('guest_order_session','1'); } catch {} if (idv) { window.location.href = `/compra/${idv}?bo=${encodeURIComponent(bo)}`; } else { window.location.href = '/compras?bo='+encodeURIComponent(bo); } })
+        .then(data=>{ const idv = Number(data?.id_venta || data?.id); try { sessionStorage.removeItem('guest_order_session'); localStorage.removeItem('guest_order_session'); } catch {} if (idv) { window.location.href = `/compra/${idv}?bo=${encodeURIComponent(bo)}`; } else { window.location.href = '/compras?bo='+encodeURIComponent(bo); } })
     })();
   </script>
 </Layout>
