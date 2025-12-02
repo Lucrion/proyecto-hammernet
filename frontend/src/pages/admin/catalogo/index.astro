@@ -456,6 +456,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
     <script type="module">
     function buildUrl(endpoint){const base=(window.API_BASE||'/api');if(endpoint.startsWith('http'))return endpoint;const origin=String(base).replace(/\/api$/,'');if(endpoint.startsWith('/'))return origin+endpoint;return base+endpoint}
+    async function ensureApiBase(){try{const urlParam=new URLSearchParams(window.location.search).get('api');if(urlParam){window.API_BASE=urlParam;}const base=window.API_BASE||'/api';try{const r=await fetch(`${String(base).replace(/\/$/,'')}/health`,{method:'GET'});if(r&&r.ok){return;}}catch{}try{const host=window.location.hostname||'';if(/\.onrender\.com$/.test(host)){const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;const r2=await fetch(`${alt}/health`,{method:'GET'});if(r2&&r2.ok){window.API_BASE=alt;return;}}}catch{} }catch{}}
     async function fetchWithAuth(endpoint,options={}){const headers=options.headers||{};let token='';try{token=sessionStorage.getItem('token')||localStorage.getItem('token')||localStorage.getItem('access_token')||''}catch{}if(token)headers['Authorization']='Bearer '+token;if(!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const url=buildUrl(endpoint);const c=new AbortController();const t=setTimeout(()=>c.abort(),Number(10000));const res=await fetch(url,{...options,headers,mode:'cors',credentials:'include',signal:c.signal});clearTimeout(t);return res}
     async function getData(endpoint){const r=await fetchWithAuth(endpoint,{method:'GET',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
     async function postData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
@@ -534,7 +535,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     let tablaProductos, productoId, buscador, btnBuscar;
     let imagePreviewContainer, imagePreview, imageFileInput, dragText, imagenInput;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+        await ensureApiBase();
         btnNuevoProducto = document.getElementById('btnNuevoProducto');
         formProducto = document.getElementById('formProducto');
         formTitle = document.getElementById('formTitle');
@@ -959,9 +961,21 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         }
         data.color = (data.color || '').trim() || null; data.material = (data.material || '').trim() || null; if (catalogarBase64Image) data.imagen_base64 = catalogarBase64Image;
         const submitBtn = document.querySelector('#catalogarProductoForm button[type="submit"]'); if (submitBtn) submitBtn.disabled = true;
-        try { const response = await postData(`/api/productos/${productoId}/agregar-catalogo`, data); if (response) { try { window.showToast('Producto catalogado exitosamente', 'success'); } catch { alert('Producto catalogado exitosamente'); } cerrarCatalogarModal(); await cargarDatos(); } }
+        try { const response = await postData(`/api/productos/${productoId}/agregar-catalogo`, data); if (response) { try { window.showToast('Producto catalogado exitosamente', 'success'); } catch { alert('Producto catalogado exitosamente'); } try { localStorage.setItem('catalog_updated', String(Date.now())); } catch {} cerrarCatalogarModal(); aplicarCatalogacionLocal(response); } }
         catch (error) { console.error('Error al catalogar producto:', error); try { window.showToast('Error al catalogar producto', 'error'); } catch { alert('Error al catalogar producto'); } }
         finally { if (submitBtn) submitBtn.disabled = false; }
+    }
+    function aplicarCatalogacionLocal(p) {
+        try {
+            if (!p || typeof p !== 'object') return;
+            const id = Number(p.id_producto);
+            productosInventario = Array.isArray(productosInventario) ? productosInventario.filter(x => Number(x.id_producto) !== id) : [];
+            const idx = Array.isArray(productosCatalogados) ? productosCatalogados.findIndex(x => Number((x && x.id_producto)) === id) : -1;
+            if (idx >= 0) productosCatalogados[idx] = p; else productosCatalogados = [p, ...(productosCatalogados || [])];
+            productos = [...(productosCatalogados || []), ...(productosInventario || [])];
+            actualizarContadores();
+            mostrarTablaSegunPestana();
+        } catch {}
     }
     async function guardarEdicionCatalogado() {
         const form = document.getElementById('editarProductoForm');

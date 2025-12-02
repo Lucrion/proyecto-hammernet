@@ -38,10 +38,9 @@ async def obtener_subcategoria(
 @router.post("/", response_model=SubCategoria)
 async def crear_subcategoria(
     subcategoria: SubCategoriaCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """Crear una nueva subcategoría (solo administradores)"""
+    """Crear una nueva subcategoría"""
     return await SubCategoriaController.crear_subcategoria(subcategoria, db)
 
 
@@ -49,10 +48,9 @@ async def crear_subcategoria(
 async def actualizar_subcategoria(
     subcategoria_id: int,
     subcategoria: SubCategoriaUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """Actualizar una subcategoría (solo administradores)"""
+    """Actualizar una subcategoría"""
     return await SubCategoriaController.actualizar_subcategoria(subcategoria_id, subcategoria, db)
 
 

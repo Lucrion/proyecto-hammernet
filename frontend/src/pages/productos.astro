@@ -6,6 +6,7 @@ import Layout from '../layouts/Layout.astro';
 <script type="module">
   function trackEvent(name, payload){ try { console.debug('[trackEvent]', name, payload||{}); } catch {} }
   // Helpers para normalizar URLs de imágenes (soporta relativas del backend)
+  let apiBaseResolved = null;
   function getApiHost() {
     try {
       const env = window.__ENV__ || {};
@@ -16,10 +17,34 @@ import Layout from '../layouts/Layout.astro';
     }
   }
 
+  async function resolveApiBase() {
+    try {
+      const env = window.__ENV__ || {};
+      const urlParam = new URLSearchParams(window.location.search).get('api');
+      const primary = urlParam || env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      const candidates = [primary];
+      try {
+        const host = window.location.hostname || '';
+        if (/\.onrender\.com$/.test(host)) {
+          const guess = `https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;
+          if (!candidates.includes(guess)) candidates.push(guess);
+        }
+      } catch {}
+      for (const base of candidates) {
+        try {
+          const r = await fetch(`${String(base).replace(/\/$/,'')}/health`, { method:'GET' });
+          if (r && r.ok) { apiBaseResolved = base; return base; }
+        } catch {}
+      }
+      apiBaseResolved = primary;
+      return primary;
+    } catch { apiBaseResolved = '/api'; return '/api'; }
+  }
+
   function normalizeImageUrl(u) {
     if (!u) return null;
     const s = String(u);
-    const api = (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
+    const api = apiBaseResolved || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
     const origin = api.replace(/\/api$/, '');
     if (/^https?:\/\//i.test(s)) {
       try { return `${api}/media?url=${encodeURIComponent(s)}`; } catch { return s; }
@@ -60,8 +85,7 @@ import Layout from '../layouts/Layout.astro';
   const subcatsContainer = document.getElementById('subcats-container');
   async function cargarCategorias() {
     try {
-      const env = window.__ENV__ || {};
-      const apiBase = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      const apiBase = apiBaseResolved || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
       const res = await fetch(`${apiBase}/categorias/`);
       const cats = res.ok ? await res.json() : [];
       renderCategorias(Array.isArray(cats) ? cats : []);
@@ -69,8 +93,7 @@ import Layout from '../layouts/Layout.astro';
   }
   async function cargarSubcategorias(categoriaId) {
     try {
-      const env = window.__ENV__ || {};
-      const apiBase = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      const apiBase = apiBaseResolved || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
       const res = await fetch(`${apiBase}/subcategorias/?categoria_id=${encodeURIComponent(categoriaId)}`);
       const subs = res.ok ? await res.json() : [];
       renderSubcategorias(Array.isArray(subs) ? subs : []);
@@ -396,10 +419,10 @@ import Layout from '../layouts/Layout.astro';
   async function cargarProductos() {
     mostrarCargando();
     try {
-      const env = window.__ENV__ || {};
-      const apiBase = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
-      await fetch(`${apiBase}/health`).catch(() => {});
-      const res = await fetch(`${apiBase}/productos/catalogo?skip=0&limit=1000`);
+      const apiBase = await resolveApiBase();
+      await fetch(`${apiBase}/health`, { cache: 'no-store' }).catch(() => {});
+      const bust = Date.now();
+      const res = await fetch(`${apiBase}/productos/catalogo?skip=0&limit=1000&_=${bust}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
       const productos = res.ok ? await res.json() : [];
       state.todosProductos = productos;
       state.paginacion.paginaActual = 1;
@@ -416,6 +439,10 @@ import Layout from '../layouts/Layout.astro';
     cargarCategorias();
     if (state.filtros.categoriaId) cargarSubcategorias(state.filtros.categoriaId);
     cargarProductos();
+  });
+
+  window.addEventListener('storage', (e) => {
+    try { if (e && e.key === 'catalog_updated') { cargarProductos(); } } catch {}
   });
 
   // Eventos UI: búsqueda y precio

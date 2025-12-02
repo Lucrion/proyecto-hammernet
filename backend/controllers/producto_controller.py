@@ -373,7 +373,7 @@ class ProductoController:
                 nombre=producto.nombre,
                 descripcion=producto.descripcion,
                 imagen_url=producto.imagen_url,
-                marca=producto.marca,
+                marca=producto.marca or "Sin marca",
                 caracteristicas=producto.caracteristicas,
                 garantia_meses=getattr(producto, 'garantia_meses', None),
                 modelo=getattr(producto, 'modelo', None),
