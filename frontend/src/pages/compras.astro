@@ -18,6 +18,7 @@ import EnvLoader from '../components/EnvLoader.astro';
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Envío</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
@@ -200,6 +201,7 @@ import EnvLoader from '../components/EnvLoader.astro';
             <td class="px-4 py-3 text-sm">
               <span class="px-2 py-1 rounded text-white ${v.estado === 'completada' ? 'bg-green-600' : (v.estado === 'cancelada' ? 'bg-red-600' : 'bg-yellow-500')}">${v.estado}</span>
             </td>
+            <td class="px-4 py-3 text-sm">${envioBadge(v.estado_envio)}</td>
             <td class="px-4 py-3 text-sm font-semibold">${fmtPrecio(v.total_venta)}</td>
             <td class="px-4 py-3 text-sm">
               <button class="text-blue-600 hover:text-blue-800" data-id="${v.id_venta}" data-src="${v.__local ? 'local' : 'api'}" data-action="ver-detalle">Ver detalle</button>
@@ -225,6 +227,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           <div><span class="text-gray-500">Orden de compra:</span> <span class="font-medium">${orden || `#${venta.id_venta}`}</span></div>
           <div><span class="text-gray-500">Fecha:</span> <span class="font-medium">${fmtFecha(venta.fecha_venta)}</span></div>
           <div><span class="text-gray-500">Estado:</span> <span class="font-medium">${venta.estado}</span></div>
+          <div><span class="text-gray-500">Envío:</span> <span class="font-medium">${venta.metodo_entrega || '—'} · ${venta.estado_envio || '—'}</span></div>
           <div><span class="text-gray-500">Total:</span> <span class="font-semibold">${fmtPrecio(venta.total_venta)}</span></div>
         `;
         const detalles = Array.isArray(venta.detalles_venta) ? venta.detalles_venta : [];
@@ -389,3 +392,9 @@ import EnvLoader from '../components/EnvLoader.astro';
   } catch {}
 })();
 </script>
+      const envioBadge = (v) => {
+        const s = String(v || '').toLowerCase();
+        const cls = s === 'entregado' ? 'bg-green-600' : (s === 'despachado' || s === 'en_camino' || s === 'en camino' ? 'bg-blue-600' : (s === 'pendiente' ? 'bg-yellow-600' : (s === 'no_entregado' || s === 'no entregado' ? 'bg-red-600' : 'bg-gray-500')));
+        const label = s ? s.replace('_',' ') : '—';
+        return `<span class="px-2 py-1 rounded text-white ${cls}">${label}</span>`;
+      };
