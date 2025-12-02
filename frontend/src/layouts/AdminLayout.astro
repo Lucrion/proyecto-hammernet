@@ -66,7 +66,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 							Mensajes
 						</a>
 					</li>
-                    <li class="role-admin-repartidor-only">
+                    <li class="role-admin-vendedor-only">
                         <a href="/admin/ventas" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -139,11 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
         storedUserRole = u && (u.rol || u.role) ? (u.rol || u.role) : null;
     } catch {}
     const role = String(storedUserRole || storedRole || loginTipo || '').toLowerCase();
-    const roleNormalized = role === 'admin' ? 'administrador' : role;
-    const allowedRoles = ['administrador','repartidor','bodeguero'];
+    let roleNormalized = role === 'admin' ? 'administrador' : role;
+    if (roleNormalized === 'repartidor') roleNormalized = 'vendedor';
+    const allowedRoles = ['administrador','vendedor','bodeguero'];
 
     if (!isLoggedIn) {
-        window.location.href = '/login?tipo=trabajador';
+        window.location.href = '/login-trabajador';
         return;
     }
     if (!allowedRoles.includes(roleNormalized)) {
@@ -164,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             hide('aside nav li.role-admin-only', ['administrador']);
             hide('aside nav li.role-admin-bodeguero-only', ['administrador','bodeguero']);
-            hide('aside nav li.role-admin-repartidor-only', ['administrador','repartidor']);
+            hide('aside nav li.role-admin-vendedor-only', ['administrador','vendedor']);
         }
     } catch {}
     try {

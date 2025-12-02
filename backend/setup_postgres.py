@@ -33,9 +33,17 @@ def verificar_conexion():
     """Verifica que la conexión a PostgreSQL funcione correctamente"""
     try:
         with engine.connect() as connection:
-            result = connection.execute(text("SELECT version();"))
-            version = result.fetchone()[0]
-            print(f"✅ Conexión exitosa a PostgreSQL: {version[:50]}...")
+            dialect = engine.dialect.name
+            if dialect == 'postgresql':
+                result = connection.execute(text("SELECT version();"))
+                version = result.fetchone()[0]
+                print(f"✅ Conexión exitosa a PostgreSQL: {version[:50]}...")
+            elif dialect == 'sqlite':
+                result = connection.execute(text("SELECT sqlite_version();"))
+                version = result.fetchone()[0]
+                print(f"✅ Conexión a SQLite detectada: {version}")
+            else:
+                print(f"⚠️ Dialecto {dialect} detectado; conexión abierta")
             return True
     except SQLAlchemyError as e:
         print(f"❌ Error de conexión a PostgreSQL: {str(e)}")
@@ -45,6 +53,10 @@ def verificar_conexion():
 def asegurar_esquema_usuarios():
     """Asegura que la tabla usuarios tenga la columna id_rol y FK opcional hacia roles."""
     try:
+        if engine.dialect.name != 'postgresql':
+            # Ajuste solo para Postgres; en SQLite se gestiona en config.database
+            print("ℹ️ Esquema de usuarios: omitiendo verificación específica de Postgres (dialecto no postgres)")
+            return True
         with engine.connect() as connection:
             # Crear columna si no existe
             exists_col = connection.execute(text("SELECT 1 FROM information_schema.columns WHERE table_name='usuarios' AND column_name='id_rol'"))
@@ -119,7 +131,7 @@ def seed_roles_y_permisos():
             created_perms[name] = p.id_permiso
 
         # Roles base
-        roles = ["administrador", "repartidor", "bodeguero", "cliente"]
+        roles = ["administrador", "vendedor", "bodeguero", "cliente"]
         created_roles = {}
         for rname in roles:
             r = db.query(RolDB).filter(RolDB.nombre == rname).first()
@@ -160,18 +172,26 @@ def crear_usuario_admin():
         admin_password = os.getenv('ADMIN_PASSWORD', '123')
         admin_email = os.getenv('ADMIN_EMAIL', 'admin@localhost')
         with engine.connect() as conn:
-            cols = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='usuarios'"))
-            cols_set = {r[0] for r in cols.fetchall()}
+            dialect = engine.dialect.name
+            if dialect == 'postgresql':
+                cols = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='usuarios'"))
+                cols_set = {r[0] for r in cols.fetchall()}
+            else:
+                cols = conn.execute(text("PRAGMA table_info(usuarios)"))
+                cols_set = {r[1] for r in cols.fetchall()}
             nombre_val = 'Administrador'
             password_hash = hash_contraseña(admin_password)
             role_val = 'administrador'
             activo_val = True
             username_val = os.getenv('ADMIN_USERNAME', 'admin')
-            username_required_row = conn.execute(text("SELECT is_nullable FROM information_schema.columns WHERE table_name='usuarios' AND column_name='username'")).fetchone()
-            username_required = bool(username_required_row and (str(username_required_row[0]).upper() == 'NO'))
+            if dialect == 'postgresql':
+                username_required_row = conn.execute(text("SELECT is_nullable FROM information_schema.columns WHERE table_name='usuarios' AND column_name='username'")).fetchone()
+                username_required = bool(username_required_row and (str(username_required_row[0]).upper() == 'NO'))
+            else:
+                username_required = False
 
             # Verificar existencia por rut como texto (compatible con varchar/int)
-            exists_sql = "SELECT 1 FROM usuarios WHERE CAST(rut AS TEXT) = :rut_txt LIMIT 1"
+            exists_sql = "SELECT 1 FROM usuarios WHERE CAST(rut AS TEXT) = :rut_txt LIMIT 1" if dialect == 'postgresql' else "SELECT 1 FROM usuarios WHERE rut = :rut_txt LIMIT 1"
             exists_row = conn.execute(text(exists_sql), {"rut_txt": admin_rut_str}).fetchone()
             exists_username_row = None
             if 'username' in cols_set:
@@ -182,7 +202,9 @@ def crear_usuario_admin():
             admin_role_id = int(admin_role_row[0]) if admin_role_row else None
 
             if exists_username_row:
-                set_parts = ["nombre=:nombre", "password=:password", "role=:role", "activo=:activo"]
+                set_parts = ["nombre=:nombre", "password=:password", "activo=:activo"]
+                if 'role' in cols_set:
+                    set_parts.insert(2, "role=:role")
                 params = {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "username": username_val}
                 if 'id_rol' in cols_set and admin_role_id:
                     set_parts.append("id_rol=:id_rol")
@@ -197,12 +219,14 @@ def crear_usuario_admin():
                 print(f"   Email: {admin_email}")
                 return True
             elif exists_row:
-                set_parts = ["nombre=:nombre", "password=:password", "role=:role", "activo=:activo"]
+                set_parts = ["nombre=:nombre", "password=:password", "activo=:activo"]
+                if 'role' in cols_set:
+                    set_parts.insert(2, "role=:role")
                 params = {"nombre": nombre_val, "password": password_hash, "role": role_val, "activo": activo_val, "rut_txt": admin_rut_str}
                 if 'id_rol' in cols_set and admin_role_id:
                     set_parts.append("id_rol=:id_rol")
                     params["id_rol"] = admin_role_id
-                up_sql = f"UPDATE usuarios SET {', '.join(set_parts)} WHERE CAST(rut AS TEXT) = :rut_txt"
+                up_sql = f"UPDATE usuarios SET {', '.join(set_parts)} WHERE CAST(rut AS TEXT) = :rut_txt" if dialect == 'postgresql' else f"UPDATE usuarios SET {', '.join(set_parts)} WHERE rut = :rut_txt"
                 conn.execute(text(up_sql), params)
                 db.commit()
                 print("✅ Usuario administrador actualizado exitosamente")
@@ -212,7 +236,9 @@ def crear_usuario_admin():
                 print(f"   Email: {admin_email}")
                 return True
             else:
-                insert_cols = ["nombre", "rut", "email", "password", "role", "activo"]
+                insert_cols = ["nombre", "rut", "email", "password", "activo"]
+                if 'role' in cols_set:
+                    insert_cols.append('role')
                 insert_cols = [c for c in insert_cols if c in cols_set]
                 if 'username' in cols_set:
                     candidate = username_val

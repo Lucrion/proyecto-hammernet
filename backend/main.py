@@ -54,7 +54,13 @@ app = FastAPI(
     root_path=os.environ.get("ROOT_PATH", "")
 )
 
-app.add_middleware(GZipMiddleware, minimum_size=500)
+try:
+    if os.getenv("ENVIRONMENT", "development").lower() == "production":
+        app.add_middleware(GZipMiddleware, minimum_size=500)
+    else:
+        print("[GZip] Deshabilitado en desarrollo")
+except Exception as _gz_err:
+    print(f"[GZip] No se pudo agregar middleware: {_gz_err}")
 
 # Crear las tablas en la base de datos (solo si no existen)
 try:
@@ -100,7 +106,7 @@ try:
             db.add(p)
             db.flush()
         created_perms[name] = p.id_permiso
-    roles = ["administrador", "repartidor", "bodeguero", "cliente"]
+    roles = ["administrador", "vendedor", "bodeguero", "cliente"]
     created_roles = {}
     for rname in roles:
         r = db.query(RolDB).filter(RolDB.nombre == rname).first()
