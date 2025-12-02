@@ -86,7 +86,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           show(jsonBox);
           try { verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`; sessionStorage.setItem('guest_order_bo', bo); localStorage.setItem('guest_order_bo', bo); } catch(e){}
         })
-        .catch((e)=>{ estado.textContent='Orden no encontrada'; });
+        .catch((e)=>{ estado.textContent=''; });
     })();
   </script>
 </Layout>

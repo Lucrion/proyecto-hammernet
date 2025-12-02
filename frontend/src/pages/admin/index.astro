@@ -111,6 +111,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Envío</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                     </tr>
                 </thead>
@@ -185,21 +186,18 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
             <div id="apartadoChartInventario" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
         </div>
 
-        <!-- Apartado: Pedidos -->
+        <!-- Apartado: Envíos -->
         <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 role-section-admin-vendedor-only">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
                     <span class="p-2 rounded-lg bg-yellow-50 text-yellow-600">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18M3 7h18M5 11h14M7 15h10M9 19h6"/></svg>
                     </span>
-                    <h2 class="text-lg font-semibold text-gray-900">Pedidos</h2>
+                    <h2 class="text-lg font-semibold text-gray-900">Envíos</h2>
                 </div>
-                <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
-                    <button id="pedidosModeTop" class="px-3 py-1 rounded-full bg-green-600 text-white text-sm">Destacados</button>
-                    <button id="pedidosModeBottom" class="px-3 py-1 rounded-full bg-white text-gray-800 text-sm">Últimos</button>
-                </div>
+                
             </div>
-            <div id="apartadoChartPedidos" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
+            <div id="apartadoChartEnvios" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
         </div>
 
         <!-- Apartado: Pagos -->
@@ -258,18 +256,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
         </div>
     </div>
 
-    <!-- Pagos -->
-    <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 mt-8 role-section-admin-only">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Pagos</h2>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="p-4 rounded-lg bg-amber-50 ring-1 ring-amber-100">
-                <div class="text-sm text-amber-700">Transacciones fallidas</div>
-                <div id="metricTransaccionesFallidas" class="mt-2 text-2xl font-bold text-amber-900">0</div>
-            </div>
-        </div>
-    </div>
+    
 
     
 </AdminLayout>
@@ -301,6 +288,8 @@ function formatCurrency(value) {
   catch { return `$${(value || 0).toFixed(0)}`; }
 }
 function formatDate(value) { try { const d = new Date(value); return d.toLocaleString('es-CL'); } catch { return String(value); } }
+function parseEnvioEstado(venta) { try { if (venta.estado_envio) return String(venta.estado_envio).toLowerCase(); const obs = String(venta.observaciones || ''); const tag = 'ENVIO_ESTADO:'; const idx = obs.indexOf(tag); if (idx >= 0) { const rest = obs.slice(idx + tag.length).trim(); const linea = rest.split('\n')[0].trim(); const val = linea.toLowerCase(); if (['pendiente','preparando','asignado','en camino','entregado','fallido'].includes(val)) return val; } return ''; } catch { return ''; } }
+function envioBadge(v) { const s = String(v || '').toLowerCase(); const cls = s === 'entregado' ? 'bg-green-600' : (s === 'despachado' || s === 'en_camino' || s === 'en camino' ? 'bg-blue-600' : (s === 'pendiente' || s === 'preparando' || s === 'asignado' ? 'bg-yellow-600' : (s === 'fallido' ? 'bg-red-600' : 'bg-gray-500'))); const label = s ? s.replace('_',' ') : '—'; return `<span class="px-2 py-1 rounded text-white ${cls}">${label}</span>`; }
 function renderActividadItem(evt) {
   const iconColor = 'text-blue-600'; const bgColor = 'bg-blue-100'; const entidad = evt.entidad_tipo || 'Evento'; const detalle = evt.detalle || ''; const fecha = formatDate(evt.fecha_evento); const titulo = `${entidad}: ${evt.accion || ''}`;
   return `
@@ -423,8 +412,9 @@ async function cargarUltimasVentas() {
       <tr>
         <td class="px-4 py-3 text-sm text-gray-800">#${v.id_venta}</td>
         <td class="px-4 py-3 text-sm text-gray-700">${fmtFecha(v.fecha_venta)}</td>
-        <td class="px-4 py-3 text-sm">${v.usuario || 'Invitado'}</td>
+        <td class="px-4 py-3 text-sm">${resolveUserDisplay(v, nameMap)}</td>
         <td class="px-4 py-3 text-sm font-semibold">${fmtPrecio(v.total_venta)}</td>
+        <td class="px-4 py-3 text-sm">${envioBadge(parseEnvioEstado(v))}</td>
         <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-white ${v.estado === 'completada' ? 'bg-green-600' : (v.estado === 'cancelada' ? 'bg-red-600' : 'bg-yellow-500')}">${v.estado}</span></td>
       </tr>`).join('');
   } catch (e) { console.warn('No se pudieron cargar últimas ventas', e); }
@@ -439,7 +429,7 @@ async function loadAnalyticsData() {
   try { const ventasCat = await getData('/api/dashboard/charts/ventas_por_categoria'); analyticsState.data.ventasCat = Array.isArray(ventasCat) ? ventasCat.map(v=>({ label: String(v.categoria||`ID ${v.id_categoria}`), ingresos: Number(v.ingresos||0), cantidad: Number(v.cantidad||0) })) : []; } catch { analyticsState.data.ventasCat = []; }
   try { const invCat = await getData('/api/dashboard/charts/inventario_por_categoria'); analyticsState.data.inventarioCat = Array.isArray(invCat) ? invCat.map(v=>({ label: String(v.categoria||`ID ${v.id_categoria}`), valor: Number(v.valor||0), unidades: Number(v.unidades||0) })) : []; } catch { analyticsState.data.inventarioCat = []; }
   try { const topProd = await getData('/api/dashboard/charts/top_productos?limite=50'); analyticsState.data.topProductos = Array.isArray(topProd) ? topProd.map(p=>({ label: String(p.nombre||`ID ${p.id_producto}`), unidades: Number(p.unidades||0) })) : []; } catch { analyticsState.data.topProductos = []; }
-  try { const ventas = await getData('/api/ventas?limit=500'); const arr = Array.isArray(ventas) ? ventas : []; analyticsState.data.ventasList = arr; const porUsuario = {}; const porEstado = {}; const porPago = []; arr.forEach(v=>{ const u = String(v.usuario||'Invitado'); porUsuario[u]=(porUsuario[u]||0)+1; const e = String(v.estado||'pendiente'); porEstado[e]=(porEstado[e]||0)+1; porPago.push({ label: `#${v.id_venta}`, monto: Number(v.total_venta||0) }); }); analyticsState.data.clientes = Object.entries(porUsuario).map(([label,valor])=>({ label, valor })); analyticsState.data.pedidos = Object.entries(porEstado).map(([label,valor])=>({ label, valor })); analyticsState.data.pagos = porPago; } catch { analyticsState.data.clientes=[]; analyticsState.data.pedidos=[]; analyticsState.data.pagos=[]; }
+  try { const ventas = await getData('/api/ventas?limit=500'); const arr = Array.isArray(ventas) ? ventas : []; analyticsState.data.ventasList = arr; const porUsuario = {}; const porEstado = {}; const porPago = []; const porEnvio = {}; arr.forEach(v=>{ const u = String(v.usuario||'Invitado'); porUsuario[u]=(porUsuario[u]||0)+1; const e = String(v.estado||'pendiente'); porEstado[e]=(porEstado[e]||0)+1; const env = (typeof parseEnvioEstado==='function'? (parseEnvioEstado(v) || v.estado_envio) : v.estado_envio) || 'pendiente'; const envKey = String(env).toLowerCase(); porEnvio[envKey]=(porEnvio[envKey]||0)+1; porPago.push({ label: `#${v.id_venta}`, monto: Number(v.total_venta||0) }); }); analyticsState.data.clientes = Object.entries(porUsuario).map(([label,valor])=>({ label, valor })); analyticsState.data.pedidos = Object.entries(porEstado).map(([label,valor])=>({ label, valor })); analyticsState.data.envios = Object.entries(porEnvio).map(([label,valor])=>({ label, valor })); analyticsState.data.pagos = porPago; } catch { analyticsState.data.clientes=[]; analyticsState.data.pedidos=[]; analyticsState.data.envios=[]; analyticsState.data.pagos=[]; }
   try { const visitas = await getData('/api/analytics/visitas?dias=30'); analyticsState.data.visitasMes = Array.isArray(visitas) ? visitas.map(v=>({ fecha: String(v.fecha), visitas: Number(v.visitas||0) })) : []; } catch { analyticsState.data.visitasMes = []; }
   try { const usuarios = await getData('/api/usuarios/'); analyticsState.data.clientesMes = Array.isArray(usuarios) ? usuarios.filter(u=>{ const d = new Date(u.fecha_creacion || u.created_at || u.fecha_registro || 0); const now = new Date(); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length : 0; } catch { analyticsState.data.clientesMes = 0; }
 }
@@ -460,6 +450,7 @@ async function initApartadosAnalytics() {
   await ensureGoogleChartsReady(); await loadAnalyticsData(); await buildUserMapAndRelabel();
   const vDia = document.getElementById('ventasTfDia'); const vSem = document.getElementById('ventasTfSem'); const vMes = document.getElementById('ventasTfMes');
   if (vDia && vSem && vMes) {
+    try { vDia.textContent = 'Día'; vSem.textContent = 'Semana'; vMes.textContent = 'Mes'; } catch {}
     vDia.onclick = ()=>{ analyticsApartados.ventas.timeframe='dia'; toggleTimeButtons(vDia, vDia, vSem, vMes); drawApartadoVentasPorDia(); };
     vSem.onclick = ()=>{ analyticsApartados.ventas.timeframe='semana'; toggleTimeButtons(vSem, vDia, vSem, vMes); drawApartadoVentasPorDia(); };
     vMes.onclick = ()=>{ analyticsApartados.ventas.timeframe='mes'; toggleTimeButtons(vMes, vDia, vSem, vMes); drawApartadoVentasPorDia(); };
@@ -467,20 +458,30 @@ async function initApartadosAnalytics() {
   }
   const cTop = document.getElementById('clientesModeTop'); const cBottom = document.getElementById('clientesModeBottom'); if (cTop) cTop.onclick = ()=>{ analyticsApartados.clientes.mode='top'; toggleModeButtons(cTop, cBottom); drawApartadoClientes(); }; if (cBottom) cBottom.onclick = ()=>{ analyticsApartados.clientes.mode='bottom'; toggleModeButtons(cTop, cBottom); drawApartadoClientes(); }; toggleModeButtons(cTop, cBottom);
   const iTop = document.getElementById('inventarioModeTop'); const iBottom = document.getElementById('inventarioModeBottom'); if (iTop) iTop.onclick = ()=>{ analyticsApartados.inventario.mode='top'; toggleModeButtons(iTop, iBottom); drawApartadoInventario(); }; if (iBottom) iBottom.onclick = ()=>{ analyticsApartados.inventario.mode='bottom'; toggleModeButtons(iTop, iBottom); drawApartadoInventario(); }; toggleModeButtons(iTop, iBottom);
-  const pTop = document.getElementById('pedidosModeTop'); const pBottom = document.getElementById('pedidosModeBottom'); if (pTop) pTop.onclick = ()=>{ analyticsApartados.pedidos.mode='top'; toggleModeButtons(pTop, pBottom); drawApartadoPedidos(); }; if (pBottom) pBottom.onclick = ()=>{ analyticsApartados.pedidos.mode='bottom'; toggleModeButtons(pTop, pBottom); drawApartadoPedidos(); }; toggleModeButtons(pTop, pBottom);
+  try { drawApartadoEnvios(); } catch {}
   const paTop = document.getElementById('pagosModeTop'); const paBottom = document.getElementById('pagosModeBottom'); if (paTop) paTop.onclick = ()=>{ analyticsApartados.pagos.mode='top'; toggleModeButtons(paTop, paBottom); drawApartadoPagos(); }; if (paBottom) paBottom.onclick = ()=>{ analyticsApartados.pagos.mode='bottom'; toggleModeButtons(paTop, paBottom); drawApartadoPagos(); }; toggleModeButtons(paTop, paBottom);
-  drawApartadoVentasPorDia(); drawApartadoVentasTopProductos(); drawApartadoVentasIngresosCategoria(); drawApartadoClientes(); drawApartadoInventario(); drawApartadoPedidos(); drawApartadoPagos(); drawResumenMetrics();
+  drawApartadoVentasPorDia(); drawApartadoVentasTopProductos(); drawApartadoVentasIngresosCategoria(); drawApartadoClientes(); drawApartadoInventario(); drawApartadoEnvios(); drawApartadoPagos(); drawResumenMetrics();
   try { const visitasLen = Array.isArray(analyticsState.data.visitasMes) ? analyticsState.data.visitasMes.length : 0; const section = document.getElementById('sectionRendimiento'); if (section) { if (visitasLen < 2) { section.style.display = 'none'; } else { section.style.display = ''; drawVisitasMes(); } } } catch {}
 }
 
-const analyticsApartados = { ventas:{ timeframe:'dia', mode:'top' }, clientes:{ mode:'top' }, inventario:{ mode:'top' }, pedidos:{ mode:'top' }, pagos:{ mode:'top' } };
+const analyticsApartados = { ventas:{ timeframe:'dia', mode:'top' }, clientes:{ mode:'top' }, inventario:{ mode:'top' }, pedidos:{ mode:'top' }, envios:{ mode:'top' }, pagos:{ mode:'top' } };
 function toggleModeButtons(btnTop, btnBottom) { if (!btnTop || !btnBottom) return; const topActive = btnTop === document.activeElement || btnTop.classList.contains('bg-green-600'); btnTop.classList.add('bg-green-600','text-white'); btnTop.classList.remove('bg-gray-200','text-gray-800'); btnBottom.classList.add('bg-gray-200','text-gray-800'); btnBottom.classList.remove('bg-green-600','text-white'); }
-function toggleTimeButtons(active, bDia, bSem, bMes) { [bDia,bSem,bMes].forEach((b)=>{ if (!b) return; b.classList.add('bg-gray-200','text-gray-800'); b.classList.remove('bg-indigo-600','text-white'); }); if (active) { active.classList.add('bg-indigo-600','text-white'); active.classList.remove('bg-gray-200','text-gray-800'); } }
+function toggleTimeButtons(active, bDia, bSem, bMes) {
+  [bDia,bSem,bMes].forEach((b)=>{
+    if (!b) return;
+    b.classList.remove('bg-indigo-600','text-white','bg-white');
+    b.classList.add('bg-gray-200','text-gray-800');
+  });
+  if (active) {
+    active.classList.remove('bg-gray-200','text-gray-800','bg-white');
+    active.classList.add('bg-indigo-600','text-white');
+  }
+}
 
 function drawApartadoVentas() { const el = document.getElementById('apartadoChartVentas'); if (!el) return; const rows = groupVentasByTime(analyticsApartados.ventas.timeframe); const sliced = analyticsApartados.ventas.mode==='top'?sliceTop(rows,'valor'):sliceBottom(rows,'valor'); const dt = window.google.visualization.arrayToDataTable([['Tiempo','Ingresos'], ...sliced.map(r=>[r.label, r.valor])]); new window.google.visualization.AreaChart(el).draw(dt, baseChartOptions('#2563eb', true)); }
 function drawApartadoClientes() { const el = document.getElementById('apartadoChartClientes'); if (!el) return; if (!(window.google && window.google.visualization && typeof window.google.visualization.arrayToDataTable === 'function')) return; const src = analyticsState.data.clientes || []; const sliced = analyticsApartados.clientes.mode==='top'?sliceTop(src,'valor'):sliceBottom(src,'valor'); const dt = window.google.visualization.arrayToDataTable([['Cliente','Ventas'], ...sliced.map(r=>[r.label, r.valor])]); new window.google.visualization.BarChart(el).draw(dt, baseChartOptions('#16a34a', false)); }
 function drawApartadoInventario() { const el = document.getElementById('apartadoChartInventario'); if (!el) return; if (!(window.google && window.google.visualization && typeof window.google.visualization.arrayToDataTable === 'function')) return; const src = analyticsState.data.inventarioCat || []; const sliced = analyticsApartados.inventario.mode==='top'?sliceTop(src,'valor'):sliceBottom(src,'valor'); const dt = window.google.visualization.arrayToDataTable([['Categoría','Valor'], ...sliced.map(r=>[r.label, r.valor])]); const colors = makePalette(sliced.length); new window.google.visualization.PieChart(el).draw(dt, { legend:{position:'bottom'}, chartArea:{width:'85%',height:'70%'}, backgroundColor:'transparent', colors:colors, pieHole:0.35, sliceVisibilityThreshold: 0.02 }); }
-function drawApartadoPedidos() { const el = document.getElementById('apartadoChartPedidos'); if (!el) return; if (!(window.google && window.google.visualization && typeof window.google.visualization.arrayToDataTable === 'function')) return; const src = analyticsState.data.pedidos || []; const sliced = analyticsApartados.pedidos.mode==='top'?sliceTop(src,'valor'):sliceBottom(src,'valor'); const dt = window.google.visualization.arrayToDataTable([['Estado','Cantidad'], ...sliced.map(r=>[r.label, r.valor])]); const colors = makePalette(sliced.length); new window.google.visualization.PieChart(el).draw(dt, { legend:{position:'bottom'}, chartArea:{width:'85%',height:'70%'}, backgroundColor:'transparent', colors:colors, pieHole:0.35, sliceVisibilityThreshold: 0.02 }); }
+function drawApartadoEnvios() { const el = document.getElementById('apartadoChartEnvios'); if (!el) return; if (!(window.google && window.google.visualization && typeof window.google.visualization.arrayToDataTable === 'function')) return; const src = analyticsState.data.envios || []; const sliced = analyticsApartados.envios.mode==='top'?sliceTop(src,'valor'):sliceBottom(src,'valor'); const rows = (sliced && sliced.length) ? sliced.map(r=>[r.label, r.valor]) : [['Sin datos', 0]]; const colors = makePalette(rows.length); const dt = window.google.visualization.arrayToDataTable([['Envío','Cantidad'], ...rows]); new window.google.visualization.PieChart(el).draw(dt, { legend:{position:'bottom'}, chartArea:{width:'85%',height:'70%'}, backgroundColor:'transparent', colors:colors, pieHole:0.35, sliceVisibilityThreshold: 0.02 }); }
 function drawApartadoPagos() { const el = document.getElementById('apartadoChartPagos'); if (!el) return; if (!(window.google && window.google.visualization && typeof window.google.visualization.arrayToDataTable === 'function')) return; const src = analyticsState.data.pagos || []; const sliced = analyticsApartados.pagos.mode==='top'?sliceTop(src,'monto'):sliceBottom(src,'monto'); const colors = makePalette(sliced.length); const dt = window.google.visualization.arrayToDataTable([['Venta','Monto',{role:'style'}], ...sliced.map((r,i)=>[r.label, r.monto, colors[i]])]); new window.google.visualization.BarChart(el).draw(dt, { legend:{position:'bottom'}, chartArea:{width:'85%',height:'70%'}, backgroundColor:'transparent', vAxis:{ textStyle:{ color:'#6b7280' }, gridlines:{ color:'#e5e7eb' }, format:'short' }, hAxis:{ textStyle:{ color:'#6b7280' }, gridlines:{ color:'#f3f4f6' } }, bar:{ groupWidth:'70%' } }); }
 function drawApartadoVentasTopProductos() { const el = document.getElementById('apartadoChartVentasTopProductos'); if (!el) return; if (!(window.google && window.google.visualization && typeof window.google.visualization.arrayToDataTable === 'function')) return; const src = analyticsState.data.topProductos || []; const sliced = analyticsApartados.ventas.mode==='top'?sliceTop(src,'unidades'):sliceBottom(src,'unidades'); const rows = sliced.length ? sliced.map(r=>[r.label, r.unidades]) : [['Sin datos', 0]]; const colors = makePalette(rows.length); const dt = window.google.visualization.arrayToDataTable([['Producto','Unidades',{role:'style'}], ...rows.map((r,i)=>[r[0], r[1], colors[i]])]); new window.google.visualization.BarChart(el).draw(dt, { legend:{position:'bottom'}, chartArea:{width:'85%',height:'70%'}, backgroundColor:'transparent', hAxis:{ textStyle:{ color:'#6b7280' }, gridlines:{ color:'#f3f4f6' } }, vAxis:{ textStyle:{ color:'#6b7280' }, gridlines:{ color:'#e5e7eb' } }, bar:{ groupWidth:'70%' } }); }
 function drawApartadoVentasIngresosCategoria() { const el = document.getElementById('apartadoChartVentasIngresosCategoria'); if (!el) return; if (!(window.google && window.google.visualization && typeof window.google.visualization.arrayToDataTable === 'function')) return; const src = analyticsState.data.ventasCat || []; const sliced = analyticsApartados.ventas.mode==='top'?sliceTop(src,'ingresos'):sliceBottom(src,'ingresos'); const rows = sliced.length ? sliced.map(r=>[r.label, r.ingresos]) : [['Sin datos', 0]]; const colors = makePalette(rows.length); const dt = window.google.visualization.arrayToDataTable([['Categoría','Ingresos'], ...rows]); new window.google.visualization.PieChart(el).draw(dt, { legend:{position:'bottom'}, chartArea:{width:'85%',height:'70%'}, backgroundColor:'transparent', colors:colors, pieHole:0.35, sliceVisibilityThreshold: 0.02 }); }
@@ -504,7 +505,7 @@ async function buildUserMapAndRelabel(){ try { const usuarios = await getData('/
 }
 async function drawApartadoVentasPorDia() { const el = document.getElementById('apartadoChartVentasPorDia'); if (!el) return; try { const tf = analyticsApartados.ventas.timeframe || 'dia'; let ventasDia; try { ventasDia = await getData(`/api/dashboard/charts/ventas_por_dia?tf=${encodeURIComponent(tf)}`); } catch { ventasDia = null; } if (!Array.isArray(ventasDia) || ventasDia.length === 0) { const fallback = buildVentasPorDiaFallback(tf); ventasDia = fallback; } await ensureGoogleChartsReady(); const rows = ventasDia.map(v => [String(v.fecha), Number(v.ingresos || 0), Number(v.cantidad || 0)]); const dataTable = window.google.visualization.arrayToDataTable([ ['Fecha', 'Ingresos', 'Cantidad'], ...rows ]); const options = { legend: { position: 'bottom' }, series: { 0: { targetAxisIndex: 0, color: '#2563eb' }, 1: { targetAxisIndex: 1, color: '#16a34a' } }, vAxes: { 0: { format: 'short' }, 1: { format: '' } }, chartArea: { width: '85%', height: '70%' }, backgroundColor: 'transparent' }; new window.google.visualization.LineChart(el).draw(dataTable, options); } catch (e) { console.warn('[Charts] Error Ventas por día apartado', e); } }
 function buildVentasPorDiaFallback(tf){ const arr = Array.isArray(analyticsState.data.ventasList)? analyticsState.data.ventasList : []; const now = new Date(); let days = tf==='dia'?2:(tf==='semana'?7:30); const out = []; const start = new Date(now); start.setDate(now.getDate()-(days-1)); start.setHours(0,0,0,0); const buckets = {}; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(start.getDate()+i); const key = d.toISOString().slice(0,10); buckets[key] = { ingresos:0, cantidad:0, fecha: d.toLocaleDateString('es-CL') }; } arr.forEach(v=>{ try { const d = new Date(v.fecha_venta||v.created_at||now); const key = d.toISOString().slice(0,10); if (buckets[key]) { buckets[key].ingresos += Number(v.total_venta||0); buckets[key].cantidad += 1; } } catch {} }); return Object.keys(buckets).sort().map(k=>({ fecha: buckets[k].fecha, ingresos: buckets[k].ingresos, cantidad: buckets[k].cantidad })); }
-function redrawApartados() { try { drawApartadoVentasPorDia(); drawApartadoVentasTopProductos(); drawApartadoVentasIngresosCategoria(); drawApartadoClientes(); drawApartadoInventario(); drawApartadoPedidos(); drawApartadoPagos(); } catch {} }
+function redrawApartados() { try { drawApartadoVentasPorDia(); drawApartadoVentasTopProductos(); drawApartadoVentasIngresosCategoria(); drawApartadoClientes(); drawApartadoInventario(); drawApartadoEnvios(); drawApartadoPagos(); } catch {} }
 function setupResizeRedraw() { let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(redrawApartados, 250); }); }
 </script>
 <script>
