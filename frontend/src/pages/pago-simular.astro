@@ -69,7 +69,6 @@ import EnvLoader from '../components/EnvLoader.astro';
         document.getElementById('btnRechazado').addEventListener('click', ()=> sim('REJECTED', { reason:'Fondos insuficientes' }));
         document.getElementById('btnAbortado').addEventListener('click', ()=> sim('ABORTED'));
         document.getElementById('btnTimeout').addEventListener('click', ()=> sim('TIMEOUT'));
-        document.getElementById('btnError').addEventListener('click', ()=> sim('ERROR', { message:'API key inválida' }));
       })();
     </script>
   </body>

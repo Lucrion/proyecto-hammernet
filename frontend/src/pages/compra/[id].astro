@@ -45,7 +45,7 @@ const idParam = Astro.params.id;
       const detalleBody = document.getElementById('detalleBody');
       const fmtPrecio = (v) => '$' + Number(v || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
       const fmtFecha = (iso) => { try { const d = new Date(iso); return d.toLocaleDateString('es-CL', { dateStyle: 'medium' }); } catch { return iso; } };
-      const getApiBase = () => { try { const env = window.__ENV__ || {}; return env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api'; } catch { return '/api'; } };
+      const getApiBase = () => { try { const env = window.__ENV__ || {}; return env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || 'https://hammernet.onrender.com/api'; } catch { return 'https://hammernet.onrender.com/api'; } };
       const productoCache = {};
       const getProductoInfo = async (id) => {
         if (!id) return { nombre: 'Producto', imagen_url: '/images/default-product.jpg' };
