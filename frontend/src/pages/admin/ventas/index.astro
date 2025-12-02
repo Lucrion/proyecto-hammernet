@@ -212,8 +212,33 @@ async function cargarDetalleVenta(idVenta) { try { mostrarLoading(true); let ven
 async function renderDetalleVenta(venta) { const header = document.getElementById('detalleVentaHeader'); const body = document.getElementById('detalleVentaBody'); const entregaInfo = parseEntregaInfo(venta); if (header) { const items = contarCantidadProductos(venta); const rutUsuarioRaw = venta.rut_usuario || venta.usuario_rut || ''; const rutUsuario = (typeof window.formatRut==='function') ? window.formatRut(rutUsuarioRaw) : (rutUsuarioRaw || 'N/A'); const clienteNombre = obtenerNombreCliente(venta); const fechaDia = new Date(venta.fecha_venta).toLocaleDateString('es-CL', { year:'numeric', month:'2-digit', day:'2-digit' }); const tipoEntrega = mapTipoEntrega(entregaInfo?.tipo || detectarTipoEntrega(venta)); header.innerHTML = `<div><span class="text-gray-500">Orden de compra:</span> <span class="font-medium">${venta.id_venta}</span></div><div><span class="text-gray-500">Fecha:</span> <span class="font-medium">${fechaDia}</span></div><div><span class="text-gray-500">Usuario (RUT):</span> <span class="font-medium">${rutUsuario || 'N/A'}</span></div><div><span class="text-gray-500">Total:</span> <span class="font-semibold">${formatearDinero(venta.total_venta)}</span></div><div><span class="text-gray-500">Cliente:</span> <span class="font-medium">${clienteNombre || 'N/A'}</span></div><div><span class="text-gray-500">Cantidad productos:</span> <span class="font-medium">${items}</span></div>${tipoEntrega ? `<div class="col-span-2"><span class="text-gray-500">Entrega:</span> <span class="font-medium">${tipoEntrega}</span> ${entregaInfo?.texto_extra || ''}</div>` : ''}`; } if (body) { const filas = (venta.detalles_venta || []).map(d => `<tr><td class="px-4 py-2 text-sm">${d.producto_nombre || `Producto #${d.id_producto}`}</td><td class="px-4 py-2 text-sm">${d.cantidad}</td><td class="px-4 py-2 text-sm">${formatearDinero(d.precio_unitario)}</td><td class="px-4 py-2 text-sm font-medium">${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td></tr>`).join(''); body.innerHTML = filas || '<tr><td colspan="4" class="px-4 py-3 text-center text-gray-500">Sin detalles</td></tr>'; }
   let extra = document.getElementById('detalleVentaExtra'); if (!extra) { extra = document.createElement('div'); extra.id = 'detalleVentaExtra'; extra.className = 'mt-4'; body.parentElement?.appendChild(extra); }
   const cliente = construirDatosCliente(venta); const direccion = construirDireccion(venta); const gps = construirGPS(venta); const tipo = entregaInfo?.tipo || detectarTipoEntrega(venta); const resumenPedido = construirResumenPedido(venta);
-  const courier = construirDatosCourier(venta);
-  extra.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700"><div><h4 class="font-semibold text-gray-900 mb-1">Datos del Cliente</h4><div>${cliente}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Courier</h4><div>${courier}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Tipo de Despacho</h4><div>${tipo || 'N/A'}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Dirección de Despacho</h4><div id="direccionEntregaText">${direccion || 'N/A'}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Coordenadas GPS</h4><div id="gpsText">${gps || 'No disponible'}</div></div></div><div class="mt-3 border-t pt-3"><h4 class="font-semibold text-gray-900 mb-2">Resumen del Pedido</h4><div class="text-sm text-gray-700">${resumenPedido}</div></div><div class="mt-3 border-t pt-3"><h4 class="font-semibold text-gray-900 mb-2">Estado de Envío</h4><div class="flex items-center gap-3"><select id="envioEstadoSelect" class="border rounded px-2 py-1 text-sm"><option value="pendiente">pendiente</option><option value="preparando">preparando</option><option value="en camino">en camino</option><option value="entregado">entregado</option><option value="fallido">fallido</option></select><button id="envioEstadoGuardar" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm">Guardar</button></div></div>`;
+  extra.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+    <div>
+      <h4 class="font-semibold text-gray-900 mb-1">Tipo de Despacho</h4>
+      <div>${tipo || 'N/A'}</div>
+    </div>
+    <div>
+      <h4 class="font-semibold text-gray-900 mb-1">Dirección de Despacho</h4>
+      <div id="direccionEntregaText">${direccion || (tipo==='retiro' ? 'Retiro en tienda' : 'N/A')}</div>
+    </div>
+    <div>
+      <h4 class="font-semibold text-gray-900 mb-1">Coordenadas GPS</h4>
+      <div id="gpsText">${gps || 'No disponible'}</div>
+    </div>
+  </div>
+  <div class="mt-3 border-t pt-3">
+    <h4 class="font-semibold text-gray-900 mb-2">Estado de Envío</h4>
+    <div class="flex items-center gap-3">
+      <select id="envioEstadoSelect" class="border rounded px-2 py-1 text-sm">
+        <option value="pendiente">pendiente</option>
+        <option value="preparando">preparando</option>
+        <option value="en camino">en camino</option>
+        <option value="entregado">entregado</option>
+        <option value="fallido">fallido</option>
+      </select>
+      <button id="envioEstadoGuardar" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm">Guardar</button>
+    </div>
+  </div>`;
   const guardarBtn = document.getElementById('envioEstadoGuardar'); const select = document.getElementById('envioEstadoSelect'); try { const estadoActual = parseEnvioEstado(venta); const disponibles = ['pendiente','preparando','en camino','entregado','fallido']; if (estadoActual && select && disponibles.includes(estadoActual)) select.value = estadoActual; } catch {} if (guardarBtn && select) { guardarBtn.onclick = async () => { try { const estado = select.value; await updateData(`/api/ventas/${venta.id_venta}/envio-estado?estado=${encodeURIComponent(estado)}`, {}); try { state.ventaDetalleActual.estado_envio = estado; const item = (state.ventas || []).find(v => String(v.id_venta) === String(venta.id_venta)); if (item) item.estado_envio = estado; renderizarTablaVentas(); } catch {} mostrarExito('Estado de envío actualizado'); } catch (e) { mostrarError('No se pudo actualizar el estado de envío'); } }; }
   try { const dirEl = document.getElementById('direccionEntregaText'); if (dirEl && (!direccion || direccion === '')) { const tipoEntrega = tipo || detectarTipoEntrega(venta); if (tipoEntrega === 'despacho' && venta.id_usuario) { const dirStr = await obtenerUltimaDireccionUsuario(venta.id_usuario); if (dirStr) dirEl.textContent = dirStr; } } } catch {}
 }

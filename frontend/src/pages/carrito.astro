@@ -897,7 +897,13 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       // Identificar si es usuario logueado o invitado
       const { user, token } = getAuth();
-      const idUsuario = user && (user.id_usuario || user.id || user.idUsuario);
+      const isTokenValid = (tok) => { try { const parts = String(tok||'').split('.'); if (parts.length !== 3) return false; const b = parts[1].replace(/-/g,'+').replace(/_/g,'/'); const pad = b.length % 4 ? '='.repeat(4 - (b.length % 4)) : ''; const json = atob(b + pad); const payload = JSON.parse(json); const exp = Number(payload.exp || 0); if (!exp) return true; const now = Math.floor(Date.now()/1000); return exp > now + 30; } catch { return false; } };
+      let idUsuario = user && (user.id_usuario || user.id || user.idUsuario);
+      let useToken = isTokenValid(token) ? token : '';
+      if (!useToken) {
+        try { sessionStorage.removeItem('token'); localStorage.removeItem('token'); } catch {}
+        idUsuario = null;
+      }
 
       // Construir detalles de la venta desde el carrito
       const detalles = carrito.map(it => ({
@@ -914,7 +920,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 
       const API = computeApiUrl();
       const headers = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (useToken) headers['Authorization'] = `Bearer ${useToken}`;
 
       // Deshabilitar el botón mientras se procesa
       const btn = document.getElementById('btnCheckoutPage');
