@@ -247,6 +247,7 @@ export async function enviarMensaje(event) {
     try {
         const result = await postData('/api/mensajes', {
             nombre: formData.get('nombre'),
+            apellido: formData.get('apellido') || 'N/A',
             email: formData.get('email'),
             asunto: formData.get('asunto'),
             mensaje: formData.get('mensaje')

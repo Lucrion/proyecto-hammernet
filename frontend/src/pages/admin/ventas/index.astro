@@ -208,12 +208,12 @@ document.getElementById('ventasTableBody')?.addEventListener('click', async (e) 
 
 async function cargarDetalleVenta(idVenta) { try { mostrarLoading(true); let venta = await getData(`/api/ventas/${idVenta}`); venta = normalizarVenta(venta); state.ventaDetalleActual = venta; renderDetalleVenta(venta); } catch (error) { mostrarError('No se pudo cargar el detalle de la venta'); throw error; } finally { mostrarLoading(false); } }
 
-async function renderDetalleVenta(venta) { const header = document.getElementById('detalleVentaHeader'); const body = document.getElementById('detalleVentaBody'); const entregaInfo = parseEntregaInfo(venta); if (header) { header.innerHTML = `<div><span class="text-gray-500">Nº venta:</span> <span class="font-medium">${venta.id_venta}</span></div><div><span class="text-gray-500">Fecha:</span> <span class="font-medium">${formatearFecha(venta.fecha_venta)}</span></div><div><span class="text-gray-500">Usuario:</span> <span class="font-medium">${venta.usuario_nombre || 'N/A'}</span></div><div><span class="text-gray-500">Total:</span> <span class="font-semibold">${formatearDinero(venta.total_venta)}</span></div><div><span class="text-gray-500">Cliente:</span> <span class="font-medium">${venta.cliente_nombre || venta.cliente_rut || 'N/A'}</span></div><div><span class="text-gray-500">Courier:</span> <span class="font-medium">${venta.repartidor_nombre || venta.repartidor_rut || 'N/A'}</span></div>${entregaInfo ? `<div class="col-span-2"><span class="text-gray-500">Entrega:</span> <span class="font-medium">${entregaInfo.tipo}</span> ${entregaInfo.texto_extra || ''}</div>` : ''}`; } if (body) { const filas = (venta.detalles_venta || []).map(d => `<tr><td class="px-4 py-2 text-sm">${d.producto_nombre || `Producto #${d.id_producto}`}</td><td class="px-4 py-2 text-sm">${d.cantidad}</td><td class="px-4 py-2 text-sm">${formatearDinero(d.precio_unitario)}</td><td class="px-4 py-2 text-sm font-medium">${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td></tr>`).join(''); body.innerHTML = filas || '<tr><td colspan="4" class="px-4 py-3 text-center text-gray-500">Sin detalles</td></tr>'; }
+async function renderDetalleVenta(venta) { const header = document.getElementById('detalleVentaHeader'); const body = document.getElementById('detalleVentaBody'); const entregaInfo = parseEntregaInfo(venta); if (header) { const items = contarCantidadProductos(venta); const rutUsuarioRaw = venta.rut_usuario || venta.usuario_rut || ''; const rutUsuario = (typeof window.formatRut==='function') ? window.formatRut(rutUsuarioRaw) : (rutUsuarioRaw || 'N/A'); const clienteNombre = obtenerNombreCliente(venta); const fechaDia = new Date(venta.fecha_venta).toLocaleDateString('es-CL', { year:'numeric', month:'2-digit', day:'2-digit' }); const tipoEntrega = mapTipoEntrega(entregaInfo?.tipo || detectarTipoEntrega(venta)); header.innerHTML = `<div><span class="text-gray-500">Orden de compra:</span> <span class="font-medium">${venta.id_venta}</span></div><div><span class="text-gray-500">Fecha:</span> <span class="font-medium">${fechaDia}</span></div><div><span class="text-gray-500">Usuario (RUT):</span> <span class="font-medium">${rutUsuario || 'N/A'}</span></div><div><span class="text-gray-500">Total:</span> <span class="font-semibold">${formatearDinero(venta.total_venta)}</span></div><div><span class="text-gray-500">Cliente:</span> <span class="font-medium">${clienteNombre || 'N/A'}</span></div><div><span class="text-gray-500">Cantidad productos:</span> <span class="font-medium">${items}</span></div>${tipoEntrega ? `<div class="col-span-2"><span class="text-gray-500">Entrega:</span> <span class="font-medium">${tipoEntrega}</span> ${entregaInfo?.texto_extra || ''}</div>` : ''}`; } if (body) { const filas = (venta.detalles_venta || []).map(d => `<tr><td class="px-4 py-2 text-sm">${d.producto_nombre || `Producto #${d.id_producto}`}</td><td class="px-4 py-2 text-sm">${d.cantidad}</td><td class="px-4 py-2 text-sm">${formatearDinero(d.precio_unitario)}</td><td class="px-4 py-2 text-sm font-medium">${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td></tr>`).join(''); body.innerHTML = filas || '<tr><td colspan="4" class="px-4 py-3 text-center text-gray-500">Sin detalles</td></tr>'; }
   let extra = document.getElementById('detalleVentaExtra'); if (!extra) { extra = document.createElement('div'); extra.id = 'detalleVentaExtra'; extra.className = 'mt-4'; body.parentElement?.appendChild(extra); }
   const cliente = construirDatosCliente(venta); const direccion = construirDireccion(venta); const gps = construirGPS(venta); const tipo = entregaInfo?.tipo || detectarTipoEntrega(venta); const resumenPedido = construirResumenPedido(venta);
   const courier = construirDatosCourier(venta);
-  extra.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700"><div><h4 class="font-semibold text-gray-900 mb-1">Datos del Cliente</h4><div>${cliente}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Courier</h4><div>${courier}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Tipo de Despacho</h4><div>${tipo || 'N/A'}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Dirección de Despacho</h4><div id="direccionEntregaText">${direccion || 'N/A'}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Coordenadas GPS</h4><div id="gpsText">${gps || 'No disponible'}</div></div></div><div class="mt-3 border-t pt-3"><h4 class="font-semibold text-gray-900 mb-2">Resumen del Pedido</h4><div class="text-sm text-gray-700">${resumenPedido}</div></div><div class="mt-3 border-t pt-3"><h4 class="font-semibold text-gray-900 mb-2">Estado de Envío</h4><div class="flex items-center gap-3"><select id="envioEstadoSelect" class="border rounded px-2 py-1 text-sm"><option value="pendiente">pendiente</option><option value="preparando">preparando</option><option value="asignado">asignado</option><option value="en camino">en camino</option><option value="entregado">entregado</option><option value="fallido">fallido</option></select><button id="envioEstadoGuardar" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm">Guardar</button></div></div>`;
-  const guardarBtn = document.getElementById('envioEstadoGuardar'); const select = document.getElementById('envioEstadoSelect'); try { const estadoActual = parseEnvioEstado(venta); if (estadoActual && select) select.value = estadoActual; } catch {} if (guardarBtn && select) { guardarBtn.onclick = async () => { try { const estado = select.value; await updateData(`/api/ventas/${venta.id_venta}/envio-estado?estado=${encodeURIComponent(estado)}`, {}); try { state.ventaDetalleActual.estado_envio = estado; const item = (state.ventas || []).find(v => String(v.id_venta) === String(venta.id_venta)); if (item) item.estado_envio = estado; renderizarTablaVentas(); } catch {} mostrarExito('Estado de envío actualizado'); } catch (e) { mostrarError('No se pudo actualizar el estado de envío'); } }; }
+  extra.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700"><div><h4 class="font-semibold text-gray-900 mb-1">Datos del Cliente</h4><div>${cliente}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Courier</h4><div>${courier}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Tipo de Despacho</h4><div>${tipo || 'N/A'}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Dirección de Despacho</h4><div id="direccionEntregaText">${direccion || 'N/A'}</div></div><div><h4 class="font-semibold text-gray-900 mb-1">Coordenadas GPS</h4><div id="gpsText">${gps || 'No disponible'}</div></div></div><div class="mt-3 border-t pt-3"><h4 class="font-semibold text-gray-900 mb-2">Resumen del Pedido</h4><div class="text-sm text-gray-700">${resumenPedido}</div></div><div class="mt-3 border-t pt-3"><h4 class="font-semibold text-gray-900 mb-2">Estado de Envío</h4><div class="flex items-center gap-3"><select id="envioEstadoSelect" class="border rounded px-2 py-1 text-sm"><option value="pendiente">pendiente</option><option value="preparando">preparando</option><option value="en camino">en camino</option><option value="entregado">entregado</option><option value="fallido">fallido</option></select><button id="envioEstadoGuardar" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm">Guardar</button></div></div>`;
+  const guardarBtn = document.getElementById('envioEstadoGuardar'); const select = document.getElementById('envioEstadoSelect'); try { const estadoActual = parseEnvioEstado(venta); const disponibles = ['pendiente','preparando','en camino','entregado','fallido']; if (estadoActual && select && disponibles.includes(estadoActual)) select.value = estadoActual; } catch {} if (guardarBtn && select) { guardarBtn.onclick = async () => { try { const estado = select.value; await updateData(`/api/ventas/${venta.id_venta}/envio-estado?estado=${encodeURIComponent(estado)}`, {}); try { state.ventaDetalleActual.estado_envio = estado; const item = (state.ventas || []).find(v => String(v.id_venta) === String(venta.id_venta)); if (item) item.estado_envio = estado; renderizarTablaVentas(); } catch {} mostrarExito('Estado de envío actualizado'); } catch (e) { mostrarError('No se pudo actualizar el estado de envío'); } }; }
   try { const dirEl = document.getElementById('direccionEntregaText'); if (dirEl && (!direccion || direccion === '')) { const tipoEntrega = tipo || detectarTipoEntrega(venta); if (tipoEntrega === 'despacho' && venta.id_usuario) { const dirStr = await obtenerUltimaDireccionUsuario(venta.id_usuario); if (dirStr) dirEl.textContent = dirStr; } } } catch {}
 }
 
@@ -221,7 +221,7 @@ function abrirModalDetalleVenta() { const modal = document.getElementById('modal
 function cerrarModalDetalleVenta() { const modal = document.getElementById('modalDetalleVenta'); if (modal) modal.style.display = 'none'; }
 
 async function copiarOrdenEntrega() { try { const venta = state.ventaDetalleActual; if (!venta) return; const texto = generarTextoEntrega(venta); await navigator.clipboard.writeText(texto); mostrarExito('Datos de entrega copiados'); try { sessionStorage.setItem('orden_entrega', JSON.stringify(venta)); } catch {} } catch (err) { mostrarError('No se pudo copiar los datos de entrega'); } }
-function imprimirOrdenEntrega() { try { const venta = state.ventaDetalleActual; if (!venta) return; const popup = window.open('', '_blank'); if (!popup) { mostrarError('Bloqueador de ventanas impide imprimir'); return; } const contenido = `<html><head><title>Guía de Entrega #${venta.id_venta}</title><style>body{font-family:sans-serif;padding:20px} h1{font-size:18px} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:6px;text-align:left} th{background:#f3f4f6}</style></head><body><h1>Guía de Entrega - Venta #${venta.id_venta}</h1><p><strong>Fecha:</strong> ${formatearFecha(venta.fecha_venta)}<br/><strong>Usuario:</strong> ${venta.usuario || 'N/A'}<br/><strong>Total:</strong> ${formatearDinero(venta.total_venta)}</p><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>${(venta.detalles_venta || []).map(d => `<tr><td>${d.producto_nombre || `Producto #${d.id_producto}`}</td><td>${d.cantidad}</td><td>${formatearDinero(d.precio_unitario)}</td><td>${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td></tr>`).join('')}</tbody></table></body></html>`; popup.document.write(contenido); popup.document.close(); popup.focus(); popup.print(); } catch (err) { mostrarError('No se pudo imprimir la guía de entrega'); } }
+function imprimirOrdenEntrega() { try { const venta = state.ventaDetalleActual; if (!venta) return; const popup = window.open('', '_blank'); if (!popup) { mostrarError('Bloqueador de ventanas impide imprimir'); return; } const fechaDia = new Date(venta.fecha_venta).toLocaleDateString('es-CL',{year:'numeric',month:'2-digit',day:'2-digit'}); const rutUsuario = (typeof window.formatRut==='function') ? window.formatRut(venta.rut_usuario || venta.usuario_rut || '') : (venta.rut_usuario || venta.usuario_rut || 'N/A'); const clienteNombre = obtenerNombreCliente(venta) || 'N/A'; const tipoEntrega = mapTipoEntrega(parseEntregaInfo(venta)?.tipo || detectarTipoEntrega(venta)); const contenido = `<html><head><title>Guía de Entrega #${venta.id_venta}</title><style>body{font-family:sans-serif;padding:20px} h1{font-size:18px} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:6px;text-align:left} th{background:#f3f4f6}</style></head><body><h1>Guía de Entrega - Orden de compra #${venta.id_venta}</h1><p><strong>Fecha:</strong> ${fechaDia}<br/><strong>Usuario (RUT):</strong> ${rutUsuario}<br/><strong>Cliente:</strong> ${clienteNombre clienteApellido}<br/><strong>Tipo de despacho:</strong> ${tipoEntrega || 'N/A'}<br/><strong>Total:</strong> ${formatearDinero(venta.total_venta)}</p><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>${(venta.detalles_venta || []).map(d => `<tr><td>${d.producto_nombre || `Producto #${d.id_producto}`}</td><td>${d.cantidad}</td><td>${formatearDinero(d.precio_unitario)}</td><td>${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td></tr>`).join('')}</tbody></table></body></html>`; popup.document.write(contenido); popup.document.close(); popup.focus(); popup.print(); } catch (err) { mostrarError('No se pudo imprimir la guía de entrega'); } }
 
 function generarTextoEntrega(venta) { const lineas = []; lineas.push(`Orden de Entrega - Venta #${venta.id_venta}`); lineas.push(`Fecha: ${formatearFecha(venta.fecha_venta)}`); lineas.push(`Usuario: ${venta.usuario || 'N/A'}`); lineas.push(`Total: ${formatearDinero(venta.total_venta)}`); lineas.push('Detalles:'); (venta.detalles_venta || []).forEach(d => { lineas.push(`- ${d.producto_nombre || `Producto #${d.id_producto}`} x${d.cantidad} (${formatearDinero(d.precio_unitario)} c/u)`); }); return lineas.join('\n'); }
 window.cerrarModalDetalleVenta = cerrarModalDetalleVenta;
@@ -265,6 +265,9 @@ function exportarVentasCSV() { try { const filas = state.ventas.map(v => ({ ID: 
 function parseEntregaInfo(venta) { try { const obs = String(venta.observaciones || ''); const tag = 'VENTA_INVITADO:'; const idx = obs.indexOf(tag); if (idx >= 0) { const jsonStr = obs.slice(idx + tag.length).trim(); const info = JSON.parse(jsonStr); const tipo = info?.entrega || 'retiro'; let texto = ''; if (tipo === 'despacho' && info?.direccion) { const d = info.direccion; texto = `- ${d.calle || ''} ${d.numero || ''} ${d.depto ? ('(' + d.depto + ')') : ''}`; } return { tipo, texto_extra: texto, raw: info }; } const lower = obs.toLowerCase(); if (lower.includes('retiro')) return { tipo: 'retiro', texto_extra: '' }; if (lower.includes('despacho')) return { tipo: 'despacho', texto_extra: '' }; return null; } catch { return null; } }
 function parseEnvioEstado(venta) { try { if (venta.estado_envio) return String(venta.estado_envio).toLowerCase(); const obs = String(venta.observaciones || ''); const tag = 'ENVIO_ESTADO:'; const idx = obs.indexOf(tag); if (idx >= 0) { const rest = obs.slice(idx + tag.length).trim(); const linea = rest.split('\n')[0].trim(); const val = linea.toLowerCase(); if (['pendiente','preparando','asignado','en camino','entregado','fallido'].includes(val)) return val; } return null; } catch { return null; } }
 function detectarTipoEntrega(venta) { const e = parseEntregaInfo(venta); return venta.metodo_entrega || e?.tipo || null; }
+function mapTipoEntrega(tipo){ const t=String(tipo||'').toLowerCase(); if(t==='retiro') return 'retiro en tienda'; if(t==='despacho') return 'despacho'; return t || ''; }
+function contarCantidadProductos(venta){ try { const dets = Array.isArray(venta.detalles_venta) ? venta.detalles_venta : []; return dets.reduce((acc,d)=>acc+Number(d.cantidad||0),0); } catch { return 0; } }
+function obtenerNombreCliente(venta){ try { const baseNombre = String(venta.cliente_nombre||'').trim(); const baseApellido = String(venta.cliente_apellido||'').trim(); const fromVenta = `${baseNombre} ${baseApellido}`.trim(); if (fromVenta) return fromVenta; const info = parseEntregaInfo(venta); const n = String(info?.raw?.nombre||'').trim(); const a = String(info?.raw?.apellido||'').trim(); const full = `${n} ${a}`.trim(); return full || ''; } catch { return String(venta.cliente_nombre||'').trim(); } }
 function normalizarVenta(v){ try { const venta = { ...v };
   venta.id_venta = venta.id_venta ?? venta.id ?? '';
   venta.usuario_nombre = venta.usuario_nombre ?? venta.usuario ?? '';
@@ -313,8 +316,8 @@ renderizarTablaVentas = function() {
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${venta.usuario_nombre || venta.cliente_nombre || 'N/A'}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${venta.detalles_venta ? venta.detalles_venta.length : 0} productos</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatearDinero(venta.total_venta)}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="estado-${(venta.estado||'').toLowerCase()}">${venta.estado || 'N/A'}</span></td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${parseEnvioEstado(venta) || venta.estado_envio || 'N/A'}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge estado estado-${(venta.estado||'N/A').toLowerCase().replace(/[^a-z0-9]+/g,'-')}">${venta.estado || 'N/A'}</span></td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge envio envio-${String(parseEnvioEstado(venta) || venta.estado_envio || 'N/A').toLowerCase().replace(/[^a-z0-9]+/g,'-')}">${parseEnvioEstado(venta) || venta.estado_envio || 'N/A'}</span></td>
       <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
         <button class="px-2 py-1 text-indigo-600" data-action="ver-detalle" data-id="${venta.id_venta}">Ver detalle</button>
       </td>
@@ -346,15 +349,14 @@ buscarVentas = function() {
     <tr class="hover:bg-gray-50">
       <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#${venta.id_venta}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatearFecha(venta.fecha_venta)}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${venta.rut_usuario || venta.usuario_rut || 'N/A'}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${(typeof window.formatRut==='function')?window.formatRut(venta.rut_usuario || venta.usuario_rut || ''):(venta.rut_usuario || venta.usuario_rut || 'N/A')}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${venta.usuario_nombre || venta.cliente_nombre || 'N/A'}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${venta.detalles_venta ? venta.detalles_venta.length : 0} productos</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatearDinero(venta.total_venta)}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="estado-${(venta.estado||'').toLowerCase()}">${venta.estado || 'N/A'}</span></td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${parseEnvioEstado(venta) || venta.estado_envio || 'N/A'}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge estado estado-${(venta.estado||'N/A').toLowerCase().replace(/[^a-z0-9]+/g,'-')}">${venta.estado || 'N/A'}</span></td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge envio envio-${String(parseEnvioEstado(venta) || venta.estado_envio || 'N/A').toLowerCase().replace(/[^a-z0-9]+/g,'-')}">${parseEnvioEstado(venta) || venta.estado_envio || 'N/A'}</span></td>
       <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
         <button class="px-2 py-1 text-indigo-600" data-action="ver-detalle" data-id="${venta.id_venta}">Ver detalle</button>
-        <button class="px-2 py-1 text-green-600" data-action="completar" data-id="${venta.id_venta}">Marcar completada</button>
       </td>
     </tr>
   `).join('');
@@ -425,8 +427,8 @@ function renderizarTablaVentas() {
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${nombre}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${productos}</td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${total}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="estado-${(estado||'').toLowerCase()}">${estado}</span></td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${envio}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge estado estado-${(estado||'N/A').toLowerCase().replace(/\s+/g,'-')}">${estado || 'N/A'}</span></td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge envio envio-${String(envio||'N/A').toLowerCase().replace(/\s+/g,'-')}">${envio}</span></td>
       <td class="px-6 py-4 whitespace-nowrap text-right text-sm"><button class="px-2 py-1 text-indigo-600" data-action="ver-detalle" data-id="${v.id_venta}">Ver detalle</button></td>
     </tr>`;
   }).join('');
@@ -626,28 +628,22 @@ try { window.exportarVentasCSV = exportarVentasCSV; } catch {}
         border-bottom: 1px solid #dee2e6;
     }
 
-    .table tbody tr:hover {
-        background-color: #f8f9fa;
-    }
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
 
-    /* Estados */
-    .estado-activa {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        font-weight: 500;
-    }
-
-    .estado-cancelada {
-        background-color: #f8d7da;
-        color: #721c24;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        font-weight: 500;
-    }
+/* Estados */
+:global(.badge) { display:inline-block; padding:4px 10px; border-radius:9999px; font-size:0.75rem; font-weight:600; }
+:global(.estado-pendiente) { background:#fff7ed; color:#9a3412; }
+:global(.estado-completada) { background:#dcfce7; color:#166534; }
+:global(.estado-cancelada) { background:#fee2e2; color:#991b1b; }
+:global(.estado-n-a) { background:#e5e7eb; color:#374151; }
+:global(.envio-pendiente) { background:#e5e7eb; color:#374151; }
+:global(.envio-preparando) { background:#fef9c3; color:#92400e; }
+:global(.envio-asignado) { background:#dbeafe; color:#1e40af; }
+:global(.envio-en-camino) { background:#e0e7ff; color:#3730a3; }
+:global(.envio-entregado) { background:#dcfce7; color:#166534; }
+:global(.envio-fallido) { background:#fee2e2; color:#991b1b; }
 
     /* Paginación */
     .pagination-container {

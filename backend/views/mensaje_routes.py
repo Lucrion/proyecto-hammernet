@@ -37,10 +37,9 @@ async def obtener_mensaje(
 @router.post("/", response_model=MensajeContacto)
 async def crear_mensaje(
     mensaje: MensajeContactoCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    db: Session = Depends(get_db)
 ):
-    """Crear un nuevo mensaje (solo administradores)"""
+    """Crear un nuevo mensaje (público)"""
     return await MensajeController.crear_mensaje(mensaje, db)
 
 
