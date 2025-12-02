@@ -404,10 +404,10 @@ class UsuarioController:
             for m in movimientos_usuario:
                 db.delete(m)
 
-            # 2) Obtener ventas del usuario (como vendedor) y como cliente
-            ventas_usuario = db.query(VentaDB).filter(VentaDB.rut_usuario == rut).all()
-            ventas_cliente = db.query(VentaDB).filter(VentaDB.cliente_rut == rut).all()
-            ventas_todas = ventas_usuario + ventas_cliente
+            # 2) Obtener ventas relacionadas al usuario
+            # Nota: el modelo VentaDB no tiene 'cliente_rut'. Usamos 'rut_usuario' (cliente/comprador)
+            # y también contemplamos 'repartidor_rut' por si el usuario figura como repartidor.
+            ventas_todas = db.query(VentaDB).filter((VentaDB.rut_usuario == rut) | (VentaDB.repartidor_rut == rut)).all()
 
             # 2a) Eliminar movimientos de inventario asociados a cada venta (id_venta)
             for v in ventas_todas:
@@ -467,7 +467,7 @@ class UsuarioController:
                 for m in mov_sin_venta:
                     db.delete(m)
 
-                ventas_usuario = db.query(VentaDB).filter((VentaDB.rut_usuario == uid) | (VentaDB.cliente_rut == uid)).all()
+                ventas_usuario = db.query(VentaDB).filter((VentaDB.rut_usuario == uid) | (VentaDB.repartidor_rut == uid)).all()
                 for v in ventas_usuario:
                     movs = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_venta == v.id_venta).all()
                     for mv in movs:
@@ -527,11 +527,8 @@ class UsuarioController:
             for cliente in clientes:
                 uid = cliente.rut
 
-                # Ventas donde el usuario es cliente
-                ventas_cliente = db.query(VentaDB).filter(VentaDB.cliente_rut == uid).all()
-                # Ventas donde el usuario aparece como vendedor (por si acaso en datos de prueba)
-                ventas_usuario = db.query(VentaDB).filter(VentaDB.rut_usuario == uid).all()
-                ventas_todas = ventas_cliente + ventas_usuario
+                # Ventas relacionadas al usuario (como cliente/comprador o repartidor)
+                ventas_todas = db.query(VentaDB).filter((VentaDB.rut_usuario == uid) | (VentaDB.repartidor_rut == uid)).all()
                 for v in ventas_todas:
                     # Eliminar movimientos generados por la venta
                     movs = db.query(MovimientoInventarioDB).filter(MovimientoInventarioDB.id_venta == v.id_venta).all()
