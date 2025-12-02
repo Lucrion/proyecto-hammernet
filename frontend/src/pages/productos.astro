@@ -1,19 +1,21 @@
 ---
 import Layout from '../layouts/Layout.astro';
-// Evitar cargar script externo por ahora; inyectar lógica mínima inline
+
 ---
 
 <script type="module">
   function trackEvent(name, payload){ try { console.debug('[trackEvent]', name, payload||{}); } catch {} }
-  // Helpers para normalizar URLs de imágenes (soporta relativas del backend)
+  // Helpers y configuración de API
   let apiBaseResolved = null;
+  const DEFAULT_PROD_API = 'https://hammernet.onrender.com/api';
+  const isDev = (() => { try { const h = window.location.hostname; return h === 'localhost' || h === '127.0.0.1'; } catch { return false; } })();
   function getApiHost() {
     try {
       const env = window.__ENV__ || {};
-      const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      const api = env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || (isDev ? '/api' : DEFAULT_PROD_API);
       return api.replace(/\/api$/, '');
     } catch {
-      return '';
+      return (isDev ? '' : DEFAULT_PROD_API.replace(/\/api$/, ''));
     }
   }
 
@@ -21,17 +23,17 @@ import Layout from '../layouts/Layout.astro';
     try {
       const env = window.__ENV__ || {};
       const urlParam = new URLSearchParams(window.location.search).get('api');
-      const base = urlParam || env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || '/api';
+      const base = urlParam || env.PUBLIC_API_URL || env.PUBLIC_API_URL_PRODUCTION || (isDev ? '/api' : DEFAULT_PROD_API);
       apiBaseResolved = base;
       window.API_BASE = base;
       return base;
-    } catch { apiBaseResolved = '/api'; window.API_BASE = '/api'; return '/api'; }
+    } catch { const fb = (isDev ? '/api' : DEFAULT_PROD_API); apiBaseResolved = fb; window.API_BASE = fb; return fb; }
   }
 
   function normalizeImageUrl(u) {
     if (!u) return null;
     const s = String(u);
-    const api = apiBaseResolved || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
+    const api = apiBaseResolved || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || (isDev ? '/api' : DEFAULT_PROD_API));
     const origin = api.replace(/\/api$/, '');
     if (/^https?:\/\//i.test(s)) {
       try { return `${api}/media?url=${encodeURIComponent(s)}`; } catch { return s; }
