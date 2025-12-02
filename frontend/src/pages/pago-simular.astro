@@ -50,19 +50,19 @@ import EnvLoader from '../components/EnvLoader.astro';
           showBanner(status, data);
           if (status === 'AUTHORIZED') {
             const bo = data?.buy_order || '';
-            setTimeout(()=>{ window.location.href='/orden-compra/AUTHORIZED'+(bo?`?bo=${encodeURIComponent(bo)}`:''); }, 1200);
+            setTimeout(()=>{ window.location.href='/orden-compra-detalle'+(bo?`?bo=${encodeURIComponent(bo)}`:''); }, 1200);
           } else if (status === 'REJECTED') {
             const rs = data?.reason || '';
-            setTimeout(()=>{ window.location.href='/orden-compra/REJECTED'+(rs?`?reason=${encodeURIComponent(rs)}`:''); }, 1600);
+            setTimeout(()=>{ window.location.href='/orden-compra?status=REJECTED'+(rs?`&reason=${encodeURIComponent(rs)}`:''); }, 1600);
           } else if (status === 'FAILED') {
-            setTimeout(()=>{ window.location.href='/orden-compra/FAILED'; }, 1600);
+            setTimeout(()=>{ window.location.href='/orden-compra?status=FAILED'; }, 1600);
           } else if (status === 'ABORTED') {
-            setTimeout(()=>{ window.location.href='/orden-compra/ABORTED'; }, 1600);
+            setTimeout(()=>{ window.location.href='/orden-compra?status=ABORTED'; }, 1600);
           } else if (status === 'TIMEOUT') {
-            setTimeout(()=>{ window.location.href='/orden-compra/TIMEOUT'; }, 1600);
+            setTimeout(()=>{ window.location.href='/orden-compra?status=TIMEOUT'; }, 1600);
           } else if (status === 'ERROR') {
             const msg = data?.message || '';
-            setTimeout(()=>{ window.location.href='/orden-compra/ERROR'+(msg?`?message=${encodeURIComponent(msg)}`:''); }, 1800);
+            setTimeout(()=>{ window.location.href='/orden-compra?status=ERROR'+(msg?`&message=${encodeURIComponent(msg)}`:''); }, 1800);
           }
         }
         document.getElementById('btnAprobado').addEventListener('click', ()=> sim('AUTHORIZED', { payment_type_code:'VD', amount: 0, installments_number: 0 }));
