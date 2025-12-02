@@ -171,10 +171,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                         <label for="catalogarDescripcion" class="block text-sm font-medium text-gray-700 mb-1">Descripción *</label>
                         <textarea id="catalogarDescripcion" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" placeholder="Descripción del producto"></textarea>
                     </div>
-                    <div>
-                        <label for="catalogarMarca" class="block text-sm font-medium text-gray-700 mb-1">Marca *</label>
-                        <input type="text" id="catalogarMarca" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Marca del producto" />
-                    </div>
+                    
                     
                     
                     
@@ -465,6 +462,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     async function updateData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
     async function deleteData(endpoint){const r=await fetchWithAuth(endpoint,{method:'DELETE',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
 
+    const fmtFecha = (iso) => { try { if (!iso) return '-'; const d = new Date(iso); return d.toLocaleString('es-CL'); } catch { return '-'; } };
+
     let base64Image = null;
     let catalogarBase64Image = null;
     let editarBase64Image = null;
@@ -710,8 +709,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 <tr>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagen del Producto</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del Producto</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marca</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inicio oferta</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fin oferta</th>
                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                 </tr>
             `;
@@ -743,8 +743,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             tr.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap"><img src="${imagen}" alt="${producto.nombre}" class="h-12 w-12 rounded object-cover" onerror="this.src='/herramientas.webp'"></td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${producto.nombre || 'Sin nombre'}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.marca || 'Sin marca'}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.descripcion || 'Sin descripción'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fmtFecha(producto.fecha_inicio_oferta)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fmtFecha(producto.fecha_fin_oferta)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button type="button" data-id="${id ?? ''}" data-index="${idxGlobal}" class="btn-editar-catalogado text-blue-600 hover:text-blue-900 mr-3" title="Editar producto catalogado" onclick="editarProductoCatalogado(this)">Editar</button>
                     <button type="button" data-id="${id ?? ''}" data-index="${idxGlobal}" class="btn-eliminar-catalogado text-red-600 hover:text-red-900" title="Quitar del catálogo" onclick="eliminarProductoCatalogado(this)">Quitar</button>
@@ -863,7 +864,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             document.getElementById('catalogarProductoId').value = producto.id_producto;
             document.getElementById('catalogarNombre').value = producto.nombre;
             document.getElementById('catalogarDescripcion').value = producto.descripcion || '';
-            const marcaInput = document.getElementById('catalogarMarca'); if (marcaInput) marcaInput.value = producto.marca || '';
+            
             const editorEl = document.getElementById('editorCatalogarRowsModal') || document.getElementById('editorCatalogarRows'); if (editorEl) { const obj = parseSpecsInput(producto.caracteristicas || ''); renderEditorRows(editorEl, obj); }
             
             const cGar = document.getElementById('catalogarGarantiaMeses'); const cMod = document.getElementById('catalogarModelo'); const cCol = document.getElementById('catalogarColor'); const cMat = document.getElementById('catalogarMaterial');
@@ -933,10 +934,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         const productoId = parseInt(document.getElementById('catalogarProductoId').value);
         const toISO = (val) => { if (!val) return null; try { const [d,t] = String(val).split('T'); return `${d}T${t}:00`; } catch { return null; } };
         const descVal = (document.getElementById('catalogarDescripcion').value || '').trim();
-        const marcaVal = (document.getElementById('catalogarMarca').value || '').trim();
         const data = {
             descripcion: descVal,
-            marca: marcaVal,
             caracteristicas: (function(){ try { const editorEl = document.getElementById('editorCatalogarRowsModal') || document.getElementById('editorCatalogarRows'); const obj = editorEl ? collectSpecsFromEditor(editorEl) : {}; return JSON.stringify(obj || {}, null, 2); } catch { return '{}'; } })(),
             imagen_base64: null,
             garantia_meses: (function(){ const v = document.getElementById('catalogarGarantiaMeses')?.value; return v !== '' ? parseInt(v, 10) : null; })(),
@@ -950,7 +949,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             fecha_fin_oferta: (function(){ const v = document.getElementById('catalogarFinOferta')?.value; return toISO(v); })()
         };
         if (!data.descripcion) { try { window.showToast('La descripción es obligatoria', 'warn'); } catch { alert('La descripción es obligatoria'); } return; }
-        if (!data.marca) { try { window.showToast('La marca es obligatoria', 'warn'); } catch { alert('La marca es obligatoria'); } return; }
+        
         if (data.tipo_oferta === 'porcentaje' && typeof data.valor_oferta === 'number') { data.valor_oferta = Math.min(100, Math.max(0, data.valor_oferta)); }
         if (data.tipo_oferta === 'fijo' && typeof data.valor_oferta === 'number') { data.valor_oferta = Math.max(0, data.valor_oferta); }
         if (data.fecha_inicio_oferta && data.fecha_fin_oferta) {

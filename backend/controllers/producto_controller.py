@@ -166,6 +166,8 @@ class ProductoController:
                     oferta_activa=getattr(p, 'oferta_activa', False),
                     tipo_oferta=getattr(p, 'tipo_oferta', None),
                     valor_oferta=float(getattr(p, 'valor_oferta', 0) or 0),
+                    fecha_inicio_oferta=getattr(p, 'fecha_inicio_oferta', None),
+                    fecha_fin_oferta=getattr(p, 'fecha_fin_oferta', None),
                     precio_final=precio_final
                 )
                 catalogo_productos.append(producto_catalogo)
@@ -241,6 +243,8 @@ class ProductoController:
                 oferta_activa=getattr(candidato, 'oferta_activa', False),
                 tipo_oferta=getattr(candidato, 'tipo_oferta', None),
                 valor_oferta=float(getattr(candidato, 'valor_oferta', 0) or 0),
+                fecha_inicio_oferta=getattr(candidato, 'fecha_inicio_oferta', None),
+                fecha_fin_oferta=getattr(candidato, 'fecha_fin_oferta', None),
                 precio_final=precio_final
             )
 
@@ -315,7 +319,6 @@ class ProductoController:
             # Actualizar el producto con los datos del catálogo
             producto.descripcion = datos_catalogo.descripcion
             producto.imagen_url = imagen_url
-            producto.marca = datos_catalogo.marca
             producto.caracteristicas = datos_catalogo.caracteristicas
             # Nuevos campos de detalle
             try:
@@ -384,6 +387,8 @@ class ProductoController:
                 oferta_activa=getattr(producto, 'oferta_activa', False),
                 tipo_oferta=getattr(producto, 'tipo_oferta', None),
                 valor_oferta=float(getattr(producto, 'valor_oferta', 0) or 0),
+                fecha_inicio_oferta=getattr(producto, 'fecha_inicio_oferta', None),
+                fecha_fin_oferta=getattr(producto, 'fecha_fin_oferta', None),
                 precio_final=precio_final
             )
             

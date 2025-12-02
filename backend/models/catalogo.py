@@ -32,6 +32,8 @@ class ProductoCatalogo(BaseModel):
     oferta_activa: Optional[bool] = False
     tipo_oferta: Optional[str] = None
     valor_oferta: Optional[float] = 0
+    fecha_inicio_oferta: Optional[datetime] = None
+    fecha_fin_oferta: Optional[datetime] = None
     precio_final: Optional[float] = None
     
     class Config:
@@ -46,7 +48,6 @@ class AgregarACatalogo(BaseModel):
     descripcion: str
     imagen_url: Optional[str] = None
     imagen_base64: Optional[str] = None
-    marca: str
     caracteristicas: str
     # Detalles adicionales
     garantia_meses: Optional[int] = None
@@ -66,7 +67,6 @@ class AgregarACatalogo(BaseModel):
                 "descripcion": "Martillo de acero forjado con mango ergonómico",
                 "imagen_url": "https://example.com/martillo.jpg",
                 "imagen_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...",
-                "marca": "Stanley",
                 "caracteristicas": "Peso: 500g, Mango antideslizante, Cabeza forjada",
                 "garantia_meses": 12,
                 "modelo": "ST-500",
