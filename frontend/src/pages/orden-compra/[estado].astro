@@ -30,6 +30,7 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
     </div>
     <div id="json" class="mt-6 bg-gray-50 rounded p-3 text-xs overflow-auto hidden"></div>
     <div class="mt-6 flex gap-3">
+      <a id="verDetalle" href="#" class="px-4 py-2 bg-black text-white rounded hidden">Ver detalle</a>
       <a href="/" class="px-4 py-2 bg-blue-600 text-white rounded">Volver al inicio</a>
     </div>
   </div>
@@ -37,41 +38,45 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
   <script type="module">
     (function(){
       try {
-        const ls = window.localStorage; const ss = window.sessionStorage;
+        const ls = window.localStorage;
+        const ss = window.sessionStorage;
+        // Verificar si es sesión de invitado
         const isGuest = (ss.getItem('guest_order_session') === '1') || (ls.getItem('guest_order_session') === '1');
-        const isLogged = (ls.getItem('isLoggedIn') === 'true') && !!ls.getItem('token');
+        // Verificar si está logueado
+        const isLogged = ls.getItem('isLoggedIn') === 'true' && Boolean(ls.getItem('token'));
+        
+        // Corrección de acceso: Permitir si es usuario O si es invitado
         if (!isLogged && !isGuest) {
           const next = encodeURIComponent(window.location.pathname + window.location.search);
           window.location.href = '/login-cliente?next=' + next;
           return;
         }
       } catch {}
+
       async function ensureApiBase(){
-        try{const urlParam=new URLSearchParams(window.location.search).get('api');if(urlParam) window.API_BASE=urlParam;const base=window.API_BASE|| (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');try{const r=await fetch(String(base).replace(/\/$,'') + '/health',{method:'GET'});if(r&&r.ok){window.API_BASE=base;return;}}catch{}try{const host=window.location.hostname||'';if(/\.onrender\.com$/.test(host)){const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;const r2=await fetch(alt + '/health',{method:'GET'});if(r2&&r2.ok){window.API_BASE=alt;return;}}}catch{} }
+        try{const urlParam=new URLSearchParams(window.location.search).get('api');if(urlParam) window.API_BASE=urlParam;const base=window.API_BASE||(window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');try{const r=await fetch(String(base).replace(/\/$/,'') + '/health',{method:'GET'});if(r&&r.ok){window.API_BASE=base;return;}}catch{}try{const host=window.location.hostname||'';if(/\.onrender\.com$/.test(host)){const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;const r2=await fetch(alt + '/health',{method:'GET'});if(r2&&r2.ok){window.API_BASE=alt;return;}}}catch{} }
+      
       await ensureApiBase();
       const API_BASE = window.API_BASE || 'https://hammernet.onrender.com/api';
+      
       const u = new URL(window.location.href);
       const bo = u.searchParams.get('bo')||'';
       const reason = u.searchParams.get('reason')||'';
       const message = u.searchParams.get('message')||'';
-      const estado = '{estadoParam}';
+      
+      // CORRECCIÓN PRINCIPAL: Usar la variable inyectada correctamente
+      // Esto permite que el código detecte que el estado es 'AUTHORIZED'
+      const estado = estadoParam; 
+      
       const banner = document.getElementById('banner');
       const estadoBox = document.getElementById('estado');
       const orden = document.getElementById('orden');
+      const verCompras = document.getElementById('verCompras');
       const resumen = document.getElementById('resumen');
-      const ventaInfo = document.getElementById('ventaInfo');
-      const clienteInfo = document.getElementById('clienteInfo');
-      const totalInfo = document.getElementById('totalInfo');
       const itemsBox = document.getElementById('items');
       const itemsList = document.getElementById('itemsList');
-      const jsonBox = document.getElementById('json');
-      const verCompras = document.getElementById('verCompras');
 
-      const show = (el) => el.classList.remove('hidden');
-      const fmtPrecio = (v) => '$' + Number(v||0).toLocaleString('es-CL');
-      const digitsOnly = (s) => String(s||'').replace(/\D/g,'');
-      const formatRut = (str) => { const raw=String(str||'').toUpperCase().replace(/[^0-9K]/g,''); if(!raw||raw.length<2) return String(str||''); const body=raw.slice(0,-1); const dv=raw.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return `${withDots}-${dv}`; };
-
+      // Generar mensaje de estado incluyendo el código de orden (bo)
       const statusMsg = () => {
         if (estado === 'AUTHORIZED') return bo ? `Pago aprobado. Orden ${bo}` : 'Pago aprobado';
         if (estado === 'REJECTED') return `Pago rechazado${reason?`: ${reason}`:''}`;
@@ -79,21 +84,67 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
         if (estado === 'ABORTED') return 'Pago cancelado por el cliente';
         if (estado === 'TIMEOUT') return 'Pago expirado por timeout';
         if (estado === 'ERROR') return `Error de autenticación${message?`: ${message}`:''}`;
+        return 'Estado desconocido';
       };
-
-      banner.textContent = statusMsg();
-
-      orden.textContent = bo ? `Orden de compra: ${bo}` : '';
+      
+      // Mostrar el mensaje en el banner principal
+      if (banner) banner.textContent = statusMsg();
+      
+      // Mostrar explícitamente el código de orden debajo del banner
+      if (orden) orden.textContent = bo ? `Orden de compra: ${bo}` : '';
+      
       if (!bo) {
-        estadoBox.textContent = 'No se realizo una orden de compra';
+        if (estadoBox) estadoBox.textContent = 'No se realizó una orden de compra';
         if (verCompras) verCompras.href = '/compras';
         return;
       }
 
-      estadoBox.textContent = '';
-      fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`,{ headers:{ 'Accept':'application/json' }, cache:'no-store'})
+      if (estadoBox) estadoBox.textContent = '';
+      
+      const token = (localStorage.getItem('token') || sessionStorage.getItem('token') || '');
+      
+      // Si no hay token y NO es invitado, redirigir al login
+      // (Si es invitado, permitimos que se quede en esta pantalla)
+      try {
+        const ls = window.localStorage;
+        const ss = window.sessionStorage;
+        const isGuest = (ss.getItem('guest_order_session') === '1') || (ls.getItem('guest_order_session') === '1');
+        
+        if (!token && !isGuest) { 
+            window.location.href = '/login-cliente'; 
+            return; 
+        }
+      } catch {}
+
+      const headers = { 'Accept':'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // Intentar cargar detalles de la venta si es posible
+      fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`,{ headers: headers, cache:'no-store'})
         .then(r=>{ if(!r.ok) throw new Error('No encontrada'); return r.json(); })
-        .then(data=>{ const idv = Number(data?.id_venta || data?.id); try { sessionStorage.setItem('guest_order_session','1'); localStorage.setItem('guest_order_session','1'); } catch {} if (idv) { window.location.href = `/compra/${idv}?bo=${encodeURIComponent(bo)}`; } else { window.location.href = '/compras?bo='+encodeURIComponent(bo); } })
+        .then(data=>{ 
+            const idv = Number(data?.id_venta || data?.id); 
+            // Si la venta existe, redirigir al detalle o quedarse aquí según la lógica deseada.
+            // Para mostrar la confirmación visual, a veces es mejor no redirigir automáticamente:
+            if (idv) { 
+                // Opción A: Redirigir al detalle completo
+                 window.location.href = `/compra/${idv}?bo=${encodeURIComponent(bo)}`; 
+                
+                // Opción B (Comentada): Si prefieres quedarte en esta pantalla y mostrar datos básicos:
+                /*
+                if (resumen) {
+                    resumen.classList.remove('hidden');
+                    document.getElementById('totalInfo').textContent = 'Total: $' + (data.total_venta || 0).toLocaleString('es-CL');
+                }
+                */
+            } else { 
+                window.location.href = '/compras?bo='+encodeURIComponent(bo); 
+            } 
+        })
+        .catch(err => {
+            console.error('No se pudo cargar detalle venta:', err);
+            // No hacer nada, dejar que el usuario vea el mensaje de "Pago aprobado"
+        });
     })();
-  </script>
+ </script>
 </Layout>
