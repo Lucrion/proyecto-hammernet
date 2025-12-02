@@ -14,7 +14,7 @@ try {
   if (apiUrl && apiUrl.startsWith('http')) {
     apiOrigin = new URL(apiUrl).origin;
   }
-} catch {}
+} catch(e){}
 ---
 
 <!DOCTYPE html>
@@ -148,7 +148,7 @@ try {
 		      div.className = `${base} ${cls}`;
 		      div.textContent = String(mensaje || '');
 		      document.body.appendChild(div);
-		      setTimeout(() => { try { div.remove(); } catch {} }, 3500);
+              setTimeout(() => { try { div.remove(); } catch(e){} }, 3500);
 		    };
 		    window.showToast = showToast;
 		    const originalAlert = window.alert;
@@ -161,7 +161,7 @@ try {
 		        else if (/(error|fall|no se pudo|no autorizado|expirada)/.test(low)) tipo = 'error';
 		        else if (/(advertencia|cuidado|atención)/.test(low)) tipo = 'warn';
 		        showToast(s, tipo);
-		      } catch { originalAlert(msg); }
+              } catch(e) { originalAlert(msg); }
 		    };
 		  } catch {}
 		})();
@@ -177,12 +177,12 @@ try {
                         toast.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded shadow z-50';
                         toast.textContent = 'Acceso denegado: tu cuenta no tiene permisos de administración';
                         document.body.appendChild(toast);
-                        setTimeout(() => { try { document.body.removeChild(toast); } catch {} }, 4000);
+                        setTimeout(() => { try { document.body.removeChild(toast); } catch(e){} }, 4000);
                         u.searchParams.delete('error');
                         const qs = u.searchParams.toString();
                         history.replaceState({}, '', u.pathname + (qs ? ('?' + qs) : '') + u.hash);
                     }
-                } catch {}
+                } catch(e){}
                 try {
                     const url = new URL(window.location.href);
                     const paid = url.searchParams.get('paid');
@@ -192,15 +192,15 @@ try {
                             localStorage.removeItem('carrito');
                             localStorage.removeItem('checkout_items');
                             localStorage.removeItem('checkoutEntrega');
-                        } catch {}
-                        try { window.dispatchEvent(new Event('carrito:changed')); } catch {}
+                        } catch(e){}
+                        try { window.dispatchEvent(new Event('carrito:changed')); } catch(e){}
                         url.searchParams.delete('paid');
                         url.searchParams.delete('clear');
                         url.searchParams.delete('clearCart');
                         const qs = url.searchParams.toString();
                         history.replaceState({}, '', url.pathname + (qs ? ('?' + qs) : '') + url.hash);
                     }
-                } catch {}
+                } catch(e){}
                 try {
                     const url = new URL(window.location.href);
                     const status = url.searchParams.get('payment_status');
@@ -242,6 +242,8 @@ try {
           const userMenuButton = document.getElementById('userMenuButton');
           const userMenuDropdown = document.getElementById('userMenuDropdown');
           const menuCerrarSesion = document.getElementById('menuCerrarSesion');
+          const menuVerPerfil = document.getElementById('menuVerPerfil');
+          const menuVerCompras = document.getElementById('menuVerCompras');
 
 		  if (loginLink) {
 		    loginLink.addEventListener('click', (e) => {
@@ -271,7 +273,16 @@ try {
             const nombreUsuario = (user && user.nombre) || localStorage.getItem('nombreUsuario') || '';
             const rol = (user && (user.rol || user.role)) || 'cliente';
             const guestFlag = (sessionStorage.getItem('guest_order_session') === '1') || (localStorage.getItem('guest_order_session') === '1');
-            if (!guestFlag && isLoggedIn && token && (tipo === 'cliente' || rol !== 'admin')) {
+            if (guestFlag) {
+              if (userNameDisplay) userNameDisplay.textContent = 'Invitado';
+              if (userLoggedContainer) { userLoggedContainer.classList.remove('hidden'); userLoggedContainer.classList.add('flex'); }
+              if (userIconContainer) userIconContainer.style.display = 'none';
+              try {
+                if (menuVerPerfil) menuVerPerfil.style.display = 'none';
+                const bo = sessionStorage.getItem('guest_order_bo') || localStorage.getItem('guest_order_bo') || '';
+                if (menuVerCompras) menuVerCompras.href = bo ? (`/compras?bo=${encodeURIComponent(bo)}`) : '/compras';
+              } catch {}
+            } else if (isLoggedIn && token && (tipo === 'cliente' || rol !== 'admin')) {
               if (userNameDisplay) userNameDisplay.textContent = nombreUsuario || 'Cliente';
               if (userLoggedContainer) {
                 userLoggedContainer.classList.remove('hidden');
@@ -279,7 +290,7 @@ try {
               }
               if (userIconContainer) userIconContainer.style.display = 'none';
             }
-          } catch {}
+          } catch(e){}
 
           // Menú de usuario (toggle y cierre fuera)
           const toggleUserMenu = (open) => {
@@ -310,7 +321,7 @@ try {
             if (e.key === 'Escape') toggleUserMenu(false);
           });
 
-          // Acción de cerrar sesión
+          // Acción de cerrar sesión (cliente o invitado)
           menuCerrarSesion && menuCerrarSesion.addEventListener('click', () => {
             try {
               // Limpiar también sessionStorage por si el trabajador inició con sesión no persistente
@@ -319,6 +330,9 @@ try {
               sessionStorage.removeItem('user');
               sessionStorage.removeItem('role');
               sessionStorage.removeItem('nombreUsuario');
+              sessionStorage.removeItem('guest_order_session');
+              sessionStorage.removeItem('guest_order_rut');
+              sessionStorage.removeItem('guest_order_bo');
             } catch {}
             try {
               localStorage.removeItem('isLoggedIn');
@@ -327,6 +341,9 @@ try {
               localStorage.removeItem('role');
               // Mantener loginTipo para experiencia, opcionalmente limpiar si quieres: localStorage.removeItem('loginTipo')
               localStorage.removeItem('nombreUsuario');
+              localStorage.removeItem('guest_order_session');
+              localStorage.removeItem('guest_order_rut');
+              localStorage.removeItem('guest_order_bo');
             } catch {}
             toggleUserMenu(false);
             // Restaurar UI

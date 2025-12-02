@@ -9,7 +9,7 @@ const idParam = Astro.params.id;
   <div class="container mx-auto px-4 py-8">
     <div class="flex items-center justify-between mb-4">
       <h1 class="text-2xl font-bold text-gray-900">Detalle de la compra</h1>
-      <a href="/compras" class="text-blue-600 hover:text-blue-800">Volver a Mis compras</a>
+      <a id="verMisCompras" href="/compras" class="text-blue-600 hover:text-blue-800">Ver mis compras</a>
     </div>
     <div id="detalleHeader" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 text-sm text-gray-700"></div>
     <div class="overflow-x-auto">
@@ -118,19 +118,11 @@ const idParam = Astro.params.id;
           await render(venta);
         } catch {}
       })();
-
-      const clearGuest = () => {
-        try { sessionStorage.removeItem('isLoggedIn'); sessionStorage.removeItem('token'); sessionStorage.removeItem('user'); sessionStorage.removeItem('role'); sessionStorage.removeItem('nombreUsuario'); } catch {}
-        try { localStorage.removeItem('isLoggedIn'); localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.removeItem('role'); localStorage.removeItem('nombreUsuario'); } catch {}
-        try { sessionStorage.removeItem('guest_order_session'); localStorage.removeItem('guest_order_session'); sessionStorage.removeItem('guest_order_rut'); localStorage.removeItem('guest_order_rut'); } catch {}
-      };
       try {
-        const flag = (sessionStorage.getItem('guest_order_session') === '1') || (localStorage.getItem('guest_order_session') === '1');
-        if (flag) {
-          window.addEventListener('pagehide', clearGuest);
-          document.addEventListener('visibilitychange', () => { if (document.hidden) clearGuest(); });
-          document.addEventListener('click', (e) => { const a = e.target.closest('a[href^="/"]'); if (a) clearGuest(); });
-        }
+        const url = new URL(window.location.href);
+        const bo = url.searchParams.get('bo') || '';
+        const link = document.getElementById('verMisCompras');
+        if (link && bo) link.href = `/compras?bo=${encodeURIComponent(bo)}`;
       } catch {}
     });
   </script>

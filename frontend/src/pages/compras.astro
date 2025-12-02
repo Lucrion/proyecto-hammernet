@@ -268,13 +268,34 @@ import EnvLoader from '../components/EnvLoader.astro';
       };
 
       const init = async () => {
+        const API = getApiBase();
+        const url = new URL(window.location.href);
+        const bo = url.searchParams.get('bo') || '';
+        const guestFlag = (sessionStorage.getItem('guest_order_session') === '1') || (localStorage.getItem('guest_order_session') === '1');
+        if (guestFlag) {
+          estadoCuenta.textContent = 'Estás viendo tu compra como Invitado';
+          if (!bo) {
+            comprasBody.innerHTML = '';
+            comprasEmpty.classList.remove('hidden');
+            return;
+          }
+          try {
+            const resp = await fetch(`${API}/ventas/orden/${encodeURIComponent(bo)}`);
+            if (!resp.ok) { comprasBody.innerHTML=''; comprasEmpty.classList.remove('hidden'); return; }
+            const venta = await resp.json();
+            renderCompras([venta]);
+            return;
+          } catch {
+            comprasBody.innerHTML=''; comprasEmpty.classList.remove('hidden');
+            return;
+          }
+        }
         const rut = getUserRut();
         if (!rut) {
           estadoCuenta.innerHTML = 'Debes iniciar sesión para ver tus compras. <a href="/login-cliente" class="text-blue-600 hover:text-blue-800">Inicia sesión aquí</a>.';
           return;
         }
         estadoCuenta.textContent = '';
-        const API = getApiBase();
         try {
           console.log('[compras] rut detectado:', rut);
           const urlA = `${API}/ventas/usuario/${encodeURIComponent(String(rut))}?limit=100`;

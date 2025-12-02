@@ -29,9 +29,9 @@ import EnvLoader from '../components/EnvLoader.astro';
           const urlParam=new URLSearchParams(window.location.search).get('api');
           if(urlParam) window.API_BASE=urlParam;
           const base=window.API_BASE|| (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
-          try{ const r=await fetch(String(base).replace(/\/$/,'') + '/health',{method:'GET'}); if(r&&r.ok){ window.API_BASE=base; return; } }catch{}
-          try{ const host=window.location.hostname||''; if(/\.onrender\.com$/.test(host)){ const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`; const r2=await fetch(alt + '/health',{method:'GET'}); if(r2&&r2.ok){ window.API_BASE=alt; return; } } }catch{}
-        }catch{}
+          try{ const r=await fetch(String(base).replace(/\/$/,'') + '/health',{method:'GET'}); if(r&&r.ok){ window.API_BASE=base; return; } }catch(e){}
+          try{ const host=window.location.hostname||''; if(/\.onrender\.com$/.test(host)){ const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`; const r2=await fetch(alt + '/health',{method:'GET'}); if(r2&&r2.ok){ window.API_BASE=alt; return; } } }catch(e){}
+        }catch(e){}
       }
       await ensureApiBase();
       const API_BASE = window.API_BASE || '/api';
@@ -51,7 +51,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       orden.textContent = bo ? `Orden: ${bo}` : '';
       if (!bo) {
         estado.textContent='Orden no proporcionada';
-        try { verCompras.href = '/compras'; } catch {}
+        try { verCompras.href = '/compras'; } catch(e){}
         return;
       }
       estado.textContent='Cargando detalle...';
@@ -69,7 +69,7 @@ import EnvLoader from '../components/EnvLoader.astro';
               const info = JSON.parse(payload);
               cliente = info?.rut || cliente;
             }
-          } catch {}
+          } catch(e){}
           clienteInfo.textContent = `Cliente: ${cliente || 'Invitado'}`;
           totalInfo.textContent = `Total: $${Number(data?.total_venta||0).toLocaleString('es-CL')}`;
           show(resumen);
@@ -84,9 +84,9 @@ import EnvLoader from '../components/EnvLoader.astro';
           show(itemsBox);
           jsonBox.textContent = JSON.stringify(data,null,2);
           show(jsonBox);
-          try { verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`; } catch {}
+          try { verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`; sessionStorage.setItem('guest_order_bo', bo); localStorage.setItem('guest_order_bo', bo); } catch(e){}
         })
-        .catch(()=>{ estado.textContent='Orden de compra'; });
+        .catch((e)=>{ estado.textContent='Orden no encontrada'; });
     })();
   </script>
 </Layout>

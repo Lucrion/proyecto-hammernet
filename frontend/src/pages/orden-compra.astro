@@ -25,7 +25,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           <form id="orderForm" class="space-y-6" onsubmit="return false">
             <div>
               <label for="rut" class="block text-sm font-medium text-gray-700 mb-1">RUT</label>
-              <input id="rut" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ej: 12.345.678-9" required autocomplete="off" inputmode="numeric" />
+              <input id="rut" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ej: 12.345.678-9" required autocomplete="off" inputmode="numeric" maxlength="12" title="Formato: 12.345.678-9" />
             </div>
             <div>
               <label for="buy_order" class="block text-sm font-medium text-gray-700 mb-1">Orden de compra</label>
@@ -49,18 +49,33 @@ import EnvLoader from '../components/EnvLoader.astro';
       </div>
     </div>
     <script type="module">
-      (function(){
+      (async function(){
         const form = document.getElementById('orderForm');
-        const status = document.getElementById('status');
-        const detalle = document.getElementById('detalle');
-        const detalleJson = document.getElementById('detalleJson');
+        const statusEl = document.getElementById('status');
         const verCompras = document.getElementById('verCompras');
         async function ensureApiBase(){
-          try{const urlParam=new URLSearchParams(window.location.search).get('api');if(urlParam) window.API_BASE=urlParam;const base=window.API_BASE|| (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');try{const r=await fetch(String(base).replace(/\/$/,'') + '/health',{method:'GET'});if(r&&r.ok){window.API_BASE=base;return;}}catch{}try{const host=window.location.hostname||'';if(/\.onrender\.com$/.test(host)){const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;const r2=await fetch(alt + '/health',{method:'GET'});if(r2&&r2.ok){window.API_BASE=alt;return;}}}catch{} }
+          try {
+            const urlParam = new URLSearchParams(window.location.search).get('api');
+            if (urlParam) window.API_BASE = urlParam;
+          } catch (e) {}
+          const base = window.API_BASE || (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
+          try {
+            const r = await fetch(String(base).replace(/\/$/, '') + '/health', { method: 'GET' });
+            if (r && r.ok) { window.API_BASE = base; return; }
+          } catch (e) {}
+          try {
+            const host = window.location.hostname || '';
+            if (/\.onrender\.com$/.test(host)) {
+              const alt = `https://${host.replace(/(\.onrender\.com)$/, '-backend$1')}/api`;
+              const r2 = await fetch(alt + '/health', { method: 'GET' });
+              if (r2 && r2.ok) { window.API_BASE = alt; return; }
+            }
+          } catch (e) {}
+        }
         await ensureApiBase();
         const API_BASE = (typeof window !== 'undefined' && window.API_BASE) ? window.API_BASE : 'https://hammernet.onrender.com/api';
         const API_TIMEOUT = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.PUBLIC_API_TIMEOUT) ? Number(window.__ENV__.PUBLIC_API_TIMEOUT) : 10000;
-        const showStatus = (m, type='info') => { const el=status; if(!el) return; el.textContent=m; el.className='mt-2 text-sm text-center'; el.classList.add(type==='error'?'text-red-600':type==='success'?'text-green-600':type==='warning'?'text-yellow-600':'text-gray-600'); el.classList.remove('hidden'); };
+        const showStatus = (m, type='info') => { const el=statusEl; if(!el) return; el.textContent=m; el.className='mt-2 text-sm text-center'; el.classList.add(type==='error'?'text-red-600':type==='success'?'text-green-600':type==='warning'?'text-yellow-600':'text-gray-600'); el.classList.remove('hidden'); };
         const digitsOnly = (s) => String(s||'').replace(/\D/g,'');
         const computeRutDV = (d) => { const body=String(d||'').replace(/\D/g,''); if(!body) return ''; let sum=0,f=2; for(let i=body.length-1;i>=0;i--){ sum+=Number(body[i])*f; f = f===7?2:f+1; } const rest=11-(sum%11); if(rest===11) return '0'; if(rest===10) return 'K'; return String(rest); };
         const isRutValid = (str) => { const s=String(str||'').toUpperCase().replace(/[^0-9K]/g,''); if(!s||s.length<2) return false; const body=s.slice(0,-1); const dv=s.slice(-1); const expected=computeRutDV(body); return String(expected).toUpperCase()===dv; };
@@ -69,25 +84,42 @@ import EnvLoader from '../components/EnvLoader.astro';
           const addDots=(b)=>b.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
           rutEl.addEventListener('beforeinput',()=>{ rutEl._prevValue=rutEl.value; rutEl._prevPos=rutEl.selectionStart||0; });
           rutEl.addEventListener('input', () => { const raw=String(rutEl.value||'').replace(/[^0-9kK]/g,'').toUpperCase(); const body=raw.replace(/[^0-9]/g,'').slice(0,8); const dvPart=raw.length>body.length? raw.slice(-1).replace(/[^0-9K]/g,'') : ''; const formattedBody=addDots(body); const formatted = dvPart? `${formattedBody}-${dvPart}` : formattedBody; const prevDigits = String(rutEl._prevValue||'').slice(0, rutEl._prevPos||0).replace(/\D/g,'').length; rutEl.value = formatted; const pos = Math.min(formatted.length); rutEl.setSelectionRange(pos,pos); rutEl._prevValue=formatted; rutEl._prevPos=pos; });
-          rutEl.addEventListener('blur', () => { const ok=isRutValid(rutEl.value||''); rutEl.setCustomValidity(ok? '':'RUT inválido'); if(!ok){ showStatus('RUT inválido','error'); } else { showStatus('', 'info'); status.classList.add('hidden'); } });
+          rutEl.addEventListener('blur', () => { const ok=isRutValid(rutEl.value||''); rutEl.setCustomValidity(ok? '':'RUT inválido'); if(!ok){ showStatus('RUT inválido','error'); try{ rutEl.reportValidity && rutEl.reportValidity(); }catch{} } else { showStatus('', 'info'); statusEl && statusEl.classList.add('hidden'); } });
           rutEl.addEventListener('input', () => { rutEl.setCustomValidity(''); });
         }
         form.addEventListener('submit', async (e)=>{
           e.preventDefault();
           const bo = (document.getElementById('buy_order').value||'').trim();
-          const rut = (document.getElementById('rut').value||'').trim();
+          const rutInput = (document.getElementById('rut').value||'').trim();
           if (!bo) { showStatus('Ingrese la orden de compra', 'error'); return; }
-          const rutNorm = (()=>{ try { const s=rut||''; const body = digitsOnly(s.includes('-')? s.split('-')[0]: s); const dv = computeRutDV(body); return (body && dv)? (body+dv).toUpperCase(): ''; } catch { return ''; } })();
+          if (!rutInput) { showStatus('Ingrese su RUT', 'error'); return; }
+          const rutValido = isRutValid(rutInput);
+          if (!rutValido) { showStatus('RUT inválido','error'); try{ const el=document.getElementById('rut'); el && el.reportValidity && el.reportValidity(); }catch{} return; }
+          const rutNorm = (()=>{ try { const s=rutInput||''; const body = digitsOnly(s.includes('-')? s.split('-')[0]: s); const dv = computeRutDV(body); return (body && dv)? (body+dv).toUpperCase(): ''; } catch(e) { return ''; } })();
           showStatus('Buscando orden...', 'info');
           try {
             const resp = await fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`, { method:'GET', headers:{ 'Accept':'application/json' }, cache:'no-store' });
             if (!resp.ok) { const txt = await resp.text(); showStatus(txt||'Orden no encontrada','error'); return; }
             const data = await resp.json();
             const idv = Number(data?.id_venta || data?.id);
-            try { sessionStorage.setItem('guest_order_session','1'); localStorage.setItem('guest_order_session','1'); if(rutNorm){ sessionStorage.setItem('guest_order_rut', rutNorm); localStorage.setItem('guest_order_rut', rutNorm);} } catch {}
-            if (idv) { window.location.href = `/compra/${idv}?bo=${encodeURIComponent(bo)}`; return; }
-            showStatus('Orden encontrada', 'success');
-            verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`;
+            try { sessionStorage.setItem('guest_order_session','1'); localStorage.setItem('guest_order_session','1'); if(rutNorm){ sessionStorage.setItem('guest_order_rut', rutNorm); localStorage.setItem('guest_order_rut', rutNorm);} sessionStorage.setItem('guest_order_bo', bo); localStorage.setItem('guest_order_bo', bo); } catch(e){}
+            try {
+              const loginResp = await fetch(`${API_BASE}/auth/login-orden`, { method:'POST', headers:{ 'Content-Type':'application/json','Accept':'application/json' }, body: JSON.stringify({ rut: rutNorm || rutInput, buy_order: bo }) });
+              if (loginResp && loginResp.ok) {
+                const tokenData = await loginResp.json();
+                const token = tokenData?.access_token || tokenData?.token || '';
+                localStorage.setItem('isLoggedIn','true');
+                localStorage.setItem('token', token);
+                localStorage.setItem('user', JSON.stringify({ nombre: tokenData?.nombre || 'Invitado', rut: tokenData?.rut || (rutNorm||'') , role: (tokenData?.role || 'cliente') }));
+                localStorage.setItem('role', (tokenData?.role || 'cliente'));
+                sessionStorage.setItem('isLoggedIn','true');
+                sessionStorage.setItem('token', token);
+              }
+            } catch(e) {}
+            const dest = `/compras?bo=${encodeURIComponent(bo)}`;
+            verCompras.href = dest;
+            showStatus('Orden encontrada. Redirigiendo a Mis compras...', 'success');
+            window.location.href = dest;
           } catch (err) {
             showStatus('Error de conexión','error');
           }
