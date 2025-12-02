@@ -1,7 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import EnvLoader from '../components/EnvLoader.astro';
 ---
 
+<EnvLoader />
 <Layout title="Detalle Orden de Compra">
   <div class="container mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold mb-6">Detalle Orden de Compra</h1>
@@ -16,14 +18,22 @@ import Layout from '../layouts/Layout.astro';
       <h2 class="text-lg font-semibold mb-2">Productos</h2>
       <ul id="itemsList" class="list-disc pl-5"></ul>
     </div>
-    <div id="json" class="mt-6 bg-gray-50 rounded p-3 text-xs overflow-auto hidden"></div>
     <div id="acciones" class="mt-6 flex flex-col sm:flex-row gap-3">
       <a href="/" class="px-4 py-2 bg-blue-600 text-white rounded text-center">Volver al inicio</a>
-      <a id="verCompras" href="/compras" class="px-4 py-2 bg-gray-800 text-white rounded text-center">Ver en Mis Compras</a>
     </div>
   </div>
   <script type="module">
-    (function(){
+    (async function(){
+      async function ensureApiBase(){
+        try{
+          const urlParam=new URLSearchParams(window.location.search).get('api');
+          if(urlParam) window.API_BASE=urlParam;
+          const base=window.API_BASE|| (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');
+          try{ const r=await fetch(String(base).replace(/\/$/,'') + '/health',{method:'GET'}); if(r&&r.ok){ window.API_BASE=base; return; } }catch{}
+          try{ const host=window.location.hostname||''; if(/\.onrender\.com$/.test(host)){ const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`; const r2=await fetch(alt + '/health',{method:'GET'}); if(r2&&r2.ok){ window.API_BASE=alt; return; } } }catch{}
+        }catch{}
+      }
+      await ensureApiBase();
       const API_BASE = window.API_BASE || '/api';
       const u = new URL(window.location.href);
       const bo = u.searchParams.get('bo')||'';
@@ -76,7 +86,7 @@ import Layout from '../layouts/Layout.astro';
           show(jsonBox);
           try { verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`; } catch {}
         })
-        .catch(()=>{ estado.textContent='Orden no encontrada'; });
+        .catch(()=>{ estado.textContent='Orden de compra'; });
     })();
   </script>
 </Layout>
