@@ -5,13 +5,13 @@ import Layout from '../../layouts/Layout.astro';
 
 const isDev = (import.meta.env.MODE === 'development') || (import.meta.env.DEV === true);
 const devApi = '/api';
-const prodApi = (import.meta.env.PUBLIC_API_URL_PRODUCTION || import.meta.env.PUBLIC_API_URL || 'http://localhost:8000/api');
+const prodApi = (import.meta.env.PUBLIC_API_URL_PRODUCTION || import.meta.env.PUBLIC_API_URL || 'https://hammernet.onrender.com/api');
 const chosenApi = isDev ? devApi : prodApi;
 const API_BASE = chosenApi.endsWith('/api') ? chosenApi : chosenApi.replace(/\/$/, '') + '/api';
 const FRONT_ORIGIN = typeof Astro !== 'undefined' ? Astro.url.origin : '';
 const API_HOST = /^https?:\/\//i.test(API_BASE) ? API_BASE.replace(/\/api$/, '') : (FRONT_ORIGIN ? FRONT_ORIGIN.replace(/\/$/, '') : '');
 const PROXY_BASE = FRONT_ORIGIN ? (FRONT_ORIGIN.replace(/\/$/, '') + '/api') : null;
-const ABS_API_BASE = /^https?:\/\//i.test(API_BASE) ? API_BASE : (PROXY_BASE || 'http://127.0.0.1:8000/api');
+const ABS_API_BASE = /^https?:\/\//i.test(API_BASE) ? API_BASE : (PROXY_BASE || 'https://hammernet.onrender.com/api');
 
 // Normaliza URLs de imagen: si vienen relativas desde BD, se prefijan con el host del backend
 const normalizeImageUrl = (u) => {

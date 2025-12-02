@@ -50,16 +50,6 @@ import EnvLoader from '../components/EnvLoader.astro';
     </div>
     <script type="module">
       (function(){
-        try {
-          const ls = window.localStorage; const ss = window.sessionStorage;
-          const isGuest = (ss.getItem('guest_order_session') === '1') || (ls.getItem('guest_order_session') === '1');
-          const isLogged = ls.getItem('isLoggedIn') === 'true' && Boolean(ls.getItem('token'));
-          if (!isLogged || isGuest) {
-            const next = encodeURIComponent(window.location.pathname + window.location.search);
-            window.location.href = '/login-cliente?next=' + next;
-            return;
-          }
-        } catch {}
         const form = document.getElementById('orderForm');
         const status = document.getElementById('status');
         const detalle = document.getElementById('detalle');
@@ -68,7 +58,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         async function ensureApiBase(){
           try{const urlParam=new URLSearchParams(window.location.search).get('api');if(urlParam) window.API_BASE=urlParam;const base=window.API_BASE|| (window.__ENV__?.PUBLIC_API_URL || window.__ENV__?.PUBLIC_API_URL_PRODUCTION || '/api');try{const r=await fetch(String(base).replace(/\/$/,'') + '/health',{method:'GET'});if(r&&r.ok){window.API_BASE=base;return;}}catch{}try{const host=window.location.hostname||'';if(/\.onrender\.com$/.test(host)){const alt=`https://${host.replace(/(\.onrender\.com)$/,'-backend$1')}/api`;const r2=await fetch(alt + '/health',{method:'GET'});if(r2&&r2.ok){window.API_BASE=alt;return;}}}catch{} }
         await ensureApiBase();
-        const API_BASE = (typeof window !== 'undefined' && window.API_BASE) ? window.API_BASE : '/api';
+        const API_BASE = (typeof window !== 'undefined' && window.API_BASE) ? window.API_BASE : 'https://hammernet.onrender.com/api';
         const API_TIMEOUT = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.PUBLIC_API_TIMEOUT) ? Number(window.__ENV__.PUBLIC_API_TIMEOUT) : 10000;
         const showStatus = (m, type='info') => { const el=status; if(!el) return; el.textContent=m; el.className='mt-2 text-sm text-center'; el.classList.add(type==='error'?'text-red-600':type==='success'?'text-green-600':type==='warning'?'text-yellow-600':'text-gray-600'); el.classList.remove('hidden'); };
         const digitsOnly = (s) => String(s||'').replace(/\D/g,'');
@@ -94,13 +84,15 @@ import EnvLoader from '../components/EnvLoader.astro';
           const rutNorm = `${bodyDigits}${dvCalc}`;
           showStatus('Validando usuario y orden...', 'info');
           try {
-            const token = (localStorage.getItem('token') || sessionStorage.getItem('token') || '');
-            if (!token) { showStatus('Sesión no válida, vuelve a iniciar sesión','error'); return; }
-            const resp = await fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`, { method:'GET', headers:{ 'Accept':'application/json','Authorization': `Bearer ${token}` }, cache:'no-store' });
+            const lr = await fetch(`${API_BASE}/auth/login-orden`, { method:'POST', headers:{ 'Content-Type':'application/json','Accept':'application/json' }, body: JSON.stringify({ rut: rutNorm, buy_order: bo }) });
+            if (!lr.ok) { const txt = await lr.text(); showStatus(txt||'Credenciales inválidas','error'); return; }
+            const tokenData = await lr.json();
+            try { sessionStorage.setItem('token', tokenData.access_token); localStorage.setItem('token', tokenData.access_token); } catch {}
+            const resp = await fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`, { method:'GET', headers:{ 'Accept':'application/json','Authorization': `Bearer ${tokenData.access_token}` }, cache:'no-store' });
             if (!resp.ok) { const txt = await resp.text(); showStatus(txt||'Orden no encontrada','error'); return; }
             const data = await resp.json();
             const idv = Number(data?.id_venta || data?.id);
-            try { sessionStorage.removeItem('guest_order_session'); localStorage.removeItem('guest_order_session'); sessionStorage.removeItem('guest_order_rut'); localStorage.removeItem('guest_order_rut'); } catch {}
+            try { sessionStorage.setItem('guest_order_session','1'); localStorage.setItem('guest_order_session','1'); sessionStorage.setItem('guest_order_rut', rutNorm); localStorage.setItem('guest_order_rut', rutNorm); } catch {}
             if (idv) { window.location.href = `/compra/${idv}?bo=${encodeURIComponent(bo)}`; return; }
             showStatus('Orden encontrada', 'success');
             verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`;
