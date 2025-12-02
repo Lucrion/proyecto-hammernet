@@ -77,7 +77,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 							</div>
 							<div class="mb-4">
 								<label for="rut" class="block text-sm font-medium text-gray-700 mb-2">RUT *</label>
-            <input type="text" id="rut" name="rut" required maxlength="13" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" inputmode="numeric" placeholder="12.345.678-9">
+            <input type="text" id="rut" name="rut" required maxlength="12" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" inputmode="numeric" placeholder="12.345.678-9">
 							</div>
 							<div class="mb-4">
 								<label for="razon_social" class="block text-sm font-medium text-gray-700 mb-2">Razón Social *</label>
@@ -101,7 +101,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 							</div>
 					<div class="mb-4">
 						<label for="correo" class="block text-sm font-medium text-gray-700 mb-2">Correo</label>
-                        <input type="email" id="correo" name="correo" pattern="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="email" id="correo" name="correo" pattern="^\S+@\S+\.[\S]+$" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
 					</div>
 					<div class="mb-4">
 						<label for="telefono" class="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
@@ -157,6 +157,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     async function updateData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
     async function deleteData(endpoint){const r=await fetchWithAuth(endpoint,{method:'DELETE',headers:{'Content-Type':'application/json','Accept':'application/json'}});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
     function formatRutUI(v){const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase();if(!s)return'';const b=s.slice(0,-1);const dv=s.slice(-1);const withDots=b.replace(/\B(?=(\d{3})+(?!\d))/g,'.');return `${withDots}-${dv}`}
+    function validarRutChileno(rut){const rutStr=String(rut||'').toUpperCase();const limpio=rutStr.replace(/\./g,'').replace(/-/g,'');if(limpio.length<2)return false;const cuerpo=limpio.slice(0,-1);const dv=limpio.slice(-1);if(!/^\d+$/.test(cuerpo))return false;let suma=0,m=2;for(let i=cuerpo.length-1;i>=0;i--){suma+=Number(cuerpo[i])*m;m=m===7?2:m+1;}const resto=suma%11;const dvCalc=11-resto;const dvFinal=dvCalc===11?'0':(dvCalc===10?'K':String(dvCalc));return dvFinal===dv}
 
     let proveedores = [];
     let proveedorEditando = null;
@@ -181,7 +182,10 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         if (btnConfirmarEliminar) { btnConfirmarEliminar.addEventListener('click', confirmarEliminar); }
         if (formProveedor) {
             const rutEl = document.getElementById('rut');
-            if (rutEl) { rutEl.addEventListener('input', (e) => { const formatted = formatRutUI(e.target.value); e.target.value = formatted; e.target.selectionStart = e.target.selectionEnd = formatted.length; }); }
+            if (rutEl) {
+                rutEl.addEventListener('input', (e) => { const formatted = formatRutUI(e.target.value); e.target.value = formatted; e.target.selectionStart = e.target.selectionEnd = formatted.length; e.target.setCustomValidity(''); });
+                rutEl.addEventListener('blur', () => { const ok = validarRutChileno(rutEl.value); rutEl.setCustomValidity(ok ? '' : 'RUT inválido'); });
+            }
             formProveedor.addEventListener('submit', guardarProveedor);
         }
     });
@@ -237,6 +241,13 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             telefono: formData.get('telefono'),
             direccion: formData.get('direccion')
         };
+        const rutStr = String(proveedorData.rut||'').trim();
+        if (!validarRutChileno(rutStr)) {
+            const rutInput = document.getElementById('rut');
+            if (rutInput) rutInput.setCustomValidity('RUT inválido');
+            try { window.showToast && window.showToast('RUT inválido', 'error'); } catch { alert('RUT inválido'); }
+            return;
+        }
         try {
             if (proveedorEditando) { await updateData(`/api/proveedores/${proveedorEditando.id_proveedor}`, proveedorData); cerrarModal(); obtenerProveedores(); try { window.showToast('Proveedor actualizado correctamente', 'success'); } catch { alert('Proveedor actualizado correctamente'); } }
             else { await postData('/api/proveedores/', proveedorData); cerrarModal(); obtenerProveedores(); try { window.showToast('Proveedor creado correctamente', 'success'); } catch { alert('Proveedor creado correctamente'); } }

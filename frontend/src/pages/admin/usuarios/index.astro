@@ -22,7 +22,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
     <!-- Formulario para crear/editar usuario (oculto por defecto) -->
     <div id="formUsuario" class="bg-white rounded-lg shadow-md p-6 mb-6 hidden">
-        <h2 id="formTitle" class="text-xl font-semibold mb-4">Nuevo Usuario</h2>
+        <h2 id="formTitle" class="text-xl font-semibold mb-1">Nuevo Usuario</h2>
+        <p id="rutVisual" class="text-sm text-gray-600 mb-3 hidden">RUT: <span id="rutVisualText"></span></p>
         <form id="usuarioForm" class="space-y-4">
             <input type="hidden" id="userId" value="">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -34,7 +35,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     <label for="apellido" class="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
                     <input type="text" id="apellido" name="apellido" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
-                <div>
+                <div id="rutField">
                     <label for="rut" class="block text-sm font-medium text-gray-700 mb-1">RUT</label>
                     <input type="text" id="rut" name="rut" placeholder="12.345.678-9" maxlength="12" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" inputmode="numeric" required>
                 </div>
@@ -592,7 +593,25 @@ async function activarUsuarioAPI(id) {
 }
 
 function mostrarFormulario() { document.getElementById('formUsuario').classList.remove('hidden'); }
-function cerrarFormulario() { document.getElementById('formUsuario').classList.add('hidden'); document.getElementById('usuarioForm').reset(); document.getElementById('userId').value = ''; document.getElementById('formTitle').textContent = 'Nuevo Usuario'; }
+function cerrarFormulario() {
+  document.getElementById('formUsuario').classList.add('hidden');
+  document.getElementById('usuarioForm').reset();
+  document.getElementById('userId').value = '';
+  document.getElementById('formTitle').textContent = 'Nuevo Usuario';
+  const rutField = document.getElementById('rutField');
+  const rutEl = document.getElementById('rut');
+  const rutVisual = document.getElementById('rutVisual');
+  if (rutField && rutEl) {
+    rutField.classList.remove('hidden');
+    rutEl.removeAttribute('disabled');
+    rutEl.setAttribute('required','true');
+  }
+  if (rutVisual) {
+    rutVisual.classList.add('hidden');
+    const rutVisualText = document.getElementById('rutVisualText');
+    if (rutVisualText) rutVisualText.textContent = '';
+  }
+}
 function mostrarModalDesactivados() { document.getElementById('modalUsuariosDesactivados').classList.remove('hidden'); obtenerUsuariosDesactivados(); }
 function cerrarModalDesactivados() { document.getElementById('modalUsuariosDesactivados').classList.add('hidden'); }
 function mostrarModalConfirmacion() { document.getElementById('modalConfirmar').classList.remove('hidden'); }
@@ -709,6 +728,19 @@ window.editarUsuario = async function(id) {
             }
             document.getElementById('role').value = response.role;
             document.getElementById('formTitle').textContent = 'Editar Usuario';
+            const rutField = document.getElementById('rutField');
+            const rutEl = document.getElementById('rut');
+            const rutVisual = document.getElementById('rutVisual');
+            const rutVisualText = document.getElementById('rutVisualText');
+            if (rutField && rutEl) {
+                rutField.classList.add('hidden');
+                rutEl.setAttribute('disabled','true');
+                rutEl.removeAttribute('required');
+            }
+            if (rutVisual && rutVisualText) {
+                rutVisual.classList.remove('hidden');
+                rutVisualText.textContent = formatRutUI(response.rut || '');
+            }
             mostrarFormulario();
         }
     } catch (error) {
@@ -779,7 +811,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const dv = cleaned.slice(-1).replace(/[^0-9K]/g,'') || '';
                 const fullRut = digits ? (digits + (dv || '')) : '';
                 data.rut = fullRut || null;
-            } else { data.rut = null; }
+            } else {
+                const uid = document.getElementById('userId').value;
+                data.rut = uid ? String(uid) : null;
+            }
             if (data.nombre !== undefined) { data.nombre = String(data.nombre).trim(); }
             if (data.apellido !== undefined) { data.apellido = String(data.apellido).trim(); }
             if (data.role !== undefined) { data.role = String(data.role).toLowerCase().trim(); }

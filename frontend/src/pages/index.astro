@@ -204,6 +204,8 @@ export async function login(event) {
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('role', user.rol);
         localStorage.setItem('nombreUsuario', user.nombre || user.rut);
+        try { localStorage.setItem('loginTipo','cliente'); } catch {}
+        try { sessionStorage.removeItem('guest_order_session'); localStorage.removeItem('guest_order_session'); } catch {}
         state.user = user; state.token = data.access_token;
         try {
             const userId = user.id_usuario;

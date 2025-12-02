@@ -1,5 +1,28 @@
 // Script para manejar la animación optimizada del icono de usuario con deslizamiento horizontal
 function initUserIcon() {
+    try {
+        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        const token = localStorage.getItem('token');
+        const userLoggedContainer = document.getElementById('userLoggedContainer');
+        const userNameDisplay = document.getElementById('userNameDisplay');
+        const userIconContainerPre = document.getElementById('userIconContainer');
+        const loginButtonContainerPre = document.getElementById('loginButtonContainer');
+        if (isLoggedIn && token) {
+            try {
+                const userRaw = localStorage.getItem('user');
+                const user = userRaw ? JSON.parse(userRaw) : null;
+                const nombre = (user && (user.nombre || user.name)) || localStorage.getItem('nombreUsuario') || 'Cliente';
+                if (userNameDisplay) userNameDisplay.textContent = nombre;
+            } catch {}
+            if (userLoggedContainer) {
+                userLoggedContainer.classList.remove('hidden');
+                userLoggedContainer.classList.add('flex');
+            }
+            if (userIconContainerPre) userIconContainerPre.style.display = 'none';
+            if (loginButtonContainerPre) loginButtonContainerPre.style.display = 'none';
+            return;
+        }
+    } catch {}
     const userIconBtn = document.getElementById('userIconBtn');
     const userIconContainer = document.getElementById('userIconContainer');
     const loginButtonContainer = document.getElementById('loginButtonContainer');

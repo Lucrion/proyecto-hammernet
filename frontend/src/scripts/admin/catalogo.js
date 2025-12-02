@@ -1046,17 +1046,16 @@ async function guardarCatalogacion() {
     const productoId = parseInt(document.getElementById('catalogarProductoId').value);
     
     const data = {
-        descripcion: document.getElementById('catalogarDescripcion').value || null,
+        descripcion: (document.getElementById('catalogarDescripcion').value || '').trim(),
         caracteristicas: (function(){
             try {
                 const editorEl = document.getElementById('editorCatalogarRows');
-                if (!editorEl) return null;
-                const obj = collectSpecsFromEditor(editorEl);
-                return JSON.stringify(obj, null, 2);
-            } catch { return null; }
+                const obj = editorEl ? collectSpecsFromEditor(editorEl) : {};
+                return JSON.stringify(obj || {}, null, 2);
+            } catch { return '{}'; }
         })(),
-        marca: document.getElementById('catalogarMarca').value || null,
-        imagen_base64: null, // Se actualizará si hay imagen
+        marca: (document.getElementById('catalogarMarca').value || '').trim(),
+        imagen_base64: null,
         // Detalles
         garantia_meses: (function(){
             const v = document.getElementById('catalogarGarantiaMeses')?.value;
@@ -1083,10 +1082,11 @@ async function guardarCatalogacion() {
     };
 
     // Validaciones
-    const marcaVal = (data.marca || '').trim();
+    const marcaVal = data.marca;
     if (!marcaVal) { alert('La marca es obligatoria'); return; }
-    // Exigir imagen al catalogar
-    if (!catalogarBase64Image) { alert('Debes seleccionar una imagen para el producto'); return; }
+    const descripcionVal = data.descripcion;
+    if (!descripcionVal) { alert('La descripción es obligatoria'); return; }
+    // Características siempre en JSON; si está vacío se envía "{}"
     // Normalizar oferta
     if (data.tipo_oferta === 'porcentaje' && typeof data.valor_oferta === 'number') {
         data.valor_oferta = Math.min(100, Math.max(0, data.valor_oferta));
@@ -1094,11 +1094,17 @@ async function guardarCatalogacion() {
     if (data.tipo_oferta === 'fijo' && typeof data.valor_oferta === 'number') {
         data.valor_oferta = Math.max(0, data.valor_oferta);
     }
+    if (!data.oferta_activa) {
+        data.tipo_oferta = null;
+        data.valor_oferta = null;
+        data.fecha_inicio_oferta = null;
+        data.fecha_fin_oferta = null;
+    }
     // Normalizar color/material vacío a null
     data.color = (data.color || '').trim() || null;
     data.material = (data.material || '').trim() || null;
-    // Agregar imagen
-    data.imagen_base64 = catalogarBase64Image;
+    // Agregar imagen solo si se seleccionó
+    if (catalogarBase64Image) data.imagen_base64 = catalogarBase64Image;
 
     const submitBtn = document.querySelector('#catalogarProductoForm button[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;

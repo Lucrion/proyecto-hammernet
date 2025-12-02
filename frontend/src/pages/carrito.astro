@@ -477,15 +477,35 @@ import EnvLoader from '../components/EnvLoader.astro';
       if (!d) return;
       try {
         const { isLoggedIn, token, user } = getAuth();
-        const idUsuario = user && (user.id_usuario || user.id || user.idUsuario);
-        if (isLoggedIn && token && idUsuario) {
+        const getRutParam = () => {
+          let rut = String(user?.rut || user?.rut_usuario || '').toUpperCase();
+          if (!rut && token) {
+            try {
+              const parts = String(token).split('.');
+              if (parts.length === 3) {
+                const b = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+                const pad = b.length % 4 === 0 ? '' : '='.repeat(4 - (b.length % 4));
+                const payload = JSON.parse(atob(b + pad));
+                const sub = String(payload?.sub || '').toUpperCase();
+                const digits = sub.replace(/\D/g,'').slice(0,8);
+                if (digits) {
+                  const dv = computeRutDV(digits);
+                  rut = (digits + dv).toUpperCase();
+                }
+              }
+            } catch {}
+          }
+          return rut;
+        };
+        const rutParam = getRutParam();
+        if (isLoggedIn && token && rutParam) {
           const API = computeApiUrl();
           const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
           const targetId = window.__latestDespachoId;
           if (targetId) {
             await fetch(`${API}/despachos/${targetId}`, { method: 'PUT', headers, body: JSON.stringify(d) });
           } else {
-            const resp = await fetch(`${API}/despachos/usuario/${idUsuario}`, { method: 'POST', headers, body: JSON.stringify(d) });
+            const resp = await fetch(`${API}/despachos/usuario/${encodeURIComponent(rutParam)}`, { method: 'POST', headers, body: JSON.stringify(d) });
             try { const created = await resp.json(); window.__latestDespachoId = created?.id_despacho || created?.id; } catch {}
           }
         }
@@ -921,12 +941,13 @@ import EnvLoader from '../components/EnvLoader.astro';
           }
           const dv = computeRutDV(cuerpo);
           const rut_usuario = cuerpo ? (cuerpo + dv).toUpperCase() : cuerpo;
+          const entregaInfo = { entrega: entregaTipoAuth };
           const bodyAuth = {
             id_usuario: Number(idUsuario),
             rut_usuario,
             total_venta: Number(total),
             estado: 'pendiente',
-            observaciones: `${entregaTipoAuth}${envio > 0 ? ` | envío ${ENVIO_COSTO}` : ''}`,
+            observaciones: `ENTREGA_INFO:${JSON.stringify(entregaInfo)}${envio > 0 ? ` | envío ${ENVIO_COSTO}` : ''}`,
             metodo_entrega: entregaTipoAuth,
             detalles
           };
@@ -961,10 +982,11 @@ import EnvLoader from '../components/EnvLoader.astro';
               adicional: getVal('dir-adicional')
             } : null
           };
+          const obsGuest = `VENTA_INVITADO:${JSON.stringify(guestInfo)}${envio > 0 ? ` | envío ${ENVIO_COSTO}` : ''}`;
           const bodyGuest = {
             total_venta: Number(total),
             estado: 'pendiente',
-            observaciones: envio > 0 ? `Incluye costo de envío ${ENVIO_COSTO}` : undefined,
+            observaciones: obsGuest,
             detalles,
             guest_info: guestInfo
           };
@@ -1400,9 +1422,26 @@ import EnvLoader from '../components/EnvLoader.astro';
       // 2) Cargar despachos del usuario y prellenar dirección si hay token; si no, queda en retiro por defecto
       //    Solo si hay ítems en el carrito (no forzar flujo de entrega sin compra)
       let setTipo = false;
-      if (carritoTieneItems && token && user?.id_usuario) {
-        const dResp = await fetch(`${API}/despachos/usuario/${user.id_usuario}`, { headers });
-        if (dResp.ok) {
+      if (carritoTieneItems && token) {
+        let rutParam = String(user?.rut || user?.rut_usuario || '').toUpperCase();
+        if (!rutParam) {
+          try {
+            const parts = String(token).split('.');
+            if (parts.length === 3) {
+              const b = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+              const pad = b.length % 4 === 0 ? '' : '='.repeat(4 - (b.length % 4));
+              const payload = JSON.parse(atob(b + pad));
+              const sub = String(payload?.sub || '').toUpperCase();
+              const digits = sub.replace(/\D/g,'').slice(0,8);
+              if (digits) {
+                const dv = computeRutDV(digits);
+                rutParam = (digits + dv).toUpperCase();
+              }
+            }
+          } catch {}
+        }
+        const dResp = rutParam ? await fetch(`${API}/despachos/usuario/${encodeURIComponent(rutParam)}`, { headers }) : null;
+        if (dResp && dResp.ok) {
           const dList = await safeJson(dResp);
           const latest = findLatestDespacho(dList || []);
           if (latest) {

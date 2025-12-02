@@ -212,9 +212,10 @@ import Layout from '../layouts/Layout.astro';
       };
 
       const loadFromApi = async () => {
-        if (!userId) return null;
+        const rutStr = String((estado.user && estado.user.rut) || '').toUpperCase();
+        if (!rutStr) return null;
         try {
-          const list = await getData(`/api/despachos/usuario/${userId}`);
+          const list = await getData(`/api/despachos/usuario/${encodeURIComponent(rutStr)}`);
           // Usar el último por fecha (la API ya ordena desc)
           const last = Array.isArray(list) && list.length > 0 ? list[0] : null;
           return last;
@@ -309,7 +310,7 @@ import Layout from '../layouts/Layout.astro';
       const status = document.getElementById('despachoStatus');
       const { token, user } = getAuth();
       const keyUser = storageKeyDespacho(user?.id_usuario);
-      const userId = user?.id_usuario;
+      const rutStr = String((user && user.rut) || document.getElementById('perfilRut')?.value || '').toUpperCase();
 
       const payload = {
         buscar: document.getElementById('dir-buscar').value.trim(),
@@ -327,9 +328,9 @@ import Layout from '../layouts/Layout.astro';
       status.textContent = 'Guardando despacho...';
       // 1) Guardar en backend si hay usuario
       let savedOk = false;
-      if (userId) {
+      if (rutStr) {
         try {
-          await postData(`/api/despachos/usuario/${userId}`, payload);
+          await postData(`/api/despachos/usuario/${encodeURIComponent(rutStr)}`, payload);
           savedOk = true;
         } catch (err) {
           console.warn('Falla al guardar en backend:', err);
@@ -339,7 +340,7 @@ import Layout from '../layouts/Layout.astro';
       // No guardar direcciones de despacho en localStorage
       try {
         localStorage.removeItem('checkoutDireccion');
-        if (userId) localStorage.removeItem(keyUser);
+        if (user?.id_usuario) localStorage.removeItem(keyUser);
       } catch {}
 
       setInputsDisabled(document.getElementById('despachoForm'), true);

@@ -191,6 +191,7 @@ async function updateData(endpoint,data){const r=await fetchWithAuth(endpoint,{m
 function mostrarErrorToast(mensaje){try{const div=document.createElement('div');div.className='fixed top-4 right-4 z-50 bg-red-600 text-white px-4 py-2 rounded shadow';div.textContent=mensaje;document.body.appendChild(div);setTimeout(()=>{div.remove();},3000);}catch{alert('Error: '+mensaje)}}
 
 const state = { ventas: [], ventaDetalleActual: null, filtros: { fechaInicio: null, fechaFin: null, estado: null }, paginacion: { paginaActual: 1, elementosPorPagina: 20, totalElementos: 0 }, orden: { clave: null, direccion: 'asc' } };
+try { window.state = state; } catch {}
 
 document.addEventListener('DOMContentLoaded', function() { inicializarEventos(); cargarDatosIniciales(); });
 
@@ -221,7 +222,7 @@ function abrirModalDetalleVenta() { const modal = document.getElementById('modal
 function cerrarModalDetalleVenta() { const modal = document.getElementById('modalDetalleVenta'); if (modal) modal.style.display = 'none'; }
 
 async function copiarOrdenEntrega() { try { const venta = state.ventaDetalleActual; if (!venta) return; const texto = generarTextoEntrega(venta); await navigator.clipboard.writeText(texto); mostrarExito('Datos de entrega copiados'); try { sessionStorage.setItem('orden_entrega', JSON.stringify(venta)); } catch {} } catch (err) { mostrarError('No se pudo copiar los datos de entrega'); } }
-function imprimirOrdenEntrega() { try { const venta = state.ventaDetalleActual; if (!venta) return; const popup = window.open('', '_blank'); if (!popup) { mostrarError('Bloqueador de ventanas impide imprimir'); return; } const fechaDia = new Date(venta.fecha_venta).toLocaleDateString('es-CL',{year:'numeric',month:'2-digit',day:'2-digit'}); const rutUsuario = (typeof window.formatRut==='function') ? window.formatRut(venta.rut_usuario || venta.usuario_rut || '') : (venta.rut_usuario || venta.usuario_rut || 'N/A'); const clienteNombre = obtenerNombreCliente(venta) || 'N/A'; const tipoEntrega = mapTipoEntrega(parseEntregaInfo(venta)?.tipo || detectarTipoEntrega(venta)); const contenido = `<html><head><title>Guía de Entrega #${venta.id_venta}</title><style>body{font-family:sans-serif;padding:20px} h1{font-size:18px} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:6px;text-align:left} th{background:#f3f4f6}</style></head><body><h1>Guía de Entrega - Orden de compra #${venta.id_venta}</h1><p><strong>Fecha:</strong> ${fechaDia}<br/><strong>Usuario (RUT):</strong> ${rutUsuario}<br/><strong>Cliente:</strong> ${clienteNombre clienteApellido}<br/><strong>Tipo de despacho:</strong> ${tipoEntrega || 'N/A'}<br/><strong>Total:</strong> ${formatearDinero(venta.total_venta)}</p><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>${(venta.detalles_venta || []).map(d => `<tr><td>${d.producto_nombre || `Producto #${d.id_producto}`}</td><td>${d.cantidad}</td><td>${formatearDinero(d.precio_unitario)}</td><td>${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td></tr>`).join('')}</tbody></table></body></html>`; popup.document.write(contenido); popup.document.close(); popup.focus(); popup.print(); } catch (err) { mostrarError('No se pudo imprimir la guía de entrega'); } }
+function imprimirOrdenEntrega() { try { const venta = state.ventaDetalleActual; if (!venta) return; const popup = window.open('', '_blank'); if (!popup) { mostrarError('Bloqueador de ventanas impide imprimir'); return; } const fechaDia = new Date(venta.fecha_venta).toLocaleDateString('es-CL',{year:'numeric',month:'2-digit',day:'2-digit'}); const rutUsuario = (typeof window.formatRut==='function') ? window.formatRut(venta.rut_usuario || venta.usuario_rut || '') : (venta.rut_usuario || venta.usuario_rut || 'N/A'); const clienteNombre = obtenerNombreCliente(venta) || 'N/A'; const tipoEntrega = mapTipoEntrega(parseEntregaInfo(venta)?.tipo || detectarTipoEntrega(venta)); const contenido = `<html><head><title>Guía de Entrega #${venta.id_venta}</title><style>body{font-family:sans-serif;padding:20px} h1{font-size:18px} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:6px;text-align:left} th{background:#f3f4f6}</style></head><body><h1>Guía de Entrega - Orden de compra #${venta.id_venta}</h1><p><strong>Fecha:</strong> ${fechaDia}<br/><strong>Usuario (RUT):</strong> ${rutUsuario}<br/><strong>Cliente:</strong> ${clienteNombre}<br/><strong>Tipo de despacho:</strong> ${tipoEntrega || 'N/A'}<br/><strong>Total:</strong> ${formatearDinero(venta.total_venta)}</p><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>${(venta.detalles_venta || []).map(d => `<tr><td>${d.producto_nombre || `Producto #${d.id_producto}`}</td><td>${d.cantidad}</td><td>${formatearDinero(d.precio_unitario)}</td><td>${formatearDinero(d.subtotal || (d.precio_unitario * d.cantidad))}</td></tr>`).join('')}</tbody></table></body></html>`; popup.document.write(contenido); popup.document.close(); popup.focus(); popup.print(); } catch (err) { mostrarError('No se pudo imprimir la guía de entrega'); } }
 
 function generarTextoEntrega(venta) { const lineas = []; lineas.push(`Orden de Entrega - Venta #${venta.id_venta}`); lineas.push(`Fecha: ${formatearFecha(venta.fecha_venta)}`); lineas.push(`Usuario: ${venta.usuario || 'N/A'}`); lineas.push(`Total: ${formatearDinero(venta.total_venta)}`); lineas.push('Detalles:'); (venta.detalles_venta || []).forEach(d => { lineas.push(`- ${d.producto_nombre || `Producto #${d.id_producto}`} x${d.cantidad} (${formatearDinero(d.precio_unitario)} c/u)`); }); return lineas.join('\n'); }
 window.cerrarModalDetalleVenta = cerrarModalDetalleVenta;
@@ -262,7 +263,33 @@ try {
   }
 } catch {}
 function exportarVentasCSV() { try { const filas = state.ventas.map(v => ({ ID: v.id_venta, Fecha: v.fecha_venta, Usuario: v.usuario_nombre || '', Cliente: v.cliente_nombre || v.cliente_rut || '', Courier: v.repartidor_nombre || v.repartidor_rut || '', Total: v.total_venta, Estado: v.estado || '', Envio: v.estado_envio || '', Productos: Array.isArray(v.detalles_venta) ? v.detalles_venta.length : 0 })); const encabezados = Object.keys(filas[0] || { ID: '', Fecha: '', Usuario: '', Cliente: '', Courier: '', Total: '', Estado: '', Envio: '', Productos: '' }); const csv = [encabezados.join(','), ...filas.map(row => encabezados.map(h => JSON.stringify(row[h] ?? '')).join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `ventas_${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); } catch (e) { mostrarError('No se pudo exportar el CSV'); } }
-function parseEntregaInfo(venta) { try { const obs = String(venta.observaciones || ''); const tag = 'VENTA_INVITADO:'; const idx = obs.indexOf(tag); if (idx >= 0) { const jsonStr = obs.slice(idx + tag.length).trim(); const info = JSON.parse(jsonStr); const tipo = info?.entrega || 'retiro'; let texto = ''; if (tipo === 'despacho' && info?.direccion) { const d = info.direccion; texto = `- ${d.calle || ''} ${d.numero || ''} ${d.depto ? ('(' + d.depto + ')') : ''}`; } return { tipo, texto_extra: texto, raw: info }; } const lower = obs.toLowerCase(); if (lower.includes('retiro')) return { tipo: 'retiro', texto_extra: '' }; if (lower.includes('despacho')) return { tipo: 'despacho', texto_extra: '' }; return null; } catch { return null; } }
+function parseEntregaInfo(venta) {
+  try {
+    const obs = String(venta.observaciones || '');
+    const extractJson = (text, tag) => {
+      const re = new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*(\\{[\\s\\S]*?\\})');
+      const m = text.match(re);
+      if (m && m[1]) { try { return JSON.parse(m[1]); } catch {} }
+      return null;
+    };
+    const infoAuth = extractJson(obs, 'ENTREGA_INFO:');
+    const infoGuest = extractJson(obs, 'VENTA_INVITADO:');
+    const info = infoAuth || infoGuest;
+    if (info) {
+      const tipo = info?.entrega || 'retiro';
+      let texto = '';
+      if (tipo === 'despacho' && infoGuest?.direccion) {
+        const d = infoGuest.direccion;
+        texto = `- ${d.calle || ''} ${d.numero || ''} ${d.depto ? ('(' + d.depto + ')') : ''}`.trim();
+      }
+      return { tipo, texto_extra: texto, raw: infoGuest || infoAuth };
+    }
+    const lower = obs.toLowerCase();
+    if (lower.includes('retiro')) return { tipo: 'retiro', texto_extra: '' };
+    if (lower.includes('despacho')) return { tipo: 'despacho', texto_extra: '' };
+    return null;
+  } catch { return null; }
+}
 function parseEnvioEstado(venta) { try { if (venta.estado_envio) return String(venta.estado_envio).toLowerCase(); const obs = String(venta.observaciones || ''); const tag = 'ENVIO_ESTADO:'; const idx = obs.indexOf(tag); if (idx >= 0) { const rest = obs.slice(idx + tag.length).trim(); const linea = rest.split('\n')[0].trim(); const val = linea.toLowerCase(); if (['pendiente','preparando','asignado','en camino','entregado','fallido'].includes(val)) return val; } return null; } catch { return null; } }
 function detectarTipoEntrega(venta) { const e = parseEntregaInfo(venta); return venta.metodo_entrega || e?.tipo || null; }
 function mapTipoEntrega(tipo){ const t=String(tipo||'').toLowerCase(); if(t==='retiro') return 'retiro en tienda'; if(t==='despacho') return 'despacho'; return t || ''; }

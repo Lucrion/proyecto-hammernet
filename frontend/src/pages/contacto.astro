@@ -90,7 +90,6 @@ import Layout from '../layouts/Layout.astro';
                             id="email"
                             name="email"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
                             required
                             oninvalid="this.setCustomValidity('Por favor ingresa un correo electrónico válido')" 
                             oninput="this.setCustomValidity('')"
@@ -306,7 +305,8 @@ function init() {
     }
     
     // Manejar envío del formulario
-    if (form) {
+    if (form && !form.dataset.bound) {
+        form.dataset.bound = '1';
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -333,7 +333,7 @@ function init() {
                 if (!formData.mensaje || formData.mensaje.length < 10) throw new Error('El mensaje debe tener al menos 10 caracteres');
                 
                 // Enviar datos a la API usando utilidad que normaliza la URL
-                const result = await postData('/api/mensajes', formData);
+                const result = await postData('/mensajes', formData);
                 
                 if (!result) {
                     throw new Error('Error al enviar el mensaje');

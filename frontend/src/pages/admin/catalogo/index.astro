@@ -169,7 +169,11 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     
                     <div>
                         <label for="catalogarDescripcion" class="block text-sm font-medium text-gray-700 mb-1">Descripción *</label>
-                        <textarea id="catalogarDescripcion" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" placeholder="Descripción del producto (opcional)"></textarea>
+                        <textarea id="catalogarDescripcion" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" placeholder="Descripción del producto"></textarea>
+                    </div>
+                    <div>
+                        <label for="catalogarMarca" class="block text-sm font-medium text-gray-700 mb-1">Marca *</label>
+                        <input type="text" id="catalogarMarca" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Marca del producto" />
                     </div>
                     
                     
@@ -859,6 +863,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             document.getElementById('catalogarProductoId').value = producto.id_producto;
             document.getElementById('catalogarNombre').value = producto.nombre;
             document.getElementById('catalogarDescripcion').value = producto.descripcion || '';
+            const marcaInput = document.getElementById('catalogarMarca'); if (marcaInput) marcaInput.value = producto.marca || '';
             const editorEl = document.getElementById('editorCatalogarRowsModal') || document.getElementById('editorCatalogarRows'); if (editorEl) { const obj = parseSpecsInput(producto.caracteristicas || ''); renderEditorRows(editorEl, obj); }
             
             const cGar = document.getElementById('catalogarGarantiaMeses'); const cMod = document.getElementById('catalogarModelo'); const cCol = document.getElementById('catalogarColor'); const cMat = document.getElementById('catalogarMaterial');
@@ -927,10 +932,12 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         const formData = new FormData(form);
         const productoId = parseInt(document.getElementById('catalogarProductoId').value);
         const toISO = (val) => { if (!val) return null; try { const [d,t] = String(val).split('T'); return `${d}T${t}:00`; } catch { return null; } };
+        const descVal = (document.getElementById('catalogarDescripcion').value || '').trim();
+        const marcaVal = (document.getElementById('catalogarMarca').value || '').trim();
         const data = {
-            descripcion: document.getElementById('catalogarDescripcion').value || null,
-            caracteristicas: (function(){ try { const editorEl = document.getElementById('editorCatalogarRowsModal') || document.getElementById('editorCatalogarRows'); if (!editorEl) return null; const obj = collectSpecsFromEditor(editorEl); return JSON.stringify(obj, null, 2); } catch { return null; } })(),
-            
+            descripcion: descVal,
+            marca: marcaVal,
+            caracteristicas: (function(){ try { const editorEl = document.getElementById('editorCatalogarRowsModal') || document.getElementById('editorCatalogarRows'); const obj = editorEl ? collectSpecsFromEditor(editorEl) : {}; return JSON.stringify(obj || {}, null, 2); } catch { return '{}'; } })(),
             imagen_base64: null,
             garantia_meses: (function(){ const v = document.getElementById('catalogarGarantiaMeses')?.value; return v !== '' ? parseInt(v, 10) : null; })(),
             modelo: document.getElementById('catalogarModelo')?.value || null,
@@ -942,8 +949,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             fecha_inicio_oferta: (function(){ const v = document.getElementById('catalogarInicioOferta')?.value; return toISO(v); })(),
             fecha_fin_oferta: (function(){ const v = document.getElementById('catalogarFinOferta')?.value; return toISO(v); })()
         };
-        
-        if (!catalogarBase64Image) { try { window.showToast('Debes seleccionar una imagen para el producto', 'warn'); } catch { alert('Debes seleccionar una imagen para el producto'); } return; }
+        if (!data.descripcion) { try { window.showToast('La descripción es obligatoria', 'warn'); } catch { alert('La descripción es obligatoria'); } return; }
+        if (!data.marca) { try { window.showToast('La marca es obligatoria', 'warn'); } catch { alert('La marca es obligatoria'); } return; }
         if (data.tipo_oferta === 'porcentaje' && typeof data.valor_oferta === 'number') { data.valor_oferta = Math.min(100, Math.max(0, data.valor_oferta)); }
         if (data.tipo_oferta === 'fijo' && typeof data.valor_oferta === 'number') { data.valor_oferta = Math.max(0, data.valor_oferta); }
         if (data.fecha_inicio_oferta && data.fecha_fin_oferta) {
@@ -951,7 +958,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             const sf = new Date(data.fecha_fin_oferta).getTime();
             if (sf < si) { try { window.showToast('La fecha fin de oferta debe ser posterior al inicio', 'warn'); } catch { alert('La fecha fin de oferta debe ser posterior al inicio'); } return; }
         }
-        data.color = (data.color || '').trim() || null; data.material = (data.material || '').trim() || null; data.imagen_base64 = catalogarBase64Image;
+        data.color = (data.color || '').trim() || null; data.material = (data.material || '').trim() || null; if (catalogarBase64Image) data.imagen_base64 = catalogarBase64Image;
         const submitBtn = document.querySelector('#catalogarProductoForm button[type="submit"]'); if (submitBtn) submitBtn.disabled = true;
         try { const response = await postData(`/api/productos/${productoId}/agregar-catalogo`, data); if (response) { try { window.showToast('Producto catalogado exitosamente', 'success'); } catch { alert('Producto catalogado exitosamente'); } cerrarCatalogarModal(); await cargarDatos(); } }
         catch (error) { console.error('Error al catalogar producto:', error); try { window.showToast('Error al catalogar producto', 'error'); } catch { alert('Error al catalogar producto'); } }
