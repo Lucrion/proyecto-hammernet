@@ -1045,9 +1045,9 @@ import EnvLoader from '../components/EnvLoader.astro';
         } catch (e) {
           console.warn('No se pudo iniciar pago simulado:', e);
         }
-        // Fallback: ir a compras
+        // Fallback: enviar a estado de pago (ERROR) en lugar de inicio invitado
         try { trackEvent('purchase_complete', { id: venta?.id_venta || venta?.id, total }); } catch {}
-        window.location.href = '/?paid=1';
+        window.location.href = '/orden-compra/ERROR';
       } catch (e) {
         console.error('Error inesperado al procesar pago:', e);
         alert('Error inesperado al procesar pago. Inténtalo nuevamente.');

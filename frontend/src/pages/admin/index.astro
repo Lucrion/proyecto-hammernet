@@ -348,6 +348,38 @@ async function cargarDashboard() {
     document.getElementById('metricVentasSemanaCantidad')?.replaceChildren(document.createTextNode(String(semCant)));
     document.getElementById('metricVentasMesIngresos')?.replaceChildren(document.createTextNode(formatCurrency(mesIng)));
     document.getElementById('metricVentasMesCantidad')?.replaceChildren(document.createTextNode(String(mesCant)));
+    const needFallback = Number(ingresos||0) === 0 && Number(cantVentas||0) === 0;
+    if (needFallback) {
+      try {
+        const ventas = await getData('/api/ventas?limit=500');
+        const arr = Array.isArray(ventas) ? ventas : [];
+        const done = arr.filter(v=> String(v.estado||'').toLowerCase() !== 'cancelada');
+        const total = done.reduce((acc,v)=> acc + Number(v.total_venta||0), 0);
+        const cantidad = done.length;
+        const promedioCalc = cantidad ? (total / cantidad) : 0;
+        document.getElementById('dashboardVentasIngresos')?.replaceChildren(document.createTextNode(formatCurrency(total)));
+        document.getElementById('dashboardVentasCantidad')?.replaceChildren(document.createTextNode(String(cantidad)));
+        document.getElementById('dashboardVentasPromedio')?.replaceChildren(document.createTextNode(formatCurrency(promedioCalc)));
+        const now = new Date();
+        const isSameDay = (d)=> { const x=new Date(d); return x.getFullYear()===now.getFullYear() && x.getMonth()===now.getMonth() && x.getDate()===now.getDate(); };
+        const startWeek = new Date(now); startWeek.setDate(now.getDate()-6); startWeek.setHours(0,0,0,0);
+        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const sumPeriodo = (from)=> done.filter(v=> { const d=new Date(v.fecha_venta||v.created_at||0); return d>=from && d<=now; }).reduce((acc,v)=> acc + Number(v.total_venta||0), 0);
+        const cntPeriodo = (from)=> done.filter(v=> { const d=new Date(v.fecha_venta||v.created_at||0); return d>=from && d<=now; }).length;
+        const diaIngF = done.filter(v=> isSameDay(v.fecha_venta||v.created_at||0)).reduce((a,b)=> a + Number(b.total_venta||0), 0);
+        const diaCntF = done.filter(v=> isSameDay(v.fecha_venta||v.created_at||0)).length;
+        const semIngF = sumPeriodo(startWeek);
+        const semCntF = cntPeriodo(startWeek);
+        const mesIngF = sumPeriodo(startMonth);
+        const mesCntF = cntPeriodo(startMonth);
+        document.getElementById('metricVentasDiaIngresos')?.replaceChildren(document.createTextNode(formatCurrency(diaIngF)));
+        document.getElementById('metricVentasDiaCantidad')?.replaceChildren(document.createTextNode(String(diaCntF)));
+        document.getElementById('metricVentasSemanaIngresos')?.replaceChildren(document.createTextNode(formatCurrency(semIngF)));
+        document.getElementById('metricVentasSemanaCantidad')?.replaceChildren(document.createTextNode(String(semCntF)));
+        document.getElementById('metricVentasMesIngresos')?.replaceChildren(document.createTextNode(formatCurrency(mesIngF)));
+        document.getElementById('metricVentasMesCantidad')?.replaceChildren(document.createTextNode(String(mesCntF)));
+      } catch {}
+    }
     try {
       const inventarioValor = metrics?.productos?.valor_inventario_total ?? 0;
       const ofertaPct = metrics?.productos?.porcentaje_en_oferta ?? 0;

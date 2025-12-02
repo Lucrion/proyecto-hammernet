@@ -99,7 +99,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           showStatus('Buscando orden...', 'info');
           try {
             const resp = await fetch(`${API_BASE}/ventas/orden/${encodeURIComponent(bo)}`, { method:'GET', headers:{ 'Accept':'application/json' }, cache:'no-store' });
-            if (!resp.ok) { const txt = await resp.text(); showStatus(txt||''); return; }
+            if (!resp.ok) { try { statusEl && statusEl.classList.add('hidden'); statusEl && (statusEl.textContent = ''); } catch {} return; }
             const data = await resp.json();
             const idv = Number(data?.id_venta || data?.id);
             try { sessionStorage.setItem('guest_order_session','1'); localStorage.setItem('guest_order_session','1'); if(rutNorm){ sessionStorage.setItem('guest_order_rut', rutNorm); localStorage.setItem('guest_order_rut', rutNorm);} sessionStorage.setItem('guest_order_bo', bo); localStorage.setItem('guest_order_bo', bo); } catch(e){}
