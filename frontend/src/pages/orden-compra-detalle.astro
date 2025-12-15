@@ -6,7 +6,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 <EnvLoader />
 <Layout title="Detalle Orden de Compra">
   <div class="container mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6">Detalle Orden de Compra</h1>
+    <h1 class="text-2xl font-bold mb-6">Detalle Boleta electronica</h1>
     <div id="estado" class="mb-3 text-gray-700"></div>
     <div id="orden" class="mb-2 text-sm text-gray-600"></div>
     <div id="resumen" class="bg-white rounded shadow p-4 mb-6 hidden">
@@ -108,7 +108,6 @@ import EnvLoader from '../components/EnvLoader.astro';
           const codigo = String((codes && codes[String(d?.id_producto)]) || d?.id_producto || '');
           const desc = d?.producto_nombre || `Producto ${codigo}`;
           const unit = Number(d?.precio_unitario||0).toFixed(0);
-          const descPct = Number(d?.descuento||0).toFixed(0);
           const imp = Number(d?.subtotal|| (Number(d?.precio_unitario||0)*Number(d?.cantidad||0)) ).toFixed(0);
           return `<tr>
             <td style="text-align:right">${cant}</td>
@@ -116,7 +115,6 @@ import EnvLoader from '../components/EnvLoader.astro';
             <td>${codigo}</td>
             <td>${desc}</td>
             <td style="text-align:right">${unit}</td>
-            <td style="text-align:right">${descPct}</td>
             <td style="text-align:right">${imp}</td>
           </tr>`;
         }).join('');
@@ -159,24 +157,26 @@ import EnvLoader from '../components/EnvLoader.astro';
                 <div class="serie">${serie}</div>
               </div>
             </div>
+            <div><br><br><br><br></div>
             <div class="line"><div class="label">Fecha de Emisión :</div><div class="value">${fecha}</div></div>
             <div class="line"><div class="label">Señor(es) :</div><div class="value">${nombreComp}</div></div>
             <div class="line"><div class="label">RUT :</div><div class="value">${rutFmt||''}</div></div>
-            <div class="line"><div class="label">Tipo de Moneda :</div><div class="value">PESOS CHILENOS</div></div>
             <div class="line"><div class="label">Observación :</div><div class="value">Compra en Ferretería Patricio</div></div>
             <div class="grid">
               <table>
                 <thead><tr>
-                  <th>Cantidad</th><th>Unidad Medida</th><th>Código</th><th>Descripción</th><th>Valor Unitario(*)</th><th>Descuento(*)</th><th>Importe de Venta(**)</th>
+                  <th>Cantidad</th><th>Unidad Medida</th><th>Código</th><th>Descripción</th><th>Valor Unitario(*)</th><th>Importe de Venta(**)</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
               </table>
             </div>
+            </div>
+            <div><br><br><br><br></div>
             <div class="totals">
               <div class="row"><div>Subtotal :</div><div class="val">${subtotal}</div></div>
-              <div class="totalLine">Total : ${total}</div>
+              <div class="row"><div>Total :</div><div class="val">${total}</div></div>
             </div>
-          </div>
+          
           </body></html>`;
       }
 
