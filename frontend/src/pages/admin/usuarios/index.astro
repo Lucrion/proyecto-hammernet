@@ -676,9 +676,11 @@ window.verInfoUsuario = async function(id) {
 };
 
 function renderAuditoriaUsuario(registros) {
+    const modalBody = document.getElementById('modalInfoUsuario');
     let contenedor = document.getElementById('contenedorAuditoriaUsuario');
+    const hasData = Array.isArray(registros) && registros.length > 0;
+    if (!hasData) { if (contenedor && contenedor.parentNode) contenedor.parentNode.removeChild(contenedor); return; }
     if (!contenedor) {
-        const modalBody = document.getElementById('modalInfoUsuario');
         if (!modalBody) return;
         contenedor = document.createElement('div');
         contenedor.id = 'contenedorAuditoriaUsuario';
@@ -696,13 +698,6 @@ function renderAuditoriaUsuario(registros) {
     const listaEl = document.getElementById('listaAuditoriaUsuario');
     if (!listaEl) return;
     listaEl.innerHTML = '';
-    if (!Array.isArray(registros) || registros.length === 0) {
-        const li = document.createElement('li');
-        li.className = 'text-gray-400';
-        li.textContent = 'Sin actividad registrada';
-        listaEl.appendChild(li);
-        return;
-    }
     registros.forEach(r => {
         const li = document.createElement('li');
         li.className = 'text-sm text-gray-700';
