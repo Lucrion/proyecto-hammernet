@@ -36,7 +36,7 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
   </div>
 
   <script type="module">
-    (function(){
+    (async function(){
       // Visualización sin permisos: no forzar login ni sesión de invitado
 
       async function ensureApiBase(){
@@ -87,7 +87,7 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
         if (estado === 'ABORTED') return 'Pago cancelado por el cliente';
         if (estado === 'TIMEOUT') return 'Pago expirado por timeout';
         if (estado === 'ERROR') return `Error de autenticación${message?`: ${message}`:''}`;
-        return 'Estado desconocido';
+        return '';
       };
       
       // Mostrar el mensaje en el banner principal
@@ -137,5 +137,5 @@ const estadoInfo = estadoMap[estadoParam] || { label: 'Estado de pago', cls: 'bg
             // No hacer nada, dejar que el usuario vea el mensaje de "Pago aprobado"
         });
     })();
- </script>
+  </script>
 </Layout>

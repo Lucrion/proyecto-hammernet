@@ -6,21 +6,85 @@ import EnvLoader from '../components/EnvLoader.astro';
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Simulación de Pago</title>
+    <title>Pago Seguro</title>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet" />
     <EnvLoader />
+    <style>
+      :root { --purple:#6a1b9a; --pink:#e91e63; --teal:#20c997; --gray:#6b7280; --light:#f8fafc; }
+      body { font-family:'Open Sans',system-ui,Arial,sans-serif; background:#f5f7fb; }
+      .stripe{display:grid;grid-template-columns:1fr 1fr 1fr;height:10px}
+      .purple{background:var(--purple)} .pink{background:var(--pink)} .green{background:var(--teal)}
+      .brand{margin:24px 32px}
+      .brand .big{color:var(--purple);font-weight:700;font-size:22px}
+      .brand .sub{color:var(--pink);font-weight:600;font-size:12px;margin-top:2px}
+      .center{display:flex;justify-content:center}
+      .card{background:#fff;border-radius:16px;box-shadow:0 8px 24px rgba(16,24,40,.08);width:100%;max-width:560px;padding:24px;margin-top:16px}
+      .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+      .label{color:#7b8395;font-size:12px}
+      .merchant{display:flex;align-items:center;gap:8px;color:#1f2937;font-weight:600}
+      .amount{color:#0f172a;font-weight:700;font-size:20px}
+      .section{color:#7b8395;font-size:12px;margin:12px 0}
+      .option{border:1px solid #e5e7eb;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+      .option:hover{border-color:#cbd5e1}
+      .opt-title{color:#111827;font-weight:600}
+      .opt-sub{color:#7b8395;font-size:12px}
+      .link{color:#2563eb;text-align:center;margin-top:16px}
+      .footer{display:flex;align-items:center;gap:6px; color:#7b8395; font-size:12px; margin:24px 32px}
+      .shield{width:16px;height:16px;background:#f59e0b;border-radius:50%}
+    </style>
   </head>
-  <body class="min-h-screen bg-gray-100">
-    <div class="container mx-auto px-4 py-8">
-      <h1 class="text-2xl font-bold mb-6">Simulación de Pago</h1>
-      <div id="info" class="mb-4 text-gray-700"></div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <button id="btnAprobado" class="px-4 py-2 bg-green-600 text-white rounded">Autorizar</button>
-        <button id="btnRechazado" class="px-4 py-2 bg-red-600 text-white rounded">Rechazado</button>
-        <button id="btnAbortado" class="px-4 py-2 bg-yellow-600 text-white rounded">Cliente canceló</button>
-        <button id="btnTimeout" class="px-4 py-2 bg-gray-700 text-white rounded">Tiempo expirado</button>
+  <body>
+    <div class="stripe"><div class="purple"></div><div class="pink"></div><div class="green"></div></div>
+    <div class="brand"><div class="big">webpay.</div><div class="sub">transbank.</div></div>
+    <div class="center">
+      <div class="card" style="max-width:980px;width:100%">
+        <div class="row" style="gap:24px;align-items:flex-start">
+          <div style="flex:1 1 50%">
+            <div class="row">
+              <div>
+                <div class="label">Estás pagando en:</div>
+                <div class="merchant"><img src="/images/logos/logo.webp" alt="Ferretería Patricio" style="width:22px;height:22px;border-radius:999px;object-fit:cover" onerror="this.src='/images/logos/herramientas.webp'"/><span id="merchantName">Ferretería Patricio</span></div>
+              </div>
+              <div>
+                <div class="label">Monto a pagar:</div>
+                <div class="amount" id="amountText">$0</div>
+              </div>
+            </div>
+            <div class="section">Selecciona tu medio de pago:</div>
+            <div id="btnTarjetas" class="option" style="border-color:#b37bd7">
+              <div class="opt-title">Tarjetas</div>
+              <div class="opt-sub">Crédito, Débito, Prepago</div>
+            </div>
+            <div class="link"><a id="linkAnular" href="#">Anular compra y volver</a></div>
+          </div>
+          <div style="flex:1 1 50%">
+            <div class="opt-title" style="margin-bottom:12px">Ingresa los datos de tu tarjeta:</div>
+            <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;color:#7b8395;font-size:12px"><span>Tarjeta</span><span>Crédito</span></div>
+              <div id="previewNum" style="color:#1f2937;margin-top:8px">•••• •••• •••• ••••</div>
+              <div style="color:#7b8395;font-size:12px">MM/AA</div>
+            </div>
+            <label class="label">RUT</label>
+            <input id="inpRut" type="text" maxlength="12" placeholder="12.345.678-9" class="w-full  border rounded px-3 py-2" style="margin-bottom:10px" />
+            <label class="label">Número de tarjeta</label>
+            <input id="inpCard" type="text" maxlength="19" placeholder="4111 1111 1111 1111" class="w-full border rounded px-3 py-2" style="margin-bottom:10px" />
+            <div class="row" style="gap:10px">
+              <div style="flex:1">
+                <label class="label">Fecha de expiración</label>
+                <input id="inpExp" type="text" maxlength="5" placeholder="MM/AA" class="w-full border rounded px-3 py-2" />
+              </div>
+              <div style="flex:1">
+                <label class="label">CVV</label>
+                <input id="inpCVV" maxlength="3" type="password" placeholder="•••" class="w-full border rounded px-3 py-2" />
+              </div>
+            </div>
+            <button id="btnPagar" class="w-full" style="margin-top:14px;background:#6a1b9a;color:#fff;border:none;border-radius:10px;padding:12px 14px;font-weight:600">Pagar</button>
+          </div>
+        </div>
       </div>
-      <div id="banner" class="mt-4 hidden p-3 rounded"></div>
     </div>
+    <div class="footer">
+    <div id="banner" class="center" style="margin-top:8px"><div id="bannerBox" class="hidden" style="background:#eef2ff;color:#1e293b;padding:8px 12px;border-radius:8px"></div></div>
     <script>
       (function(){
         const params = new URLSearchParams(window.location.search);
@@ -33,47 +97,119 @@ import EnvLoader from '../components/EnvLoader.astro';
           let cls = 'bg-gray-200 text-gray-800';
           let msg = 'Procesando pago';
           const reason = data?.reason || data?.message || '';
-          if (status === 'AUTHORIZED') { cls = 'bg-green-100 text-green-800'; msg = `Pago aprobado. Orden ${data?.buy_order || ''}`; }
+          if (status === 'AUTHORIZED') { cls = 'bg-green-100 text-green-800'; msg = `Pago aprobado. Boleta electronica ${data?.buy_order || ''}`; }
           else if (status === 'REJECTED' || status === 'FAILED') { cls = 'bg-red-100 text-red-800'; msg = `Pago rechazado${reason?`: ${reason}`:''}`; }
           else if (status === 'ABORTED') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago cancelado por el cliente'; }
           else if (status === 'TIMEOUT') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago expirado por tiempo'; }
           else if (status === 'ERROR') { cls = 'bg-red-100 text-red-800'; msg = `Error de autenticación${reason?`: ${reason}`:''}`; }
-          banner.className = `mt-4 p-3 rounded ${cls}`;
-          banner.textContent = msg;
-          banner.classList.remove('hidden');
+          const box = document.getElementById('bannerBox');
+          box.className = `p-3 rounded ${cls}`;
+          box.textContent = msg;
+          box.classList.remove('hidden');
         };
-        info.textContent = `Venta #${ventaId} | token=${token}`;
+        try { info.textContent = ''; } catch {}
+        function parsePrecio(val){ try{ if (typeof val === 'number') return val; const s = String(val||'').replace(/[^0-9.,-]/g,''); if(!s) return 0; // Prefer punto como separador decimal
+          const parts = s.split(','); const main = parts[0].replace(/\./g,''); const frac = parts[1]||''; const numStr = main + (frac?'.'+frac:''); const n = Number(numStr); return isNaN(n)?0:n; } catch { return 0; } }
+        function getItems(){
+          try{
+            const a = JSON.parse(localStorage.getItem('carrito')||'[]');
+            return Array.isArray(a) ? a : [];
+          } catch { return []; }
+        }
+        function computeCartTotal(){
+          try{
+            const items = getItems();
+            if (Array.isArray(items) && items.length) {
+              const subtotal = items.reduce((acc,it)=> acc + Number(it.cantidad||0) * parsePrecio(it.precio_venta ?? it.precio ?? it.monto ?? 0), 0);
+              return Number(subtotal||0);
+            }
+            const stored = localStorage.getItem('checkout_total');
+            const val = parsePrecio(stored||0);
+            return Number(val||0);
+          } catch { return 0; }
+        }
+        async function resolveAmount(){
+          const amt = Number(computeCartTotal()||0);
+          const t=document.getElementById('amountText');
+          if(t) t.textContent = '$'+Number(amt||0).toLocaleString('es-CL');
+          return amt;
+        }
+        (function(){
+          resolveAmount();
+          try{
+            window.addEventListener('carrito:changed', ()=>{ resolveAmount(); });
+            window.addEventListener('storage', (e)=>{ if (['carrito','checkout_total'].includes(e.key)) resolveAmount(); });
+          }catch{}
+        })();
+        const digitsOnly = (s)=> String(s||'').replace(/\D/g,'');
+        function formatRutUI(v){ const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase(); if(!s) return ''; const body=s.slice(0,-1); const dv=s.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return dv? `${withDots}-${dv}` : withDots; }
+        function validarRut(v){ const s=String(v||'').replace(/\./g,'').replace(/-/g,'').toUpperCase(); if(s.length<2) return false; const cuerpo=s.slice(0,-1); const dv=s.slice(-1); if(!/^\d+$/.test(cuerpo)) return false; let suma=0, m=2; for(let i=cuerpo.length-1;i>=0;i--){ suma += parseInt(cuerpo[i],10)*m; m = m===7 ? 2 : m+1; } const rest = 11 - (suma % 11); const dvCalc = rest===11 ? '0' : (rest===10 ? 'K' : String(rest)); return dvCalc === dv; }
+        function detectBrand(n){ const s=digitsOnly(n); if(/^3[47]/.test(s)) return 'AMEX'; if(/^(?:5[1-5]|2(?:2[2-9]\d|[3-6]\d{2}|7[01]\d|720))/.test(s)) return 'MASTERCARD'; if(/^4/.test(s)) return 'VISA'; if(/^(?:3(?:0[0-5]|[68]))/.test(s)) return 'DINERS'; return 'CARD'; }
+        function formatCardNumber(n){ const s=digitsOnly(n); const brand=detectBrand(s); if(brand==='AMEX'){ return s.replace(/(\d{1,4})(\d{1,6})?(\d{1,5})?/, (m,a,b,c)=> [a,b,c].filter(Boolean).join(' ')); } if(brand==='DINERS'){ return s.replace(/(\d{1,4})(\d{1,6})?(\d{1,4})?/, (m,a,b,c)=> [a,b,c].filter(Boolean).join(' ')); } return s.replace(/(\d{1,4})(\d{1,4})?(\d{1,4})?(\d{1,4})?/, (m,a,b,c,d)=> [a,b,c,d].filter(Boolean).join(' ')); }
+        (function attachFormatters(){
+          try{
+            const rutEl=document.getElementById('inpRut');
+            rutEl.addEventListener('input',()=>{ rutEl.value = formatRutUI(rutEl.value); });
+            rutEl.addEventListener('blur',()=>{ if(!validarRut(rutEl.value)); });
+          }catch{}
+          try{
+            const cardEl=document.getElementById('inpCard');
+            cardEl.addEventListener('input',()=>{ cardEl.value = formatCardNumber(cardEl.value); document.getElementById('previewNum').textContent = cardEl.value || '•••• •••• •••• ••••'; });
+          }catch{}
+          try{
+            const expEl=document.getElementById('inpExp');
+            expEl.addEventListener('input',()=>{
+              const raw = String(expEl.value||'').replace(/[^0-9]/g,'');
+              let mm = raw.slice(0,2);
+              let yy = raw.slice(2,4);
+              if (mm.length===2){
+                let mNum = parseInt(mm,10);
+                if (isNaN(mNum) || mNum<=0) mNum = 1;
+                if (mNum>12) mNum = 12;
+                mm = String(mNum).padStart(2,'0');
+                expEl.value = yy ? `${mm}/${yy}` : `${mm}/`;
+              } else {
+                expEl.value = mm;
+              }
+            });
+          }catch{}
+        })();
+        function decideStatus(card){ const s=digitsOnly(card); if(s==='4111111111111111') return { status:'AUTHORIZED' }; if(s==='4000000000000002') return { status:'REJECTED', reason:'Fondos insuficientes' }; if(s==='4000000000000069') return { status:'ABORTED' }; if(s==='4000000000009995') return { status:'TIMEOUT' }; if(!s || s.length<13) return { status:'ERROR', message:'Tarjeta inválida' }; return { status:'AUTHORIZED' }; }
+        // más tarjetas reales de prueba aceptadas (aprobado)
+        const successCards = ['4242424242424242','5555555555554444','378282246310005','30569309025904'];
+        function extendedDecision(card){ const s=digitsOnly(card); if(successCards.includes(s)) return { status:'AUTHORIZED' }; return decideStatus(card); }
+        function showProcessing(){ const overlay=document.createElement('div'); overlay.style.position='fixed'; overlay.style.inset='0'; overlay.style.background='#fff'; overlay.style.display='flex'; overlay.style.flexDirection='column'; overlay.style.alignItems='center'; overlay.style.justifyContent='center'; overlay.innerHTML = `
+          <div style="display:flex;align-items:center;gap:18px;margin-bottom:12px">
+            <div style="width:64px;height:64px;border-radius:999px;border:2px solid #eee;display:flex;align-items:center;justify-content:center"><span style="color:#e91e63;font-weight:700">webpay</span></div>
+            <div style="display:flex;gap:6px"><span style="width:8px;height:8px;background:#6a1b9a;border-radius:999px;display:inline-block"></span><span style="width:8px;height:8px;background:#6a1b9a;border-radius:999px;display:inline-block;opacity:.6"></span><span style="width:8px;height:8px;background:#6a1b9a;border-radius:999px;display:inline-block;opacity:.3"></span></div>
+            <div style="width:64px;height:64px;border-radius:999px;border:2px solid #eee;display:flex;align-items:center;justify-content:center"><span style="color:#6a1b9a">🏦</span></div>
+          </div>
+          <div style="font-weight:700;color:#111827;margin-bottom:6px">Estamos procesando tu pago</div>
+          <div style="color:#6b7280;font-size:14px;text-align:center;max-width:520px">Por favor no recargues ni cierres la pantalla para poder continuar con la transacción.</div>
+        `; document.body.appendChild(overlay); return overlay; }
         async function sim(status, extra){
-          const payload = Object.assign({ id_venta: ventaId, status }, extra||{});
-          const resp = await fetch(`${API_BASE}/pagos/simular/notificar`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+          const resp = await fetch(`${API_BASE}/pagos/simular/notificar`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id_venta: ventaId, status, payment_type_code:'VD', amount: extra?.amount||0, installments_number: 0 }) });
           const data = await resp.json().catch(()=>({}));
           showBanner(status, data);
-          if (status === 'AUTHORIZED') {
-            const bo = data?.buy_order || '';
-            setTimeout(()=>{ window.location.href='/orden-compra-detalle'+(bo?`?bo=${encodeURIComponent(bo)}`:''); }, 1200);
-          } else if (status === 'REJECTED') {
-            const rs = data?.reason || '';
-            const bo = data?.buy_order || '';
-            setTimeout(()=>{ window.location.href='/orden-compra/REJECTED'+(bo?`?bo=${encodeURIComponent(bo)}`:'')+(rs?`${bo?'&':'?'}reason=${encodeURIComponent(rs)}`:''); }, 1600);
-          } else if (status === 'FAILED') {
-            const bo = data?.buy_order || '';
-            setTimeout(()=>{ window.location.href='/orden-compra/FAILED'+(bo?`?bo=${encodeURIComponent(bo)}`:''); }, 1600);
-          } else if (status === 'ABORTED') {
-            const bo = data?.buy_order || '';
-            setTimeout(()=>{ window.location.href='/orden-compra/ABORTED'+(bo?`?bo=${encodeURIComponent(bo)}`:''); }, 1600);
-          } else if (status === 'TIMEOUT') {
-            const bo = data?.buy_order || '';
-            setTimeout(()=>{ window.location.href='/orden-compra/TIMEOUT'+(bo?`?bo=${encodeURIComponent(bo)}`:''); }, 1600);
-          } else if (status === 'ERROR') {
-            const msg = data?.message || '';
-            const bo = data?.buy_order || '';
-            setTimeout(()=>{ window.location.href='/orden-compra/ERROR'+(bo?`?bo=${encodeURIComponent(bo)}`:'')+(msg?`${bo?'&':'?'}message=${encodeURIComponent(msg)}`:''); }, 1800);
-          }
+          const bo = data?.buy_order || '';
+          if (status === 'AUTHORIZED') { window.location.replace('/orden-compra-detalle'+(bo?`?bo=${encodeURIComponent(bo)}`:'')); }
+          else if (status === 'REJECTED') { const rs = data?.reason || extra?.reason || ''; window.location.replace('/orden-compra/REJECTED'+(bo?`?bo=${encodeURIComponent(bo)}`:'')+(rs?`${bo?'&':'?'}reason=${encodeURIComponent(rs)}`:'')); }
+          else if (status === 'ABORTED') { window.location.replace('/orden-compra/ABORTED'+(bo?`?bo=${encodeURIComponent(bo)}`:'')); }
+          else if (status === 'TIMEOUT') { window.location.replace('/orden-compra/TIMEOUT'+(bo?`?bo=${encodeURIComponent(bo)}`:'')); }
+          else if (status === 'ERROR') { const msg = data?.message || extra?.message || ''; window.location.replace('/orden-compra/ERROR'+(bo?`?bo=${encodeURIComponent(bo)}`:'')+(msg?`${bo?'&':'?'}message=${encodeURIComponent(msg)}`:'')); }
         }
-        document.getElementById('btnAprobado').addEventListener('click', ()=> sim('AUTHORIZED', { payment_type_code:'VD', amount: 0, installments_number: 0 }));
-        document.getElementById('btnRechazado').addEventListener('click', ()=> sim('REJECTED', { reason:'Fondos insuficientes' }));
-        document.getElementById('btnAbortado').addEventListener('click', ()=> sim('ABORTED'));
-        document.getElementById('btnTimeout').addEventListener('click', ()=> sim('TIMEOUT'));
+        document.getElementById('btnTarjetas').addEventListener('click', ()=>{ try{ document.getElementById('inpCard').focus(); }catch{} });
+        document.getElementById('btnPagar').addEventListener('click', async ()=>{
+          const card = document.getElementById('inpCard')?.value||'';
+          const rut = document.getElementById('inpRut')?.value||'';
+          if (!rut) { alert('Ingresa tu RUT'); return; }
+          if (!validarRut(rut)) { alert('RUT inválido'); return; }
+          const amount = await resolveAmount();
+          const decision = extendedDecision(card);
+          const overlay = showProcessing();
+          setTimeout(async ()=>{ try{ await sim(decision.status, { amount }); } catch(e){ try{ document.body.removeChild(overlay); }catch{} } }, 600);
+        });
+        document.getElementById('linkAnular').addEventListener('click', async (e)=>{ e.preventDefault(); await sim('ABORTED', {}); });
       })();
     </script>
   </body>

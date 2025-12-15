@@ -208,16 +208,33 @@ import Layout from '../layouts/Layout.astro';
       contenedorProductos.innerHTML = `<div class="col-span-full text-center py-12"><h3 class="text-lg font-medium text-gray-900 mb-2">No se encontraron productos</h3></div>`;
       return;
     }
-    contenedorProductos.innerHTML = productos.map((p, idx) => {
+    contenedorProductos.innerHTML = productos.map((p) => {
       const img = normalizeImageUrl(p.imagen_url);
       const base = Number(p.precio_venta ?? p.precio ?? 0);
-      const final = Number(p.precio_final ?? base);
-      const percCalc = base > 0 && final < base ? Math.round((1 - final / base) * 100) : 0;
-      const perc = Number(p.tipo_oferta === 'porcentaje' ? (p.valor_oferta ?? percCalc) : percCalc) || 0;
+      // Recalcular oferta en cliente si precio_final no viene o viene sin descuento
+      const inicio = p.fecha_inicio_oferta ? new Date(p.fecha_inicio_oferta) : null;
+      const fin = p.fecha_fin_oferta ? new Date(p.fecha_fin_oferta) : null;
+      const ahora = new Date();
+      const vigente = !!p.oferta_activa && (!inicio || ahora >= inicio) && (!fin || ahora <= fin);
+      let finalRaw = Number(p.precio_final);
+      if (!Number.isFinite(finalRaw)) finalRaw = base;
+      if (vigente && p.tipo_oferta && Number(p.valor_oferta) > 0) {
+        if (p.tipo_oferta === 'porcentaje') {
+          const desc = Math.min(100, Math.max(0, Number(p.valor_oferta)));
+          finalRaw = Math.max(0, base * (1 - desc / 100));
+        } else if (p.tipo_oferta === 'fijo') {
+          finalRaw = Math.max(0, base - Number(p.valor_oferta));
+        }
+      }
+      const final = Math.round(finalRaw);
+      const tieneOferta = vigente && base > 0 && final < Math.round(base);
+      const percCalc = tieneOferta ? Math.round(((Math.round(base) - final) / Math.round(base)) * 100) : 0;
+      const perc = Number(percCalc) || 0;
+      const finalFmt = `$${formatearPrecio(final)}`;
       return `
       <div class="bg-white rounded-xl border border-gray-100 shadow hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col overflow-hidden" onclick="verProducto(${p.id_producto})">
         <div class="relative w-full aspect-square bg-white">
-          ${p.oferta_activa ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
+          ${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
           <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
             <img src="${img || '/images/placeholder-product.jpg'}" alt="${p.nombre}" class="w-full h-full object-cover" loading="eager" fetchpriority="high" decoding="async" referrerpolicy="no-referrer" crossorigin="anonymous" sizes="(min-width:1024px) 25vw, 50vw" />
           </div>
@@ -226,8 +243,8 @@ import Layout from '../layouts/Layout.astro';
           <h3 class="text-sm font-semibold text-gray-900 mb-1 text-center">${p.nombre}</h3>
           <p class="text-gray-600 text-xs mb-3 line-clamp-2 text-center">${p.descripcion || 'Sin descripción'}</p>
           <div class="mt-auto flex items-center justify-center gap-2">
-            ${perc > 0 ? '<span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-' + perc + '%</span>' : ''}
-            <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">$${formatearPrecio(p.precio_final ?? p.precio_venta ?? p.precio ?? 0)}</span>
+            ${tieneOferta && perc > 0 ? '<span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-' + perc + '%</span>' : ''}
+            <span class="px-4 py-2 bg-black text-white rounded text-lg font-bold">${finalFmt}</span>
           </div>
         </div>
       </div>

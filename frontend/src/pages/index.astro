@@ -82,10 +82,23 @@ function mostrarProductosGenerales(productos) {
     productos.forEach(producto => {
         const imagen = normalizeImageUrl(producto.imagen_url) || '/images/placeholder-product.jpg';
         const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
-        const precio = Number(producto.precio_final ?? precioBase);
-        const tieneOferta = Boolean(producto.oferta_activa) || (precioBase > 0 && precio < precioBase);
-        const percCalc = tieneOferta ? Math.round((1 - precio / precioBase) * 100) : 0;
-        const perc = Number(producto.tipo_oferta === 'porcentaje' ? (producto.valor_oferta ?? percCalc) : percCalc) || 0;
+        const inicio = producto.fecha_inicio_oferta ? new Date(producto.fecha_inicio_oferta) : null;
+        const fin = producto.fecha_fin_oferta ? new Date(producto.fecha_fin_oferta) : null;
+        const ahora = new Date();
+        const vigente = !!producto.oferta_activa && (!inicio || ahora >= inicio) && (!fin || ahora <= fin);
+        let precioCalc = Number(producto.precio_final);
+        if (!Number.isFinite(precioCalc)) precioCalc = precioBase;
+        if (vigente && producto.tipo_oferta && Number(producto.valor_oferta) > 0) {
+            if (producto.tipo_oferta === 'porcentaje') {
+                const desc = Math.min(100, Math.max(0, Number(producto.valor_oferta)));
+                precioCalc = Math.max(0, precioBase * (1 - desc / 100));
+            } else if (producto.tipo_oferta === 'fijo') {
+                precioCalc = Math.max(0, precioBase - Number(producto.valor_oferta));
+            }
+        }
+        const precio = Math.round(precioCalc);
+        const tieneOferta = vigente && precioBase > 0 && precio < Math.round(precioBase);
+        const perc = tieneOferta ? Math.round(((Math.round(precioBase) - precio) / Math.round(precioBase)) * 100) : 0;
         const id = producto.id_producto ?? producto.id;
         const descripcionCorta = (() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc; })();
         const productoHTML = `
@@ -115,10 +128,23 @@ function mostrarProductosDestacados(productos) {
     productos.forEach(producto => {
         const imagen = normalizeImageUrl(producto.imagen_url) || '/images/placeholder-product.jpg';
         const precioBase = Number(producto.precio_venta ?? producto.precio ?? 0);
-        const precio = Number(producto.precio_final ?? precioBase);
-        const tieneOferta = Boolean(producto.oferta_activa) || (precioBase > 0 && precio < precioBase);
-        const percCalc = tieneOferta ? Math.round((1 - precio / precioBase) * 100) : 0;
-        const perc = Number(producto.tipo_oferta === 'porcentaje' ? (producto.valor_oferta ?? percCalc) : percCalc) || 0;
+        const inicio = producto.fecha_inicio_oferta ? new Date(producto.fecha_inicio_oferta) : null;
+        const fin = producto.fecha_fin_oferta ? new Date(producto.fecha_fin_oferta) : null;
+        const ahora = new Date();
+        const vigente = !!producto.oferta_activa && (!inicio || ahora >= inicio) && (!fin || ahora <= fin);
+        let precioCalc = Number(producto.precio_final);
+        if (!Number.isFinite(precioCalc)) precioCalc = precioBase;
+        if (vigente && producto.tipo_oferta && Number(producto.valor_oferta) > 0) {
+            if (producto.tipo_oferta === 'porcentaje') {
+                const desc = Math.min(100, Math.max(0, Number(producto.valor_oferta)));
+                precioCalc = Math.max(0, precioBase * (1 - desc / 100));
+            } else if (producto.tipo_oferta === 'fijo') {
+                precioCalc = Math.max(0, precioBase - Number(producto.valor_oferta));
+            }
+        }
+        const precio = Math.round(precioCalc);
+        const tieneOferta = vigente && precioBase > 0 && precio < Math.round(precioBase);
+        const perc = tieneOferta ? Math.round(((Math.round(precioBase) - precio) / Math.round(precioBase)) * 100) : 0;
         const id = producto.id_producto ?? producto.id;
         const descripcionCorta = (() => { const d=(producto.descripcion||'').trim(); const dc=d.length>100?d.slice(0,100)+'...':d; return dc; })();
         const productoHTML = `
@@ -126,7 +152,7 @@ function mostrarProductosDestacados(productos) {
                 <div class="relative w-full aspect-square bg-white">
                     ${tieneOferta ? '<span class=\'absolute top-2 left-2 z-10 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded\'>Oferta</span>' : ''}
                     <div class="absolute inset-2 border border-gray-200 rounded-lg overflow-hidden">
-                        <img src="${img}" alt="${p.nombre}" class="w-full h-full object-cover" loading="eager" fetchpriority="high" decoding="async"/>
+                        <img src="${imagen}" alt="${producto.nombre}" class="w-full h-full object-cover" loading="eager" fetchpriority="high" decoding="async"/>
                     </div>
                 </div>
                 <div class="p-4 flex-1 flex flex-col">
@@ -445,10 +471,23 @@ if (document.readyState === 'loading') {
                         const id = p.id_producto ?? p.id;
                         const imagen = normalizeImageUrl(p.imagen_url) || '/images/logos/herramientas.webp';
                         const precioBase = Number(p.precio_venta ?? p.precio ?? 0);
-                        const precio = Number(p.precio_final ?? precioBase);
-                        const tieneOferta = Boolean(p.oferta_activa) || (precioBase > 0 && precio < precioBase);
-                        const percCalc = tieneOferta ? Math.round((1 - precio / precioBase) * 100) : 0;
-                        const perc = Number(p.tipo_oferta === 'porcentaje' ? (p.valor_oferta ?? percCalc) : percCalc) || 0;
+                        const inicio = p.fecha_inicio_oferta ? new Date(p.fecha_inicio_oferta) : null;
+                        const fin = p.fecha_fin_oferta ? new Date(p.fecha_fin_oferta) : null;
+                        const ahora = new Date();
+                        const vigente = !!p.oferta_activa && (!inicio || ahora >= inicio) && (!fin || ahora <= fin);
+                        let precioCalc = Number(p.precio_final);
+                        if (!Number.isFinite(precioCalc)) precioCalc = precioBase;
+                        if (vigente && p.tipo_oferta && Number(p.valor_oferta) > 0) {
+                            if (p.tipo_oferta === 'porcentaje') {
+                                const desc = Math.min(100, Math.max(0, Number(p.valor_oferta)));
+                                precioCalc = Math.max(0, precioBase * (1 - desc / 100));
+                            } else if (p.tipo_oferta === 'fijo') {
+                                precioCalc = Math.max(0, precioBase - Number(p.valor_oferta));
+                            }
+                        }
+                        const precio = Math.round(precioCalc);
+                        const tieneOferta = vigente && precioBase > 0 && precio < Math.round(precioBase);
+                        const perc = tieneOferta ? Math.round(((Math.round(precioBase) - precio) / Math.round(precioBase)) * 100) : 0;
                         const nombre = p.nombre || 'Producto';
                         const desc = (p.descripcion || '').trim();
                         const short = desc.length > 100 ? desc.slice(0, 100) + '...' : desc;

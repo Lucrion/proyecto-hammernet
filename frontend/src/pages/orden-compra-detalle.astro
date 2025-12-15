@@ -20,6 +20,7 @@ import EnvLoader from '../components/EnvLoader.astro';
     </div>
     <div id="acciones" class="mt-6 flex flex-col sm:flex-row gap-3">
       <a href="/" class="px-4 py-2 bg-blue-600 text-white rounded text-center">Volver al inicio</a>
+      <button id="btnDescargar" class="px-4 py-2 bg-black text-white rounded text-center hidden">Descargar PDF</button>
     </div>
   </div>
   <script type="module">
@@ -62,7 +63,6 @@ import EnvLoader from '../components/EnvLoader.astro';
           const fecha = data?.fecha_venta ? new Date(data.fecha_venta).toLocaleString() : '';
           ventaInfo.textContent = `Venta #${data?.id_venta || ''} · Fecha: ${fecha}`;
           let cliente = data?.usuario_rut || data?.rut_usuario || '';
-          // Intentar obtener rut invitado desde observaciones
           try {
             if ((!cliente || cliente === 'Invitado') && typeof data?.observaciones === 'string' && data.observaciones.includes('VENTA_INVITADO:')) {
               const payload = data.observaciones.split('VENTA_INVITADO:',1)[1].trim();
@@ -82,11 +82,122 @@ import EnvLoader from '../components/EnvLoader.astro';
             itemsList.appendChild(li);
           });
           show(itemsBox);
-          jsonBox.textContent = JSON.stringify(data,null,2);
-          show(jsonBox);
+          try { jsonBox.textContent = JSON.stringify(data,null,2); show(jsonBox); } catch(e){}
           try { verCompras.href = `/compras?bo=${encodeURIComponent(bo)}`; sessionStorage.setItem('guest_order_bo', bo); localStorage.setItem('guest_order_bo', bo); } catch(e){}
+          try { window.__ventaDetalle = data; window.__ventaOrden = bo; } catch(e){}
+          try { const btn = document.getElementById('btnDescargar'); if(btn) btn.classList.remove('hidden'); } catch(e){}
         })
         .catch((e)=>{ estado.textContent=''; });
+
+      function buildPdfHtml(data, bo, codes){
+        const fmt = (n)=>'$'+Number(n||0).toLocaleString('es-CL');
+        const fecha = data?.fecha_venta ? new Date(data.fecha_venta).toLocaleString() : '';
+        const extractGuest = (obs)=>{ try{ if(typeof obs==='string' && obs.includes('VENTA_INVITADO:')){ const payload = obs.split('VENTA_INVITADO:',1)[1].trim(); const info = JSON.parse(payload); return info || {}; } }catch{} return {}; };
+        const guest = extractGuest(data?.observaciones);
+        const nombreComp = [guest?.nombre||data?.usuario_nombre||data?.nombre||'', guest?.apellido||data?.usuario_apellido||data?.apellido||''].filter(Boolean).join(' ').trim() || 'Invitado';
+        const rutVal = guest?.rut || data?.usuario_rut || data?.rut_usuario || '';
+        const formatRutUI = (v)=>{ const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase(); if(!s) return ''; const body=s.slice(0,-1); const dv=s.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return dv? `${withDots}-${dv}` : withDots; };
+        const rutFmt = formatRutUI(rutVal);
+        const empresa = 'Ferretería Patricio';
+        const direccion = 'Calama - Chile';
+        const serie = (bo||'').split('-').slice(-1)[0] || '';
+        const items = Array.isArray(data?.detalles_venta)? data.detalles_venta: [];
+        const rows = items.map(d=>{
+          const cant = Number(d?.cantidad||0).toFixed(2);
+          const unidad = 'UNIDAD';
+          const codigo = String((codes && codes[String(d?.id_producto)]) || d?.id_producto || '');
+          const desc = d?.producto_nombre || `Producto ${codigo}`;
+          const unit = Number(d?.precio_unitario||0).toFixed(0);
+          const descPct = Number(d?.descuento||0).toFixed(0);
+          const imp = Number(d?.subtotal|| (Number(d?.precio_unitario||0)*Number(d?.cantidad||0)) ).toFixed(0);
+          return `<tr>
+            <td style="text-align:right">${cant}</td>
+            <td>${unidad}</td>
+            <td>${codigo}</td>
+            <td>${desc}</td>
+            <td style="text-align:right">${unit}</td>
+            <td style="text-align:right">${descPct}</td>
+            <td style="text-align:right">${imp}</td>
+          </tr>`;
+        }).join('');
+        const subtotalNum = items.reduce((acc,d)=> acc + Number(d?.subtotal ?? (Number(d?.precio_unitario||0)*Number(d?.cantidad||0))), 0);
+        const subtotal = fmt(subtotalNum||0);
+        const total = fmt(data?.total_venta||subtotalNum||0);
+        return `<!doctype html><html><head><meta charset="utf-8"><title>Orden ${bo}</title>
+          <style>
+            body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:18px}
+            .frame{border:2px solid #2563eb;padding:10px}
+            .row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+            .left h2{margin:0 0 4px 0;font-size:16px;font-weight:700}
+            .left .addr{font-size:12px;color:#333}
+            .box{border:2px solid #2563eb;border-radius:4px;padding:10px;text-align:center;width:280px}
+            .box .title{font-weight:800;text-transform:uppercase}
+            .box .ruc{margin-top:6px}
+            .box .serie{color:#2563eb;margin-top:4px;font-weight:700}
+            .grid{border:1px solid #2563eb;margin-top:8px}
+            .grid table{width:100%;border-collapse:collapse}
+            .grid th, .grid td{border:1px solid #9ec3ff;padding:6px;font-size:12px}
+            .grid th{background:#eaf2ff;text-transform:uppercase;font-weight:700}
+            .label{width:180px;color:#333}
+            .value{border:1px solid #ddd;background:#f3f4f6;padding:4px 6px}
+            .line{display:flex;align-items:center;gap:8px;margin:4px 0}
+            .totals{float:right;margin-top:10px;width:260px}
+            .totals .row{display:flex;justify-content:space-between;margin-bottom:6px}
+            .totals .val{border:1px solid #ddd;background:#f3f4f6;padding:4px 6px;width:120px;text-align:right}
+            .totalLine{font-weight:800;margin-top:8px}
+            @page{size:auto;margin:12mm}
+          </style></head><body>
+          <div class="frame">
+            <div class="row">
+              <div class="left">
+                <h2>${empresa}</h2>
+                <div class="addr">${direccion}</div>
+              </div>
+              <div class="box">
+                <div class="title">BOLETA DE VENTA<br/>ELECTRONICA</div>
+                <div class="ruc">RUT: ${rutFmt||''}</div>
+                <div class="serie">${serie}</div>
+              </div>
+            </div>
+            <div class="line"><div class="label">Fecha de Emisión :</div><div class="value">${fecha}</div></div>
+            <div class="line"><div class="label">Señor(es) :</div><div class="value">${nombreComp}</div></div>
+            <div class="line"><div class="label">RUT :</div><div class="value">${rutFmt||''}</div></div>
+            <div class="line"><div class="label">Tipo de Moneda :</div><div class="value">PESOS CHILENOS</div></div>
+            <div class="line"><div class="label">Observación :</div><div class="value">Compra en Ferretería Patricio</div></div>
+            <div class="grid">
+              <table>
+                <thead><tr>
+                  <th>Cantidad</th><th>Unidad Medida</th><th>Código</th><th>Descripción</th><th>Valor Unitario(*)</th><th>Descuento(*)</th><th>Importe de Venta(**)</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+            <div class="totals">
+              <div class="row"><div>Subtotal :</div><div class="val">${subtotal}</div></div>
+              <div class="totalLine">Total : ${total}</div>
+            </div>
+          </div>
+          </body></html>`;
+      }
+
+      async function fetchProductCodes(items){
+        const map = {}; const API = window.API_BASE || '/api';
+        const ids = Array.isArray(items) ? items.map(d=>Number(d?.id_producto||0)).filter(Boolean) : [];
+        for (const id of ids){
+          try{ const r = await fetch(`${API}/productos/${id}`, { headers:{'Accept':'application/json'} });
+            if(r.ok){ const p = await r.json(); map[String(id)] = p?.codigo_interno || p?.codigo || String(id); }
+          }catch{}
+        }
+        return map;
+      }
+      document.getElementById('btnDescargar').addEventListener('click',async ()=>{
+        try{
+          const data = window.__ventaDetalle || {}; const bo = window.__ventaOrden || '';
+          const codes = await fetchProductCodes(data?.detalles_venta||[]);
+          const html = buildPdfHtml(data, bo, codes);
+          const w = window.open('', '_blank'); w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>{ try{ w.print(); } catch{} }, 200);
+        }catch(e){}
+      });
     })();
   </script>
 </Layout>

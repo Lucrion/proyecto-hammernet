@@ -849,12 +849,16 @@ import EnvLoader from '../components/EnvLoader.astro';
       const { c, idx } = findItem(id);
       if (idx < 0) return;
       const it = c[idx];
-      const max = Number(it.stock_max ?? 0);
+      let max = Number(it.stock_max ?? 0);
+      if (!max || max <= 0) {
+        try { max = Number(await getStock(Number(it.id))) || 0; } catch { max = 0; }
+        it.stock_max = max;
+      }
       const qty = Number(it.cantidad || 1);
       let next = qty + 1;
       if (max > 0 && next > max) {
         next = max;
-        alert(`Stock máximo ${max}`);
+        alert(`No puedes comprar más del stock disponible (${max}).`);
       }
       it.cantidad = next;
       c[idx] = it; setCarrito(c); render();
@@ -917,6 +921,9 @@ import EnvLoader from '../components/EnvLoader.astro';
       let envio = 0;
       try { if (localStorage.getItem('checkoutEntrega') === 'despacho') envio = ENVIO_COSTO; } catch {}
       const total = subtotal + envio;
+
+      // Guardar el total en localStorage para la página de pago simulada
+      try { localStorage.setItem('checkout_total', String(total)); } catch {}
 
       const API = computeApiUrl();
       const headers = { 'Content-Type': 'application/json' };
@@ -1274,14 +1281,19 @@ import EnvLoader from '../components/EnvLoader.astro';
           );
           const requerida = Number(it.cantidad || 1);
           if (cantidadDisponible < requerida) {
-            alert(`Stock insuficiente para "${it.nombre}". Disponible: ${cantidadDisponible}, solicitado: ${requerida}.`);
+            alert(`Stock insuficiente para "${it.nombre}". Disponible: ${cantidadDisponible}, solicitado: ${requerida}. Se ajustará al máximo disponible.`);
+            // Ajustar cantidad al máximo posible y persistir
+            const c = getCarrito().map(i => String(i.id) === String(id) ? { ...i, cantidad: cantidadDisponible, stock_max: cantidadDisponible } : i);
+            setCarrito(c);
+            render();
             return false;
           }
         }
         return true;
       } catch (e) {
         console.warn('Error verificando stock:', e);
-        return true;
+        alert('No se pudo verificar stock. Inténtalo nuevamente.');
+        return false;
       }
     };
 

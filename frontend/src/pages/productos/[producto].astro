@@ -342,9 +342,7 @@ if (!producto) {
 				<div class="space-y-4">
 					<div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
 						<div class="relative aspect-square rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
-                            {producto.tiene_oferta && (
-                                <span class="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded">Oferta</span>
-                            )}
+                            
                         {producto.imagen ? (
                             <img 
                                 src={producto.imagen} 
@@ -692,27 +690,33 @@ if (!producto) {
 			actualizarBotones();
 		});
 		
-		function cambiarCantidad(cambio) {
-			const input = document.getElementById('cantidad');
-			let cantidad = parseInt(input.value) + cambio;
-			
-			if (cantidad < 1) cantidad = 1;
-			if (cantidad > maxStock) cantidad = maxStock;
-			
-			input.value = cantidad;
-			actualizarBotones();
-		}
+        function cambiarCantidad(cambio) {
+            const input = document.getElementById('cantidad');
+            let cantidad = parseInt(input.value) + cambio;
+            
+            if (cantidad < 1) cantidad = 1;
+            if (cantidad > maxStock) {
+                cantidad = maxStock;
+                try { mostrarNotificacion(`No puedes comprar más del stock disponible (${maxStock}).`, 'error'); } catch {}
+            }
+            
+            input.value = cantidad;
+            actualizarBotones();
+        }
 		
-		function validarCantidad() {
-			const input = document.getElementById('cantidad');
-			let cantidad = parseInt(input.value);
-			
-			if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
-			if (cantidad > maxStock) cantidad = maxStock;
-			
-			input.value = cantidad;
-			actualizarBotones();
-		}
+        function validarCantidad() {
+            const input = document.getElementById('cantidad');
+            let cantidad = parseInt(input.value);
+            
+            if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
+            if (cantidad > maxStock) {
+                cantidad = maxStock;
+                try { mostrarNotificacion(`No puedes comprar más del stock disponible (${maxStock}).`, 'error'); } catch {}
+            }
+            
+            input.value = cantidad;
+            actualizarBotones();
+        }
 		
 		function actualizarBotones() {
 			const input = document.getElementById('cantidad');
@@ -750,6 +754,8 @@ if (!producto) {
             const nombre = PRODUCTO.nombre;
             const precio = Number(PRODUCTO.precio) || 0;
             const imagen = PRODUCTO.imagen || '';
+            const max = Number(maxStock || 0);
+            let excedido = false;
             
             // Obtener carrito actual del localStorage
             let carrito = JSON.parse(localStorage.getItem('carrito')) || [];
@@ -773,11 +779,23 @@ if (!producto) {
             const productoExistente = carrito.find(item => String(item.id) === String(productoId));
             
             if (productoExistente) {
-                productoExistente.cantidad += cantidad;
+                const base = Number(productoExistente.cantidad || 0);
+                let nuevo = base + (isNaN(cantidad) ? 1 : cantidad);
+                if (max > 0 && nuevo > max) {
+                    nuevo = max;
+                    excedido = true;
+                }
+                productoExistente.cantidad = Math.max(1, nuevo);
+                if (max > 0) productoExistente.stock_max = max;
             } else {
+                let inicial = isNaN(cantidad) ? 1 : cantidad;
+                if (max > 0 && inicial > max) {
+                    inicial = max;
+                    excedido = true;
+                }
                 carrito.push({
                     id: productoId,
-                    cantidad: cantidad,
+                    cantidad: Math.max(1, inicial),
                     nombre: nombre,
                     precio_venta: precio, // usar clave precio_venta para layout
                     imagen_url: imagen,   // usar clave imagen_url para layout
@@ -790,8 +808,12 @@ if (!producto) {
             // Notificar a otras vistas para actualizar badge/panel
             try { window.dispatchEvent(new Event('carrito:changed')); } catch {}
             
-            // Mostrar notificación
-            mostrarNotificacion(`${cantidad} producto(s) agregado(s) al carrito`, 'success');
+            // Mostrar notificación según límite
+            if (excedido) {
+                mostrarNotificacion(`No puedes comprar más del stock disponible (${max}). Se ajustó la cantidad.`, 'error');
+            } else {
+                mostrarNotificacion(`${cantidad} producto(s) agregado(s) al carrito`, 'success');
+            }
             
             // Actualizar contador del carrito si existe
             actualizarContadorCarrito();
@@ -1104,7 +1126,8 @@ function mostrarDetalleProducto(producto) {
     contenedorProducto.innerHTML = `
         <!-- Imagen del producto -->
         <div class="space-y-4">
-            <div class="aspect-w-1 aspect-h-1 bg-gray-200 rounded-lg overflow-hidden">
+            <div class="relative aspect-w-1 aspect-h-1 bg-gray-200 rounded-lg overflow-hidden">
+                ${producto.tiene_oferta ? '<span class="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded">Oferta</span>' : ''}
                 <img src="${producto.imagen || '/images/placeholder-product.jpg'}" 
                      alt="${producto.nombre}" 
                      class="w-full h-full object-cover">
