@@ -569,9 +569,17 @@ if (document.readyState === 'loading') {
 				const debounce = (fn, t = 200) => { let id; return (...args) => { clearTimeout(id); id = setTimeout(() => fn(...args), t); }; };
 				window.addEventListener('resize', debounce(alignToStart, 200));
 
-				fetchProductos();
-			});
-		</script>
+                fetchProductos();
+
+                window.addEventListener('storage', (e) => {
+                    try {
+                        if (e && ['catalog_updated','productos_updated'].includes(e.key)) {
+                            fetchProductos();
+                        }
+                    } catch {}
+                });
+            });
+        </script>
 		<style>
 			#inicio-carousel::-webkit-scrollbar { display: none; }
 			#inicio-carousel { -ms-overflow-style: none; scrollbar-width: none; }
