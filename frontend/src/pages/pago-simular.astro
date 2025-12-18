@@ -128,8 +128,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           box.classList.remove('hidden');
         };
         try { info.textContent = ''; } catch {}
-        function parsePrecio(val){ try{ if (typeof val === 'number') return val; const s = String(val||'').replace(/[^0-9.,-]/g,''); if(!s) return 0; // Prefer punto como separador decimal
-          const parts = s.split(','); const main = parts[0].replace(/\./g,''); const frac = parts[1]||''; const numStr = main + (frac?'.'+frac:''); const n = Number(numStr); return isNaN(n)?0:n; } catch { return 0; } }
+        function parsePrecio(val){ try{ if (typeof val === 'number') return val; const s = String(val||'').replace(/[^0-9.,-]/g,''); if(!s) return 0; if (s.includes(',')) { const main = s.replace(/\./g,''); const parts = main.split(','); const numStr = parts[0] + (parts[1] ? ('.'+parts[1]) : ''); const n = Number(numStr); return isNaN(n)?0:n; } else { const cleaned = s.replace(/,/g,''); const n = Number(cleaned); return isNaN(n)?0:n; } } catch { return 0; } }
         function getItems(){
           try{
             const a = JSON.parse(localStorage.getItem('carrito')||'[]');
@@ -141,17 +140,17 @@ import EnvLoader from '../components/EnvLoader.astro';
             const items = getItems();
             if (Array.isArray(items) && items.length) {
               const subtotal = items.reduce((acc,it)=> acc + Number(it.cantidad||0) * parsePrecio(it.precio_venta ?? it.precio ?? it.monto ?? 0), 0);
-              return Number(subtotal||0);
+              return Math.round(Number(subtotal||0));
             }
             const stored = localStorage.getItem('checkout_total');
             const val = parsePrecio(stored||0);
-            return Number(val||0);
+            return Math.round(Number(val||0));
           } catch { return 0; }
         }
         async function resolveAmount(){
-          const amt = Number(computeCartTotal()||0);
+          const amt = Math.round(Number(computeCartTotal()||0));
           const t=document.getElementById('amountText');
-          if(t) t.textContent = '$'+Number(amt||0).toLocaleString('es-CL');
+          if(t) t.textContent = new Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP', maximumFractionDigits:0 }).format(amt);
           return amt;
         }
         (function(){

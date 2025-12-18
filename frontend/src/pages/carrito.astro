@@ -307,7 +307,10 @@ import EnvLoader from '../components/EnvLoader.astro';
       localStorage.setItem('carrito', JSON.stringify(carrito));
     };
 
-    const calcularSubtotal = (carrito) => carrito.reduce((acc, it) => acc + Number(it.precio_venta ?? it.precio) * it.cantidad, 0);
+    const calcularSubtotal = (carrito) => {
+      const total = carrito.reduce((acc, it) => acc + Number(it.precio_venta ?? it.precio) * it.cantidad, 0);
+      return Math.round(Number(total||0));
+    };
 
     const irADetalle = (id) => {
       // La página de detalle acepta ID numérico o slug; usamos ID
@@ -549,11 +552,12 @@ import EnvLoader from '../components/EnvLoader.astro';
         const entrega = localStorage.getItem('checkoutEntrega');
         if (entrega === 'despacho') envio = ENVIO_COSTO;
       } catch {}
+      const total = Math.round(Number(subtotal + envio));
       if (envioLine) {
         if (envio > 0) envioLine.classList.remove('hidden'); else envioLine.classList.add('hidden');
       }
-      if (envioEl) envioEl.textContent = `$${formatearPrecio(envio)}`;
-      if (totalEl) totalEl.textContent = `$${formatearPrecio(subtotal + envio)}`;
+      if (envioEl) envioEl.textContent = `$${formatearPrecio(Math.round(Number(envio||0)))}`;
+      if (totalEl) totalEl.textContent = `$${formatearPrecio(total)}`;
     };
 
     const forceShowPago = () => {
@@ -757,7 +761,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       `).join('');
 
       const subtotal = calcularSubtotal(carrito);
-      subtotalEl.textContent = `$${formatearPrecio(subtotal)}`;
+      subtotalEl.textContent = `$${formatearPrecio(Math.round(Number(subtotal||0)))}`;
       actualizarEnvioYTotal();
     };
 
@@ -920,7 +924,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       const subtotal = calcularSubtotal(carrito);
       let envio = 0;
       try { if (localStorage.getItem('checkoutEntrega') === 'despacho') envio = ENVIO_COSTO; } catch {}
-      const total = subtotal + envio;
+      const total = Math.round(Number(subtotal + envio));
 
       // Guardar el total en localStorage para la página de pago simulada
       try { localStorage.setItem('checkout_total', String(total)); } catch {}
