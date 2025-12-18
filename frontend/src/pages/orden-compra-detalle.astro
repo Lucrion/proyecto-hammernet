@@ -6,7 +6,7 @@ import EnvLoader from '../components/EnvLoader.astro';
 <EnvLoader />
 <Layout title="Detalle Orden de Compra">
   <div class="container mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6">Detalle Boleta electronica</h1>
+    <h1 class="text-2xl font-bold mb-6">Detalle Boleta electrónica</h1>
     <div id="estado" class="mb-3 text-gray-700"></div>
     <div id="orden" class="mb-2 text-sm text-gray-600"></div>
     <div id="resumen" class="bg-white rounded shadow p-4 mb-6 hidden">
@@ -103,7 +103,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         const serie = (bo||'').split('-').slice(-1)[0] || '';
         const items = Array.isArray(data?.detalles_venta)? data.detalles_venta: [];
         const rows = items.map(d=>{
-          const cant = Number(d?.cantidad||0).toFixed(2);
+          const cant = Number(d?.cantidad||0).toFixed(0);
           const unidad = 'UNIDAD';
           const codigo = String((codes && codes[String(d?.id_producto)]) || d?.id_producto || '');
           const desc = d?.producto_nombre || `Producto ${codigo}`;
@@ -119,8 +119,14 @@ import EnvLoader from '../components/EnvLoader.astro';
           </tr>`;
         }).join('');
         const subtotalNum = items.reduce((acc,d)=> acc + Number(d?.subtotal ?? (Number(d?.precio_unitario||0)*Number(d?.cantidad||0))), 0);
-        const subtotal = fmt(subtotalNum||0);
-        const total = fmt(data?.total_venta||subtotalNum||0);
+          const subtotal = fmt(subtotalNum||0);
+        const totalNumRaw = Number(data?.total_venta ?? subtotalNum ?? 0);
+        const total = fmt(totalNumRaw||0);
+        const obsVal = (guest?.observacion || data?.observaciones || 'Compra en Ferretería Patricio');
+        const totalNum = Number(data?.total_venta ?? subtotalNum ?? 0);
+        const netoNum = Math.max(0, Math.round(totalNum / 1.19));
+        const ivaNum = Math.max(0, totalNum - netoNum);
+        const fmtCLP = (n)=>'$'+Number(n||0).toLocaleString('es-CL');
         return `<!doctype html><html><head><meta charset="utf-8"><title>Orden ${bo}</title>
           <style>
             body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:18px}
@@ -143,7 +149,11 @@ import EnvLoader from '../components/EnvLoader.astro';
             .totals .row{display:flex;justify-content:space-between;margin-bottom:6px}
             .totals .val{border:1px solid #ddd;background:#f3f4f6;padding:4px 6px;width:120px;text-align:right}
             .totalLine{font-weight:800;margin-top:8px}
-            @page{size:auto;margin:12mm}
+            @page{size:A4;margin:0}
+            @media print{
+              body > footer, body > header{ display:none !important }
+              .pageNumber, .totalPages{ display:none !important }
+            }
           </style></head><body>
           <div class="frame">
             <div class="row">
@@ -152,20 +162,20 @@ import EnvLoader from '../components/EnvLoader.astro';
                 <div class="addr">${direccion}</div>
               </div>
               <div class="box">
-                <div class="title">BOLETA DE VENTA<br/>ELECTRONICA</div>
-                <div class="ruc">RUT: ${rutFmt||''}</div>
+                <div class="ruc">RUT: 13.321.203-5</div>
+                <div class="title">BOLETA<br/>ELECTRóNICA</div>
                 <div class="serie">${serie}</div>
               </div>
             </div>
             <div><br><br><br><br></div>
             <div class="line"><div class="label">Fecha de Emisión :</div><div class="value">${fecha}</div></div>
-            <div class="line"><div class="label">Señor(es) :</div><div class="value">${nombreComp}</div></div>
+            <div class="line"><div class="label">Señor(a) :</div><div class="value">${nombreComp}</div></div>
             <div class="line"><div class="label">RUT :</div><div class="value">${rutFmt||''}</div></div>
-            <div class="line"><div class="label">Observación :</div><div class="value">Compra en Ferretería Patricio</div></div>
+            <div class="line"><div class="label">Observación :</div><div class="value">${obsVal}</div></div>
             <div class="grid">
               <table>
                 <thead><tr>
-                  <th>Cantidad</th><th>Unidad Medida</th><th>Código</th><th>Descripción</th><th>Valor Unitario(*)</th><th>Importe de Venta(**)</th>
+                  <th>Cantidad</th><th>Unidad Medida</th><th>Código</th><th>Descripción</th><th>Valor Unitario</th><th>Total ítem</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
               </table>
@@ -173,11 +183,151 @@ import EnvLoader from '../components/EnvLoader.astro';
             </div>
             <div><br><br><br><br></div>
             <div class="totals">
-              <div class="row"><div>Subtotal :</div><div class="val">${subtotal}</div></div>
+              <div class="row"><div>Monto Neto :</div><div class="val">${fmtCLP(netoNum)}</div></div>
+              <div class="row"><div>IVA (19%) :</div><div class="val">${fmtCLP(ivaNum)}</div></div>
               <div class="row"><div>Total :</div><div class="val">${total}</div></div>
             </div>
           
           </body></html>`;
+      }
+
+      async function ensurePdfMake(){ if(window.pdfMake&&window.pdfMake.createPdf) return; await new Promise((resolve,reject)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js'; s.onload=resolve; s.onerror=reject; document.head.appendChild(s); }); await new Promise((resolve,reject)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js'; s.onload=resolve; s.onerror=reject; document.head.appendChild(s); }); }
+
+      function buildPdfDocDefinitionBoleta(data, bo, codes){
+        const fmtCLP = (n)=> new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(n||0));
+        const fecha = data?.fecha_venta ? new Date(data.fecha_venta).toLocaleString('es-CL', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+        const extractGuest = (obs)=>{ try{ if(typeof obs==='string' && obs.includes('VENTA_INVITADO:')){ const payload = obs.split('VENTA_INVITADO:',1)[1].trim(); const info = JSON.parse(payload); return info || {}; } }catch{} return {}; };
+        const guest = extractGuest(data?.observaciones);
+        const nombreComp = [guest?.nombre||data?.usuario_nombre||data?.nombre||'', guest?.apellido||data?.usuario_apellido||data?.apellido||''].filter(Boolean).join(' ').trim() || 'Invitado';
+        const rutVal = guest?.rut || data?.usuario_rut || data?.rut_usuario || '';
+        const formatRutUI = (v)=>{ const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase(); if(!s) return ''; const body=s.slice(0,-1); const dv=s.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return dv? `${withDots}-${dv}` : withDots; };
+        const rutFmt = formatRutUI(rutVal);
+        const empresa = 'Ferretería Patricio';
+        const direccion = 'Calama - Chile';
+        const serie = (bo||'').split('-').slice(-1)[0] || '';
+        const items = Array.isArray(data?.detalles_venta)? data.detalles_venta: [];
+        const bodyRows = items.map(d=>{
+          const cant = Number(d?.cantidad||0).toFixed(0);
+          const unidad = 'UNIDAD';
+          const codigo = String((codes && codes[String(d?.id_producto)]) || d?.id_producto || '');
+          const desc = d?.producto_nombre || `Producto ${codigo}`;
+          const unit = Number(d?.precio_unitario||0);
+          const imp = Number(d?.subtotal|| (Number(d?.precio_unitario||0)*Number(d?.cantidad||0)) );
+          return [
+            { text: cant, alignment:'right' },
+            { text: unidad },
+            { text: codigo },
+            { text: desc },
+            { text: fmtCLP(unit), alignment:'right' },
+            { text: fmtCLP(imp), alignment:'right' }
+          ];
+        });
+        const subtotalNum = items.reduce((acc,d)=> acc + Number(d?.subtotal ?? (Number(d?.precio_unitario||0)*Number(d?.cantidad||0))), 0);
+        const totalNum = Number(data?.total_venta ?? subtotalNum ?? 0);
+        const netoNum = Math.max(0, Math.round(totalNum / 1.19));
+        const ivaNum = Math.max(0, totalNum - netoNum);
+        const obsVal = (guest?.observacion || data?.observaciones || 'Compra en Ferretería Patricio');
+        return {
+          pageSize: 'A4',
+          pageMargins: [28, 28, 28, 40],
+          styles: {
+            label: { color:'#333', width: 180 },
+            valueBox: { fillColor:'#f3f4f6', fontSize:10, margin:[6,4,6,4] },
+            tableHeader: { bold:true, fillColor:'#eaf2ff' },
+            small: { fontSize:10 },
+            boxTitle: { bold:true, fontSize:12 },
+            serie: { color:'#2563eb', bold:true }
+          },
+          content: [
+            {
+              columns: [
+                [ { text: empresa, style: 'boxTitle', margin:[0,0,0,2] }, { text: direccion, fontSize:10, color:'#333' } ],
+                {
+                  width: 260,
+                  table: {
+                    widths: ['*'],
+                    body: [
+                      [ { text: 'RUT: 13.321.203-5', alignment:'center' } ],
+                      [ { text: 'BOLETA\nELECTRÓNICA', style:'boxTitle', alignment:'center' } ],
+                      [ { text: serie, style:'serie', alignment:'center' } ]
+                    ]
+                  },
+                  layout: {
+                    hLineWidth:()=>2,
+                    vLineWidth:()=>2,
+                    hLineColor:()=> '#2563eb',
+                    vLineColor:()=> '#2563eb'
+                  }
+                }
+              ]
+            },
+            { text: ' ', margin:[0,14,0,0] },
+            {
+              table: {
+                widths: [180, '*'],
+                body: [
+                  [ { text:'Fecha de Emisión :', color:'#333' }, { text: fecha, style:'valueBox' } ],
+                  [ { text:'Señor(a) :', color:'#333' }, { text: nombreComp, style:'valueBox' } ],
+                  [ { text:'RUT :', color:'#333' }, { text: rutFmt||'', style:'valueBox' } ],
+                  [ { text:'Observación :', color:'#333' }, { text: obsVal, style:'valueBox' } ]
+                ]
+              },
+              layout: {
+                hLineWidth:()=>0,
+                vLineWidth:()=>0
+              }
+            },
+            { text: ' ', margin:[0,8,0,0] },
+            {
+              table: {
+                headerRows: 1,
+                widths: [50, 90, 70, '*', 80, 80],
+                body: [
+                  [
+                    { text:'Cantidad', style:'tableHeader' },
+                    { text:'Unidad Medida', style:'tableHeader' },
+                    { text:'Código', style:'tableHeader' },
+                    { text:'Descripción', style:'tableHeader' },
+                    { text:'Valor Unitario', style:'tableHeader' },
+                    { text:'Total ítem', style:'tableHeader' }
+                  ],
+                  ...bodyRows
+                ]
+              },
+              layout: {
+                hLineColor:()=> '#9ec3ff',
+                vLineColor:()=> '#9ec3ff',
+                hLineWidth:()=>1,
+                vLineWidth:()=>1,
+                paddingTop:()=>6,
+                paddingBottom:()=>6
+              }
+            },
+            { text: ' ', margin:[0,12,0,0] },
+            {
+              columns: [
+                { width:'*', text:'' },
+                {
+                  width: 260,
+                  table: {
+                    widths: ['*', 120],
+                    body: [
+                      [ { text:'Monto Neto :'}, { text: fmtCLP(netoNum), alignment:'right', style:'valueBox' } ],
+                      [ { text:'IVA (19%) :'}, { text: fmtCLP(ivaNum), alignment:'right', style:'valueBox' } ],
+                      [ { text:'Total :', bold:true}, { text: fmtCLP(totalNum), alignment:'right', style:'valueBox' } ]
+                    ]
+                  },
+                  layout: {
+                    hLineWidth:()=>0.5,
+                    vLineWidth:()=>0.5,
+                    hLineColor:()=> '#ddd',
+                    vLineColor:()=> '#ddd'
+                  }
+                }
+              ]
+            }
+          ]
+        };
       }
 
       async function fetchProductCodes(items){
@@ -194,9 +344,17 @@ import EnvLoader from '../components/EnvLoader.astro';
         try{
           const data = window.__ventaDetalle || {}; const bo = window.__ventaOrden || '';
           const codes = await fetchProductCodes(data?.detalles_venta||[]);
-          const html = buildPdfHtml(data, bo, codes);
-          const w = window.open('', '_blank'); w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>{ try{ w.print(); } catch{} }, 200);
-        }catch(e){}
+          await ensurePdfMake();
+          const doc = buildPdfDocDefinitionBoleta(data, bo, codes);
+          window.pdfMake.createPdf(doc).download(`boleta_${bo||data?.id_venta||''}.pdf`);
+        }catch(e){
+          try{
+            const data = window.__ventaDetalle || {}; const bo = window.__ventaOrden || '';
+            const codes = await fetchProductCodes(data?.detalles_venta||[]);
+            const html = buildPdfHtml(data, bo, codes);
+            const w = window.open('', '_blank'); w.document.open(); w.document.write(html); w.document.title = `Boleta ${bo||''}`; w.document.close(); w.focus(); setTimeout(()=>{ try{ w.print(); } catch{} }, 200);
+          }catch{}
+        }
       });
     })();
   </script>

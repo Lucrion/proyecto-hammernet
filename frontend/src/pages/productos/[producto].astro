@@ -203,6 +203,7 @@ try {
                 return {
                   ...sim,
                   imagen: normalizeImageUrl(data.imagen_url) || sim.imagen,
+                  descripcion: data.descripcion || sim.descripcion || '',
                   precio: precioFinal,
                   precio_original: tieneDescuento ? precioOriginal : null,
                   tiene_oferta: tieneDescuento,
@@ -500,7 +501,6 @@ if (!producto) {
                                     {producto.descuento_pct > 0 && (
                                         <span class="text-sm font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-{producto.descuento_pct}%</span>
                                     )}
-                                    <span class="text-xl text-gray-500 line-through">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio_original)}</span>
                                 </>
                             ) : (
                                 <span class="px-4 py-2 bg-black text-white rounded text-3xl font-bold">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(producto.precio)}</span>
@@ -641,11 +641,6 @@ if (!producto) {
                     </span>
                     {sim?.tiene_oferta && sim?.descuento_pct > 0 && (
                       <span class="text-[11px] font-bold text-green-700 bg-green-100 px-2 py-1 rounded">-{sim.descuento_pct}%</span>
-                    )}
-                    {sim?.tiene_oferta && sim?.precio_original != null && (
-                      <span class="text-sm text-gray-500 line-through">
-                        {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(sim.precio_original)}
-                      </span>
                     )}
                   </div>
                 </div>

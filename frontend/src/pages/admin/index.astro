@@ -403,19 +403,26 @@ async function ensureGoogleChartsReady() {
 
 async function cargarUltimasVentas() {
   try {
-    const ventas = await getData('/api/ventas?limit=10');
+    let ventas = await getData('/api/ventas?limit=100');
     const cont = document.getElementById('ultimasVentasBody'); if (!cont) return;
-    if (!Array.isArray(ventas) || ventas.length === 0) { cont.innerHTML = '<tr><td colspan="5" class="px-4 py-3 text-center text-gray-500">Sin ventas recientes</td></tr>'; return; }
+    const arr = Array.isArray(ventas) ? ventas : [];
+    if (arr.length === 0) { cont.innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-center text-gray-500">Sin ventas recientes</td></tr>'; return; }
+    const map = (analyticsState?.data?.userNameMap) || null;
     const fmtPrecio = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Number(v||0));
-    const fmtFecha = (iso) => { try { return new Date(iso).toLocaleDateString('es-CL', { dateStyle: 'medium' }); } catch { return iso; } };
-    cont.innerHTML = ventas.map(v => `
+    const fmtFecha = (iso) => { try { const d = new Date(iso || 0); return d.toLocaleDateString('es-CL', { year:'numeric', month:'2-digit', day:'2-digit' }); } catch { return String(iso); } };
+    const sorted = [...arr].sort((a,b)=>{
+      const ta = new Date(a.fecha_venta || a.created_at || 0).getTime();
+      const tb = new Date(b.fecha_venta || b.created_at || 0).getTime();
+      return tb - ta;
+    }).slice(0,10);
+    cont.innerHTML = sorted.map(v => `
       <tr>
         <td class="px-4 py-3 text-sm text-gray-800">#${v.id_venta}</td>
-        <td class="px-4 py-3 text-sm text-gray-700">${fmtFecha(v.fecha_venta)}</td>
-        <td class="px-4 py-3 text-sm">${resolveUserDisplay(v, nameMap)}</td>
+        <td class="px-4 py-3 text-sm text-gray-700">${fmtFecha(v.fecha_venta || v.created_at)}</td>
+        <td class="px-4 py-3 text-sm">${resolveUserDisplay(v, map)}</td>
         <td class="px-4 py-3 text-sm font-semibold">${fmtPrecio(v.total_venta)}</td>
         <td class="px-4 py-3 text-sm">${envioBadge(parseEnvioEstado(v))}</td>
-        <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-white ${v.estado === 'completada' ? 'bg-green-600' : (v.estado === 'cancelada' ? 'bg-red-600' : 'bg-yellow-500')}">${v.estado}</span></td>
+        <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-white ${String(v.estado||'').toLowerCase()==='completada' ? 'bg-green-600' : (String(v.estado||'').toLowerCase()==='cancelada' ? 'bg-red-600' : 'bg-yellow-500')}">${v.estado || 'pendiente'}</span></td>
       </tr>`).join('');
   } catch (e) { console.warn('No se pudieron cargar últimas ventas', e); }
 }

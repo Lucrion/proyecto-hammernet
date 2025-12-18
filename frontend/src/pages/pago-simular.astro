@@ -51,23 +51,39 @@ import EnvLoader from '../components/EnvLoader.astro';
               </div>
             </div>
             <div class="section">Selecciona tu medio de pago:</div>
-            <div id="btnTarjetas" class="option" style="border-color:#b37bd7">
-              <div class="opt-title">Tarjetas</div>
-              <div class="opt-sub">Crédito, Débito, Prepago</div>
+            <div style="display:flex; gap:12px">
+              <div id="btnDebito" class="option" style="flex:1; border-color:#e5e7eb">
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                  <span style="color:#6b7280">💳</span>
+                  <span id="debitoCheck" style="display:none; width:18px; height:18px; border-radius:999px; background:#6a1b9a; color:#fff; font-size:12px; line-height:18px; text-align:center">✓</span>
+                </div>
+                <div class="opt-title" style="text-align:center; color:#6b7280">Débito</div>
+              </div>
+              <div id="btnCredito" class="option" style="flex:1; border-color:#b37bd7">
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                  <span style="color:#6a1b9a">💳</span>
+                  <span id="creditoCheck" style="display:inline-block; width:18px; height:18px; border-radius:999px; background:#6a1b9a; color:#fff; font-size:12px; line-height:18px; text-align:center">✓</span>
+                </div>
+                <div class="opt-title" style="text-align:center; color:#6a1b9a">Crédito</div>
+              </div>
             </div>
             <div class="link"><a id="linkAnular" href="#">Anular compra y volver</a></div>
           </div>
           <div style="flex:1 1 50%">
             <div class="opt-title" style="margin-bottom:12px">Ingresa los datos de tu tarjeta:</div>
-            <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px">
-              <div style="display:flex;justify-content:space-between;color:#7b8395;font-size:12px"><span>Tarjeta</span><span>Crédito</span></div>
-              <div id="previewNum" style="color:#1f2937;margin-top:8px">•••• •••• •••• ••••</div>
-              <div style="color:#7b8395;font-size:12px">MM/AA</div>
+            <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:20px 18px;margin-bottom:12px; width:100%; min-height:160px">
+              <div style="display:flex;justify-content:space-between;color:#7b8395;font-size:12px">
+                <span style="display:flex;align-items:center;gap:6px"><img id="previewBrand" src="" alt="brand" style="width:20px;height:20px;display:none"/><span>Tarjeta</span></span>
+                <span id="previewMethod">Crédito</span>
+              </div>
+              <div id="previewNum" style="color:#1f2937;margin-top:12px;font-size:22px;letter-spacing:1px">•••• •••• •••• ••••</div>
+              <div id="previewExp" style="color:#7b8395;font-size:12px">MM/AA</div>
             </div>
-            <label class="label">RUT</label>
-            <input id="inpRut" type="text" maxlength="12" placeholder="12.345.678-9" class="w-full  border rounded px-3 py-2" style="margin-bottom:10px" />
+            
             <label class="label">Número de tarjeta</label>
-            <input id="inpCard" type="text" maxlength="19" placeholder="4111 1111 1111 1111" class="w-full border rounded px-3 py-2" style="margin-bottom:10px" />
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px">
+              <input id="inpCard" type="text" maxlength="19" placeholder="4111 1111 1111 1111" class="flex-1 border rounded px-3 py-2" />
+            </div>
             <div class="row" style="gap:10px">
               <div style="flex:1">
                 <label class="label">Fecha de expiración</label>
@@ -75,12 +91,16 @@ import EnvLoader from '../components/EnvLoader.astro';
               </div>
               <div style="flex:1">
                 <label class="label">CVV</label>
-                <input id="inpCVV" maxlength="3" type="password" placeholder="•••" class="w-full border rounded px-3 py-2" />
+                <input id="inpCVV" maxlength="3" type="password"  placeholder="•••" class="w-full border rounded px-3 py-2" />
               </div>
             </div>
+            <label class="label">RUT</label>
+            <input id="inpRut" type="text" maxlength="12" placeholder="12.345.678-9" class="w-full  border rounded px-3 py-2" style="margin-bottom:10px" />
+            <label class="label">Nombre del titular</label>
+            <input id="inpHolder" type="text" maxlength="80" placeholder="Nombre como aparece en la tarjeta" class="w-full border rounded px-3 py-2" style="margin-bottom:10px" />
             <button id="btnPagar" class="w-full" style="margin-top:14px;background:#6a1b9a;color:#fff;border:none;border-radius:10px;padding:12px 14px;font-weight:600">Pagar</button>
           </div>
-        </div>
+        </div>9
       </div>
     </div>
     <div class="footer">
@@ -97,7 +117,7 @@ import EnvLoader from '../components/EnvLoader.astro';
           let cls = 'bg-gray-200 text-gray-800';
           let msg = 'Procesando pago';
           const reason = data?.reason || data?.message || '';
-          if (status === 'AUTHORIZED') { cls = 'bg-green-100 text-green-800'; msg = `Pago aprobado. Boleta electronica ${data?.buy_order || ''}`; }
+          if (status === 'AUTHORIZED') { cls = 'bg-green-100 text-green-800'; msg = `Pago aprobado. Boleta electrónica ${data?.buy_order || ''}`; }
           else if (status === 'REJECTED' || status === 'FAILED') { cls = 'bg-red-100 text-red-800'; msg = `Pago rechazado${reason?`: ${reason}`:''}`; }
           else if (status === 'ABORTED') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago cancelado por el cliente'; }
           else if (status === 'TIMEOUT') { cls = 'bg-yellow-100 text-yellow-800'; msg = 'Pago expirado por tiempo'; }
@@ -145,6 +165,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         function formatRutUI(v){ const s=String(v||'').replace(/[^0-9kK]/g,'').toUpperCase(); if(!s) return ''; const body=s.slice(0,-1); const dv=s.slice(-1); const withDots=body.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return dv? `${withDots}-${dv}` : withDots; }
         function validarRut(v){ const s=String(v||'').replace(/\./g,'').replace(/-/g,'').toUpperCase(); if(s.length<2) return false; const cuerpo=s.slice(0,-1); const dv=s.slice(-1); if(!/^\d+$/.test(cuerpo)) return false; let suma=0, m=2; for(let i=cuerpo.length-1;i>=0;i--){ suma += parseInt(cuerpo[i],10)*m; m = m===7 ? 2 : m+1; } const rest = 11 - (suma % 11); const dvCalc = rest===11 ? '0' : (rest===10 ? 'K' : String(rest)); return dvCalc === dv; }
         function detectBrand(n){ const s=digitsOnly(n); if(/^3[47]/.test(s)) return 'AMEX'; if(/^(?:5[1-5]|2(?:2[2-9]\d|[3-6]\d{2}|7[01]\d|720))/.test(s)) return 'MASTERCARD'; if(/^4/.test(s)) return 'VISA'; if(/^(?:3(?:0[0-5]|[68]))/.test(s)) return 'DINERS'; return 'CARD'; }
+        function brandIconSrc(brand){ switch(brand){ case 'VISA': return '/images/cards/visa.svg'; case 'MASTERCARD': return '/images/cards/mastercard.svg'; default: return ''; } }
         function formatCardNumber(n){ const s=digitsOnly(n); const brand=detectBrand(s); if(brand==='AMEX'){ return s.replace(/(\d{1,4})(\d{1,6})?(\d{1,5})?/, (m,a,b,c)=> [a,b,c].filter(Boolean).join(' ')); } if(brand==='DINERS'){ return s.replace(/(\d{1,4})(\d{1,6})?(\d{1,4})?/, (m,a,b,c)=> [a,b,c].filter(Boolean).join(' ')); } return s.replace(/(\d{1,4})(\d{1,4})?(\d{1,4})?(\d{1,4})?/, (m,a,b,c,d)=> [a,b,c,d].filter(Boolean).join(' ')); }
         (function attachFormatters(){
           try{
@@ -157,7 +178,9 @@ import EnvLoader from '../components/EnvLoader.astro';
             cardEl.addEventListener('input',()=>{ cardEl.value = formatCardNumber(cardEl.value); document.getElementById('previewNum').textContent = cardEl.value || '•••• •••• •••• ••••'; });
           }catch{}
           try{
-            const expEl=document.getElementById('inpExp');
+            const expEl=document.getElementById('inpExp'); const pExp=document.getElementById('previewExp');
+            let expDeleting=false; let prevRaw='';
+            expEl.addEventListener('beforeinput',(e)=>{ try{ expDeleting = String(e.inputType||'').includes('delete'); }catch{ expDeleting=false; } });
             expEl.addEventListener('input',()=>{
               const raw = String(expEl.value||'').replace(/[^0-9]/g,'');
               let mm = raw.slice(0,2);
@@ -167,10 +190,13 @@ import EnvLoader from '../components/EnvLoader.astro';
                 if (isNaN(mNum) || mNum<=0) mNum = 1;
                 if (mNum>12) mNum = 12;
                 mm = String(mNum).padStart(2,'0');
-                expEl.value = yy ? `${mm}/${yy}` : `${mm}/`;
+                // Solo insertar "/" si NO estamos borrando
+                const val = expDeleting ? mm : (yy ? `${mm}/${yy}` : `${mm}/`);
+                expEl.value = val; if (pExp) pExp.textContent = val;
               } else {
-                expEl.value = mm;
+                expEl.value = mm; if (pExp) pExp.textContent = mm || 'MM/AA';
               }
+              prevRaw = raw; expDeleting=false;
             });
           }catch{}
         })();
@@ -187,8 +213,30 @@ import EnvLoader from '../components/EnvLoader.astro';
           <div style="font-weight:700;color:#111827;margin-bottom:6px">Estamos procesando tu pago</div>
           <div style="color:#6b7280;font-size:14px;text-align:center;max-width:520px">Por favor no recargues ni cierres la pantalla para poder continuar con la transacción.</div>
         `; document.body.appendChild(overlay); return overlay; }
+        let paymentMethod = 'credito';
+        let cardBrand = '';
+        function updateMethodUI(){
+          try{
+            const d=document.getElementById('btnDebito'); const c=document.getElementById('btnCredito');
+            const dc=document.getElementById('debitoCheck'); const cc=document.getElementById('creditoCheck');
+            const cuotas=document.getElementById('cuotasContainer');
+            const pm=document.getElementById('previewMethod');
+            if(paymentMethod==='debito'){
+              d && (d.style.borderColor='#6a1b9a'); c && (c.style.borderColor='#e5e7eb');
+              dc && (dc.style.display='inline-block'); cc && (cc.style.display='none');
+              if (cuotas) cuotas.style.display='none';
+              if (pm) pm.textContent = 'Débito';
+            } else {
+              c && (c.style.borderColor='#6a1b9a'); d && (d.style.borderColor='#e5e7eb');
+              cc && (cc.style.display='inline-block'); dc && (dc.style.display='none');
+              if (cuotas) cuotas.style.display='block';
+              if (pm) pm.textContent = 'Crédito';
+            }
+          }catch{}
+        }
         async function sim(status, extra){
-          const resp = await fetch(`${API_BASE}/pagos/simular/notificar`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id_venta: ventaId, status, payment_type_code:'VD', amount: extra?.amount||0, installments_number: 0 }) });
+          const code = extra?.code || (paymentMethod==='debito' ? 'VD' : 'VC');
+          const resp = await fetch(`${API_BASE}/pagos/simular/notificar`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id_venta: ventaId, status, payment_type_code: code, amount: extra?.amount||0, installments_number: extra?.installments_number||0 }) });
           const data = await resp.json().catch(()=>({}));
           showBanner(status, data);
           const bo = data?.buy_order || '';
@@ -198,16 +246,40 @@ import EnvLoader from '../components/EnvLoader.astro';
           else if (status === 'TIMEOUT') { window.location.replace('/orden-compra/TIMEOUT'+(bo?`?bo=${encodeURIComponent(bo)}`:'')); }
           else if (status === 'ERROR') { const msg = data?.message || extra?.message || ''; window.location.replace('/orden-compra/ERROR'+(bo?`?bo=${encodeURIComponent(bo)}`:'')+(msg?`${bo?'&':'?'}message=${encodeURIComponent(msg)}`:'')); }
         }
-        document.getElementById('btnTarjetas').addEventListener('click', ()=>{ try{ document.getElementById('inpCard').focus(); }catch{} });
+        document.getElementById('btnDebito').addEventListener('click', ()=>{ paymentMethod='debito'; updateMethodUI(); try{ document.getElementById('inpCard').focus(); }catch{} });
+        document.getElementById('btnCredito').addEventListener('click', ()=>{ paymentMethod='credito'; updateMethodUI(); try{ document.getElementById('inpCard').focus(); }catch{} });
+        // Detección de marca (Visa) por primer dígito
+        try{
+            const cardEl=document.getElementById('inpCard'); const icon=document.getElementById('brandIcon'); const pBrand=document.getElementById('previewBrand');
+            cardEl.addEventListener('input',()=>{
+              const raw = String(cardEl.value||'').replace(/\s+/g,'').replace(/[^0-9]/g,'');
+            const brand = detectBrand(raw);
+            if(brand==='VISA' || brand==='MASTERCARD'){ cardBrand=brand.toLowerCase(); if(icon){ icon.src = brandIconSrc(brand); icon.style.display='inline-block'; } if(pBrand){ pBrand.src = brandIconSrc(brand); pBrand.style.display='inline-block'; } }
+            else { cardBrand=''; if(icon) icon.style.display='none'; if(pBrand) pBrand.style.display='none'; }
+            });
+        }catch{}
+
+        // Cuotas cuando es crédito
+        let installments = 1;
+        try{
+          const btn=document.getElementById('btnCuotas'); const list=document.getElementById('cuotasList'); const cur=document.getElementById('cuotasActual');
+          btn.addEventListener('click',()=>{ if(list) list.style.display = (list.style.display==='none' || !list.style.display) ? 'flex' : 'none'; });
+          list.querySelectorAll('[data-cuotas]').forEach(el=>{
+            el.addEventListener('click',()=>{ installments = Number(el.getAttribute('data-cuotas'))||1; cur.textContent = String(installments); list.classList.add('hidden'); });
+          });
+        }catch{}
+
         document.getElementById('btnPagar').addEventListener('click', async ()=>{
           const card = document.getElementById('inpCard')?.value||'';
           const rut = document.getElementById('inpRut')?.value||'';
+          const holder = document.getElementById('inpHolder')?.value||'';
           if (!rut) { alert('Ingresa tu RUT'); return; }
           if (!validarRut(rut)) { alert('RUT inválido'); return; }
+          if (!holder || holder.trim().length < 3) { alert('Ingresa el nombre del titular'); return; }
           const amount = await resolveAmount();
           const decision = extendedDecision(card);
           const overlay = showProcessing();
-          setTimeout(async ()=>{ try{ await sim(decision.status, { amount }); } catch(e){ try{ document.body.removeChild(overlay); }catch{} } }, 600);
+          setTimeout(async ()=>{ try{ await sim(decision.status, { amount, code: (paymentMethod==='debito'?'VD':'VC'), installments_number: (paymentMethod==='credito'?installments:0), brand: cardBrand }); } catch(e){ try{ document.body.removeChild(overlay); }catch{} } }, 600);
         });
         document.getElementById('linkAnular').addEventListener('click', async (e)=>{ e.preventDefault(); await sim('ABORTED', {}); });
       })();
