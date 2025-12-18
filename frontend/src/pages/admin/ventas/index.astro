@@ -197,16 +197,18 @@ async function getData(endpoint){const r=await fetchWithAuth(endpoint,{method:'G
 async function updateData(endpoint,data){const r=await fetchWithAuth(endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});if(!r.ok){throw new Error(`Error ${r.status}: ${await r.text()}`)}return r.json()}
 function mostrarErrorToast(mensaje){try{const div=document.createElement('div');div.className='fixed top-4 right-4 z-50 bg-red-600 text-white px-4 py-2 rounded shadow';div.textContent=mensaje;document.body.appendChild(div);setTimeout(()=>{div.remove();},3000);}catch{alert('Error: '+mensaje)}}
 
-const state = { ventas: [], ventaDetalleActual: null, filtros: { fechaInicio: null, fechaFin: null, envio: null }, paginacion: { paginaActual: 1, elementosPorPagina: 20, totalElementos: 0 }, orden: { clave: 'fecha_venta', direccion: 'desc' } };
+try { window.getData = getData; window.updateData = updateData; } catch {}
+
+const state = { ventas: [], ventaDetalleActual: null, filtros: { fechaInicio: null, fechaFin: null, envio: null, rut: null }, paginacion: { paginaActual: 1, elementosPorPagina: 20, totalElementos: 0 }, orden: { clave: 'fecha_venta', direccion: 'desc' } };
 try { window.state = state; } catch {}
 
 document.addEventListener('DOMContentLoaded', function() { inicializarEventos(); cargarDatosIniciales(); });
 
-function inicializarEventos() { document.getElementById('btnFiltrar')?.addEventListener('click', aplicarFiltros); document.getElementById('btnLimpiarFiltros')?.addEventListener('click', limpiarFiltros); const inputBusqueda = document.getElementById('inputBusqueda'); if (inputBusqueda) { const debouncedBuscar = debounce(() => buscarVentas(), 300); inputBusqueda.addEventListener('input', () => { try { if (window.formatRut) { const raw = inputBusqueda.value; const formatted = window.formatRut(raw); inputBusqueda.value = formatted; } } catch {} debouncedBuscar(); }); } const btnExportar = document.getElementById('btnExportarVentas'); btnExportar?.addEventListener('click', exportarVentasCSV); const thead = document.getElementById('ventasTableHead'); if (thead) { thead.addEventListener('click', (e) => { const th = e.target.closest('th'); const clave = th?.dataset?.sortKey; if (!clave) return; if (state.orden.clave === clave) { state.orden.direccion = state.orden.direccion === 'asc' ? 'desc' : 'asc'; } else { state.orden.clave = clave; state.orden.direccion = 'asc'; } renderizarTablaVentas(); }); } document.getElementById('btnPrevPage')?.addEventListener('click', paginaAnterior); document.getElementById('btnNextPage')?.addEventListener('click', paginaSiguiente); document.getElementById('btnPrevPageMobile')?.addEventListener('click', paginaAnterior); document.getElementById('btnNextPageMobile')?.addEventListener('click', paginaSiguiente); }
+function inicializarEventos() { document.getElementById('btnFiltrar')?.addEventListener('click', aplicarFiltros); document.getElementById('btnLimpiarFiltros')?.addEventListener('click', limpiarFiltros); const inputBusqueda = document.getElementById('inputBusqueda'); if (inputBusqueda) { inputBusqueda.addEventListener('input', () => { try { if (window.formatRut) { const raw = inputBusqueda.value; const formatted = window.formatRut(raw); inputBusqueda.value = formatted; } } catch {} }); } const btnExportar = document.getElementById('btnExportarVentas'); btnExportar?.addEventListener('click', exportarVentasCSV); const thead = document.getElementById('ventasTableHead'); if (thead) { thead.addEventListener('click', (e) => { const th = e.target.closest('th'); const clave = th?.dataset?.sortKey; if (!clave) return; if (state.orden.clave === clave) { state.orden.direccion = state.orden.direccion === 'asc' ? 'desc' : 'asc'; } else { state.orden.clave = clave; state.orden.direccion = 'asc'; } renderizarTablaVentas(); }); } document.getElementById('btnPrevPage')?.addEventListener('click', paginaAnterior); document.getElementById('btnNextPage')?.addEventListener('click', paginaSiguiente); document.getElementById('btnPrevPageMobile')?.addEventListener('click', paginaAnterior); document.getElementById('btnNextPageMobile')?.addEventListener('click', paginaSiguiente); }
 
 async function cargarDatosIniciales() { try { mostrarLoading(true); await Promise.all([cargarVentas(), cargarEstadisticas()]); } catch (error) { mostrarError('Error al cargar los datos iniciales'); } finally { mostrarLoading(false); } }
 
-async function cargarVentas() { try { const params = new URLSearchParams(); if (state.filtros.fechaInicio) { params.append('fecha_inicio', state.filtros.fechaInicio); } if (state.filtros.fechaFin) { params.append('fecha_fin', state.filtros.fechaFin); } if (state.filtros.envio) { params.append('estado_envio', state.filtros.envio); } params.append('skip', (state.paginacion.paginaActual - 1) * state.paginacion.elementosPorPagina); params.append('limit', state.paginacion.elementosPorPagina); const url = `/api/ventas?${params.toString()}`; const ventas = await getData(url); let list = Array.isArray(ventas) ? ventas : []; if (state.filtros.envio) { const filtro = String(state.filtros.envio).toLowerCase(); list = list.filter(v => { const e = (typeof parseEnvioEstado==='function' ? (parseEnvioEstado(v) || v.estado_envio) : v.estado_envio) || ''; return String(e).toLowerCase() === filtro; }); } state.ventas = list; state.paginacion.totalElementos = ((state.paginacion.paginaActual - 1) * state.paginacion.elementosPorPagina) + state.ventas.length; renderizarTablaVentas(); actualizarPaginacion(); } catch (error) { state.ventas = []; state.paginacion.totalElementos = 0; renderizarTablaVentas(); mostrarError('Error al cargar las ventas'); } }
+async function cargarVentas() { try { const params = new URLSearchParams(); if (state.filtros.fechaInicio) { params.append('fecha_inicio', state.filtros.fechaInicio); } if (state.filtros.fechaFin) { params.append('fecha_fin', state.filtros.fechaFin); } if (state.filtros.envio) { params.append('estado_envio', state.filtros.envio); } params.append('skip', (state.paginacion.paginaActual - 1) * state.paginacion.elementosPorPagina); params.append('limit', state.paginacion.elementosPorPagina); const url = `/api/ventas?${params.toString()}`; const ventas = await getData(url); let list = Array.isArray(ventas) ? ventas : []; if (state.filtros.envio) { const filtro = String(state.filtros.envio).toLowerCase(); list = list.filter(v => { const e = (typeof parseEnvioEstado==='function' ? (parseEnvioEstado(v) || v.estado_envio) : v.estado_envio) || ''; return String(e).toLowerCase() === filtro; }); } if (state.filtros.rut) { const term = String(state.filtros.rut || '').toUpperCase(); const cmp = (s)=>{ try { return (typeof window.rutComparable==='function') ? window.rutComparable(s||'') : String(s||'').replace(/\D/g,'').toUpperCase(); } catch { return String(s||'').replace(/\D/g,'').toUpperCase(); } }; let filtered = list.filter(v => cmp(v.rut_usuario || v.usuario_rut || '').includes(term)); if (filtered.length === 0) { try { const all = await getData('/api/ventas?limit=500'); const base = Array.isArray(all) ? all : []; filtered = base.filter(v => cmp(v.rut_usuario || v.usuario_rut || '').includes(term)); } catch {} } list = filtered; } state.ventas = list; state.paginacion.totalElementos = ((state.paginacion.paginaActual - 1) * state.paginacion.elementosPorPagina) + state.ventas.length; renderizarTablaVentas(); actualizarPaginacion(); } catch (error) { state.ventas = []; state.paginacion.totalElementos = 0; renderizarTablaVentas(); mostrarError('Error al cargar las ventas'); } }
 
 async function cargarEstadisticas() { try { return; } catch (error) {} }
 
@@ -396,9 +398,9 @@ async function imprimirOrdenEntrega() { try { const venta = state.ventaDetalleAc
 function generarTextoEntrega(venta) { const lineas = []; lineas.push(`Orden de Entrega - Venta #${venta.id_venta}`); lineas.push(`Fecha: ${formatearFecha(venta.fecha_venta)}`); lineas.push(`Usuario: ${venta.usuario || 'N/A'}`); lineas.push(`Total: ${formatearDinero(venta.total_venta)}`); lineas.push('Detalles:'); (venta.detalles_venta || []).forEach(d => { lineas.push(`- ${d.producto_nombre || `Producto #${d.id_producto}`} x${d.cantidad} (${formatearDinero(d.precio_unitario)} c/u)`); }); return lineas.join('\n'); }
 window.cerrarModalDetalleVenta = cerrarModalDetalleVenta;
 
-function aplicarFiltros() { state.filtros.fechaInicio = document.getElementById('filtroFechaInicio').value || null; state.filtros.fechaFin = document.getElementById('filtroFechaFin').value || null; state.filtros.envio = document.getElementById('filtroEnvio')?.value || null; state.paginacion.paginaActual = 1; cargarVentas(); cargarEstadisticas(); }
-function limpiarFiltros() { document.getElementById('filtroFechaInicio').value = ''; document.getElementById('filtroFechaFin').value = ''; document.getElementById('filtroEnvio') && (document.getElementById('filtroEnvio').value = ''); state.filtros = { fechaInicio: null, fechaFin: null, envio: null }; state.paginacion.paginaActual = 1; cargarVentas(); cargarEstadisticas(); }
-function buscarVentas() { const input = document.getElementById('buscarVenta') || document.getElementById('inputBusqueda'); const termino = (input?.value || '').toLowerCase(); if (!termino) { renderizarTablaVentas(); return; } const ventasFiltradas = state.ventas.filter(venta => (venta.id_venta?.toString() || '').includes(termino) || ((venta.usuario_nombre || '').toLowerCase()).includes(termino) || ((venta.cliente_nombre || venta.cliente_rut || '').toLowerCase()).includes(termino) || ((venta.repartidor_nombre || venta.repartidor_rut || '').toLowerCase()).includes(termino) || String(venta.total_venta).includes(termino)); const tbody = document.getElementById('ventasTableBody'); if (ventasFiltradas.length === 0) { tbody.innerHTML = `<tr><td colspan="10" class="text-center"><i class="fas fa-search"></i>No se encontraron ventas que coincidan con "${termino}"</td></tr>`; return; } tbody.innerHTML = ventasFiltradas.map(venta => `<tr><td>#${venta.id_venta}</td><td>${formatearFecha(venta.fecha_venta)}</td><td>${venta.usuario_nombre || 'N/A'}</td><td>$${Number(venta.total_venta).toFixed(2)}</td><td>${venta.detalles_venta ? venta.detalles_venta.length : 0} productos</td><td>${venta.cliente_nombre || venta.cliente_rut || 'N/A'}</td><td>${venta.repartidor_nombre || venta.repartidor_rut || 'N/A'}</td><td><span class="estado-${(venta.estado||'').toLowerCase()}">${venta.estado || ''}</span></td><td>${venta.estado_envio || 'N/A'}</td><td></td></tr>`).join(''); }
+function aplicarFiltros() { state.filtros.fechaInicio = document.getElementById('filtroFechaInicio').value || null; state.filtros.fechaFin = document.getElementById('filtroFechaFin').value || null; state.filtros.envio = document.getElementById('filtroEnvio')?.value || null; const input = document.getElementById('buscarVenta') || document.getElementById('inputBusqueda'); let rut = input?.value || ''; try { if (typeof window.formatRut==='function') { input && (input.value = window.formatRut(rut)); } } catch {} try { rut = (typeof window.rutComparable==='function') ? window.rutComparable(rut) : String(rut||'').replace(/\D/g,'').toUpperCase(); } catch { rut = String(rut||'').replace(/\D/g,'').toUpperCase(); } state.filtros.rut = rut || null; state.paginacion.paginaActual = 1; cargarVentas(); cargarEstadisticas(); }
+function limpiarFiltros() { document.getElementById('filtroFechaInicio').value = ''; document.getElementById('filtroFechaFin').value = ''; document.getElementById('filtroEnvio') && (document.getElementById('filtroEnvio').value = ''); const input = document.getElementById('inputBusqueda'); if (input) input.value = ''; state.filtros = { fechaInicio: null, fechaFin: null, envio: null, rut: null }; state.paginacion.paginaActual = 1; cargarVentas(); cargarEstadisticas(); }
+function buscarVentas() { try { if (typeof window.buscarVentas === 'function') { return window.buscarVentas(); } } catch {} const input = document.getElementById('buscarVenta') || document.getElementById('inputBusqueda'); const termino = (input?.value || '').toLowerCase(); if (!termino) { renderizarTablaVentas(); return; } const ventasFiltradas = state.ventas.filter(venta => (venta.id_venta?.toString() || '').includes(termino) || ((venta.usuario_nombre || '').toLowerCase()).includes(termino) || ((venta.cliente_nombre || venta.cliente_rut || '').toLowerCase()).includes(termino) || ((venta.repartidor_nombre || venta.repartidor_rut || '').toLowerCase()).includes(termino) || String(venta.total_venta).includes(termino)); const tbody = document.getElementById('ventasTableBody'); if (ventasFiltradas.length === 0) { tbody.innerHTML = `<tr><td colspan="10" class="text-center"><i class="fas fa-search"></i>No se encontraron ventas que coincidan con "${termino}"</td></tr>`; return; } tbody.innerHTML = ventasFiltradas.map(venta => `<tr><td>#${venta.id_venta}</td><td>${formatearFecha(venta.fecha_venta)}</td><td>${venta.usuario_nombre || 'N/A'}</td><td>$${Number(venta.total_venta).toFixed(2)}</td><td>${venta.detalles_venta ? venta.detalles_venta.length : 0} productos</td><td>${venta.cliente_nombre || venta.cliente_rut || 'N/A'}</td><td>${venta.repartidor_nombre || venta.repartidor_rut || 'N/A'}</td><td><span class="estado-${(venta.estado||'').toLowerCase()}">${venta.estado || ''}</span></td><td>${venta.estado_envio || 'N/A'}</td><td></td></tr>`).join(''); }
 
 function paginaAnterior() { if (state.paginacion.paginaActual > 1) { state.paginacion.paginaActual--; cargarVentas(); } }
 function paginaSiguiente() { const hasNextPage = state.ventas.length === state.paginacion.elementosPorPagina; if (hasNextPage) { state.paginacion.paginaActual++; cargarVentas(); } }
@@ -521,46 +523,49 @@ renderizarTablaVentas = function() {
   `).join('');
 }
 
-buscarVentas = function() {
-  const input = document.getElementById('buscarVenta') || document.getElementById('inputBusqueda');
-  const raw = input?.value || '';
-  if (input && typeof window.formatRut==='function') input.value = window.formatRut(raw);
-  const termino = raw.toLowerCase();
-  const rutTerm = (typeof window.rutComparable==='function') ? window.rutComparable(raw) : (raw.replace(/\D/g,'').toUpperCase());
-  const tbody = document.getElementById('ventasTableBody');
-  if (!termino) { renderizarTablaVentas(); return; }
-  const ventasFiltradas = state.ventas.filter(venta =>
-    (venta.id_venta?.toString() || '').includes(termino) ||
-    ((venta.usuario_nombre || '').toLowerCase()).includes(termino) ||
-    ((venta.cliente_nombre || venta.cliente_rut || '').toLowerCase()).includes(termino) ||
-    ((venta.repartidor_nombre || venta.repartidor_rut || '').toLowerCase()).includes(termino) ||
-    String(venta.total_venta).includes(termino) ||
-    ((typeof window.rutComparable==='function') ? window.rutComparable(venta.rut_usuario || venta.usuario_rut || '') : String(venta.rut_usuario || venta.usuario_rut || '').toUpperCase()).includes(rutTerm)
-  );
-  if (ventasFiltradas.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="text-center">No se encontraron ventas</td></tr>`;
-    return;
+buscarVentas = async function() {
+  try {
+    const input = document.getElementById('buscarVenta') || document.getElementById('inputBusqueda');
+    const raw = input?.value || '';
+    if (input && typeof window.formatRut==='function') input.value = window.formatRut(raw);
+    const rutTerm = (typeof window.rutComparable==='function') ? window.rutComparable(raw) : (raw.replace(/\D/g,'').toUpperCase());
+    const tbody = document.getElementById('ventasTableBody');
+    if (!rutTerm) { renderizarTablaVentas(); return; }
+    const present = Array.isArray(state.ventas) ? state.ventas : [];
+    if (!window.__ventas_cache__ || !Array.isArray(window.__ventas_cache__)) {
+      try { const all = await getData('/api/ventas?limit=500'); window.__ventas_cache__ = Array.isArray(all) ? all : []; } catch { window.__ventas_cache__ = present; }
+    }
+    const base = window.__ventas_cache__ || present;
+    const ventasFiltradas = base.filter(v => {
+      const rutV = (typeof window.rutComparable==='function') ? window.rutComparable(v.rut_usuario || v.usuario_rut || '') : String(v.rut_usuario || v.usuario_rut || '').toUpperCase();
+      return rutV.includes(rutTerm);
+    });
+    if (!ventasFiltradas.length) { tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">Sin resultados para ese RUT</td></tr>`; return; }
+    const ventasOrdenadas = [...ventasFiltradas].sort((a,b)=> new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime());
+    tbody.innerHTML = ventasOrdenadas.map(v => {
+      const productos = Array.isArray(v.detalles_venta) ? v.detalles_venta.reduce((acc,d)=>acc+Number(d.cantidad||0),0) : 0;
+      const fecha = formatearFechaDia(v.fecha_venta);
+      const rut = formatRut(v.rut_usuario || v.usuario_rut || '');
+      const nombre = v.usuario_nombre || v.cliente_nombre || 'N/A';
+      const total = (typeof window.formatearDinero === 'function') ? window.formatearDinero(v.total_venta) : `$${Number(v.total_venta||0).toFixed(0)}`;
+      const estado = v.estado || '';
+      const envio = (typeof parseEnvioEstado==='function' ? (parseEnvioEstado(v) || v.estado_envio) : v.estado_envio) || 'N/A';
+      return `<tr class="hover:bg-gray-50">
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#${v.id_venta}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fecha}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rut}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${nombre}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${productos}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${total}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge estado estado-${(estado||'N/A').toLowerCase().replace(/\s+/g,'-')}">${estado || 'N/A'}</span></td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge envio envio-${String(envio||'N/A').toLowerCase().replace(/\s+/g,'-')}">${envio}</span></td>
+        <td class="px-6 py-4 whitespace-nowrap text-right text-sm"><button class="px-2 py-1 text-indigo-600" data-action="ver-detalle" data-id="${v.id_venta}">Ver detalle</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    const tbody = document.getElementById('ventasTableBody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">No se pudo buscar por RUT</td></tr>`;
   }
-  tbody.innerHTML = ventasFiltradas.map(v => {
-    const productos = Array.isArray(v.detalles_venta) ? v.detalles_venta.reduce((acc,d)=>acc+Number(d.cantidad||0),0) : 0;
-    const fecha = formatearFechaDia(v.fecha_venta);
-    const rut = formatRut(v.rut_usuario || v.usuario_rut || '');
-    const nombre = v.usuario_nombre || v.cliente_nombre || 'N/A';
-    const total = (typeof window.formatearDinero === 'function') ? window.formatearDinero(v.total_venta) : `$${Number(v.total_venta||0).toFixed(0)}`;
-    const estado = v.estado || '';
-    const envio = (typeof parseEnvioEstado==='function' ? (parseEnvioEstado(v) || v.estado_envio) : v.estado_envio) || 'N/A';
-    return `<tr class="hover:bg-gray-50">
-      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#${v.id_venta}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fecha}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rut}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${nombre}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${productos}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${total}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge estado estado-${(estado||'N/A').toLowerCase().replace(/\s+/g,'-')}">${estado || 'N/A'}</span></td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge envio envio-${String(envio||'N/A').toLowerCase().replace(/\s+/g,'-')}">${envio}</span></td>
-      <td class="px-6 py-4 whitespace-nowrap text-right text-sm"><button class="px-2 py-1 text-indigo-600" data-action="ver-detalle" data-id="${v.id_venta}">Ver detalle</button></td>
-    </tr>`;
-  }).join('');
 }
     </script>
 </AdminLayout>
@@ -636,17 +641,46 @@ function renderizarTablaVentas() {
 }
 
 // Búsqueda por RUT con formato
-function buscarVentas() {
-  const input = document.getElementById('buscarVenta') || document.getElementById('inputBusqueda');
-  if (input) input.value = formatRut(input.value);
-  const termino = rutComparable(input?.value || '');
-  const tbody = document.getElementById('ventasTableBody');
-  const ventas = (window.state?.ventas) || [];
-  if (!termino) { renderizarTablaVentas(); return; }
-  const filtradas = ventas.filter(v => rutComparable(v.rut_usuario || v.usuario_rut || '').includes(termino));
-  if (!filtradas.length) { tbody.innerHTML = `<tr><td colspan="9" class="text-center">Sin resultados para ese RUT</td></tr>`; return; }
-  window.state.ventas = filtradas;
-  renderizarTablaVentas();
+async function buscarVentas() {
+  try {
+    const input = document.getElementById('buscarVenta') || document.getElementById('inputBusqueda');
+    if (input) input.value = formatRut(input.value);
+    const termino = rutComparable(input?.value || '');
+    const tbody = document.getElementById('ventasTableBody');
+    if (!termino) { renderizarTablaVentas(); return; }
+    const present = Array.isArray(window.state?.ventas) ? window.state.ventas : [];
+    let base = present;
+    if (!window.__ventas_cache__ || !Array.isArray(window.__ventas_cache__)) {
+      try { const all = await getData('/api/ventas?limit=500'); window.__ventas_cache__ = Array.isArray(all) ? all : []; } catch { window.__ventas_cache__ = present; }
+    }
+    base = window.__ventas_cache__ || present;
+    const filtradas = base.filter(v => rutComparable(v.rut_usuario || v.usuario_rut || '').includes(termino));
+    if (!filtradas.length) { tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">Sin resultados para ese RUT</td></tr>`; return; }
+    const ventasOrdenadas = [...filtradas].sort((a,b)=> new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime());
+    tbody.innerHTML = ventasOrdenadas.map(v => {
+      const productos = Array.isArray(v.detalles_venta) ? v.detalles_venta.reduce((acc,d)=>acc+Number(d.cantidad||0),0) : 0;
+      const fecha = formatearFechaDia(v.fecha_venta);
+      const rut = formatRut(v.rut_usuario || v.usuario_rut || '');
+      const nombre = v.usuario_nombre || v.cliente_nombre || 'N/A';
+      const total = (typeof window.formatearDinero === 'function') ? window.formatearDinero(v.total_venta) : `$${Number(v.total_venta||0).toFixed(0)}`;
+      const estado = v.estado || '';
+      const envio = (typeof parseEnvioEstado==='function' ? (parseEnvioEstado(v) || v.estado_envio) : v.estado_envio) || 'N/A';
+      return `<tr class="hover:bg-gray-50">
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#${v.id_venta}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fecha}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rut}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${nombre}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${productos}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${total}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge estado estado-${(estado||'N/A').toLowerCase().replace(/\s+/g,'-')}">${estado || 'N/A'}</span></td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="badge envio envio-${String(envio||'N/A').toLowerCase().replace(/\s+/g,'-')}">${envio}</span></td>
+        <td class="px-6 py-4 whitespace-nowrap text-right text-sm"><button class="px-2 py-1 text-indigo-600" data-action="ver-detalle" data-id="${v.id_venta}">Ver detalle</button></td>
+      </tr>`;
+    }).join('');
+  } catch {
+    const tbody = document.getElementById('ventasTableBody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">No se pudo buscar por RUT</td></tr>`;
+  }
 }
 
 // Override export CSV
