@@ -159,7 +159,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             mostrarCategorias();
         } catch (error) {
             console.error('Error al cargar categorías:', error);
-            alert('Error en conexión del servidor');
+            try { window.showToast('Error en conexión del servidor', 'error'); } catch { alert('Error en conexión del servidor'); }
         }
     }
 
@@ -283,16 +283,16 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         try {
             if (id) {
                 await updateData(`/api/categorias/${id}`, datos);
-                alert('Categoría actualizada exitosamente');
+                try { window.showToast('Categoría actualizada exitosamente', 'success'); } catch { alert('Categoría actualizada exitosamente'); }
             } else {
                 await postData('/api/categorias/', datos);
-                alert('Categoría creada exitosamente');
+                try { window.showToast('Categoría creada exitosamente', 'success'); } catch { alert('Categoría creada exitosamente'); }
             }
             cerrarModal();
             await cargarCategorias();
         } catch (error) {
             console.error('Error:', error);
-            alert('Error en conexión del servidor');
+            try { window.showToast('Error en conexión del servidor', 'error'); } catch { alert('Error en conexión del servidor'); }
         }
     }
 
@@ -300,7 +300,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         if (!categoriaAEliminar) return;
         try {
             await deleteData(`/api/categorias/${categoriaAEliminar}`);
-            alert('Categoría eliminada exitosamente');
+            try { window.showToast('Categoría eliminada exitosamente', 'success'); } catch { alert('Categoría eliminada exitosamente'); }
             cerrarModalConfirmar();
             await cargarCategorias();
         } catch (error) {
@@ -308,7 +308,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             let msg = 'Error al eliminar categoría';
             const txt = String(error && error.message ? error.message : '');
             if (/Error\s+401/.test(txt) || /Error\s+403/.test(txt)) {
-                alert('No autorizado. Inicie sesión como administrador.');
+                try { window.showToast('No autorizado. Inicie sesión como administrador.', 'error'); } catch { alert('No autorizado. Inicie sesión como administrador.'); }
                 window.location.href = '/login?tipo=trabajador';
                 return;
             }
@@ -319,7 +319,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                     msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
                 }
             } catch {}
-            alert(msg);
+            try { window.showToast(msg, 'error'); } catch { alert(msg); }
         }
     }
 

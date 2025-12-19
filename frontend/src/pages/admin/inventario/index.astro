@@ -68,6 +68,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 <tr>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marca</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Actual</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th>
@@ -381,6 +382,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             fila.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${codigoInterno}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreProducto}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${(producto && producto.marca) ? producto.marca : 'N/A'}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto ? (producto.cantidad_disponible || 0).toLocaleString() : '0'}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${(item?.precio || 0).toLocaleString()}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${nombreProveedor}</td>
@@ -468,8 +470,13 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             if (responseData) { modalEliminar.classList.add('hidden'); inventarioAEliminar = null; await cargarInventario(); try { window.showToast('Registro de inventario eliminado exitosamente', 'success'); } catch { alert('Registro de inventario eliminado exitosamente'); } }
             else { throw new Error('Error desconocido al eliminar inventario'); }
         } catch (error) {
-            if (error && (error.message || '').includes('401')) { try { window.showToast('Sesión expirada. Por favor, inicie sesión nuevamente.', 'error'); } catch { alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); } localStorage.removeItem('token'); window.location.href = '/login'; return; }
-            console.error('Error al eliminar inventario:', error); let errorMessage = 'Error al eliminar registro'; if (error.message) { errorMessage += ': ' + error.message; } else if (typeof error === 'object') { errorMessage += ': ' + JSON.stringify(error); } try { window.showToast(errorMessage, 'error'); } catch { alert(errorMessage); }
+            const msg = String(error?.message || '').toLowerCase();
+            if (msg.includes('401')) { try { window.showToast('Sesión expirada. Por favor, inicie sesión nuevamente.', 'error'); } catch { alert('Sesión expirada. Por favor, inicie sesión nuevamente.'); } localStorage.removeItem('token'); window.location.href = '/login'; return; }
+            if (msg.includes('error 409')) { try { window.showToast('No se puede eliminar: el producto tiene ventas realizadas asociadas', 'warn'); } catch { alert('No se puede eliminar: el producto tiene ventas realizadas asociadas'); } return; }
+            console.error('Error al eliminar inventario:', error);
+            let errorMessage = 'Error al eliminar registro';
+            if (error.message) { errorMessage += ': ' + error.message; } else if (typeof error === 'object') { errorMessage += ': ' + JSON.stringify(error); }
+            try { window.showToast(errorMessage, 'error'); } catch { alert(errorMessage); }
         }
     }
     async function guardarInventario(event) {
@@ -507,6 +514,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 }
                 modalInventario.classList.add('hidden'); inventarioEditando = null;
                 await cargarProductos(); await cargarCategorias(); await cargarProveedores(); await cargarInventario();
+                try { localStorage.setItem('inventory_updated', String(Date.now())); } catch {}
                 try { window.showToast('Inventario actualizado exitosamente.', 'success'); } catch { alert('Inventario actualizado exitosamente.'); }
             } else {
                 const nuevoProducto = {
@@ -538,7 +546,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
                 const productoCreado = await productoResponse.json();
                 modalInventario.classList.add('hidden');
                 await cargarProductos(); await cargarCategorias(); await cargarProveedores(); await cargarInventario();
-                alert('Producto creado exitosamente.');
+                try { localStorage.setItem('inventory_updated', String(Date.now())); } catch {}
+                try { window.showToast('Producto creado exitosamente.', 'success'); } catch { alert('Producto creado exitosamente.'); }
             }
         } catch (error) { console.error('Error al guardar inventario:', error); let errorMessage = 'Error al guardar'; if (error.message) { errorMessage += ': ' + error.message; } else if (typeof error === 'object') { errorMessage += ': ' + JSON.stringify(error); } alert(errorMessage); }
     }
@@ -574,7 +583,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     if (btnSiguienteMobile) { btnSiguienteMobile.addEventListener('click', () => { paginaActual++; cargarInventario(); }); }
     modalInventario.addEventListener('click', (e) => { if (e.target === modalInventario) { modalInventario.classList.add('hidden'); } });
     modalEliminar.addEventListener('click', (e) => { if (e.target === modalEliminar) { modalEliminar.classList.add('hidden'); } });
-    document.addEventListener('DOMContentLoaded', async () => { if (!verificarAuth()) { return; } try { const q = new URLSearchParams(window.location.search).get('q'); await cargarProductos(); await cargarCategorias(); await cargarProveedores(); if (q) { const inp = document.getElementById('filtroProducto'); if (inp) inp.value = q; } await cargarInventario(); } catch (error) { console.error('Error al cargar datos del inventario:', error); alert('Error en conexión del servidor'); } });
+    document.addEventListener('DOMContentLoaded', async () => { if (!verificarAuth()) { return; } try { const q = new URLSearchParams(window.location.search).get('q'); await cargarProductos(); await cargarCategorias(); await cargarProveedores(); if (q) { const inp = document.getElementById('filtroProducto'); if (inp) inp.value = q; } await cargarInventario(); } catch (error) { console.error('Error al cargar datos del inventario:', error); try { window.showToast('Error en conexión del servidor', 'error'); } catch { alert('Error en conexión del servidor'); } } });
+    window.addEventListener('storage', (e) => { try { if (e && e.key === 'inventory_updated') { cargarInventario(); } } catch {} });
     </script>
 </AdminLayout>
 <script>

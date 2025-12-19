@@ -289,3 +289,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
+<script>
+(function(){
+  try {
+    const showToast = (mensaje, tipo='info') => {
+      const div = document.createElement('div');
+      let base = 'fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow w-max max-w-sm';
+      let cls = 'bg-blue-600 text-white';
+      if (tipo === 'success') cls = 'bg-green-600 text-white';
+      else if (tipo === 'error') cls = 'bg-red-600 text-white';
+      else if (tipo === 'warn') cls = 'bg-yellow-500 text-white';
+      div.className = `${base} ${cls}`;
+      div.textContent = String(mensaje || '');
+      document.body.appendChild(div);
+      setTimeout(() => { try { div.remove(); } catch(e){} }, 3500);
+    };
+    window.showToast = showToast;
+    const originalAlert = window.alert;
+    window.alert = function(msg) {
+      try {
+        const s = String(msg || '');
+        const low = s.toLowerCase();
+        let tipo = 'info';
+        if (/(éxito|exitosamente|actualizado|creado|eliminado)/.test(low)) tipo = 'success';
+        else if (/(error|fall|no se pudo|no autorizado|expirada|conflict)/.test(low)) tipo = 'error';
+        else if (/(advertencia|cuidado|atención|warn|no se puede)/.test(low)) tipo = 'warn';
+        showToast(s, tipo);
+      } catch(e) { originalAlert(msg); }
+    };
+  } catch {}
+})();
+</script>

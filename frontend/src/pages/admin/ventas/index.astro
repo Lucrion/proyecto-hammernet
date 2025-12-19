@@ -707,7 +707,7 @@ function exportarVentasCSV() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `ventas_${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-  } catch (e) { alert('No se pudo exportar el CSV'); }
+  } catch (e) { try { window.showToast('No se pudo exportar el CSV', 'error'); } catch { alert('No se pudo exportar el CSV'); } }
 }
 try { window.exportarVentasCSV = exportarVentasCSV; } catch {}
 </script>

@@ -557,6 +557,12 @@ class ProductoController:
             
         except HTTPException:
             raise
+        except IntegrityError as ie:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No se puede eliminar: el producto tiene ventas asociadas"
+            )
         except Exception as e:
             db.rollback()
             raise HTTPException(

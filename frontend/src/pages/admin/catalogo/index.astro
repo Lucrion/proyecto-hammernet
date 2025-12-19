@@ -554,7 +554,14 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         imagenInput = document.getElementById('imagen');
 
         cargarDatos();
-
+        window.addEventListener('storage', (e) => {
+            try {
+                if (e && (e.key === 'catalog_updated' || e.key === 'inventory_updated')) {
+                    cargarDatos();
+                }
+            } catch {}
+        });
+    
         const tabCompletos = document.getElementById('tabCompletos');
         const tabBasicos = document.getElementById('tabBasicos');
         tabCompletos.addEventListener('click', () => cambiarTab('completos'));
@@ -642,18 +649,18 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     async function obtenerInventario() {
         try {
             let total = 0;
-            try { const totalResp = await getData('/api/productos/inventario/total'); total = (totalResp && typeof totalResp.total === 'number') ? totalResp.total : 0; } catch (e) { console.warn('No se pudo obtener el total de inventario:', e); }
+            try { const totalResp = await getData(`/api/productos/inventario/total?_=${Date.now()}`); total = (totalResp && typeof totalResp.total === 'number') ? totalResp.total : 0; } catch (e) { console.warn('No se pudo obtener el total de inventario:', e); }
             const limit = total && total > 0 ? total : 1000;
-            const url = `/api/productos/inventario?skip=0&limit=${limit}`;
+            const url = `/api/productos/inventario?skip=0&limit=${limit}&_=${Date.now()}`;
             inventario = await getData(url);
         } catch (error) { console.error('Error al obtener inventario:', error); inventario = []; }
     }
     async function obtenerCatalogo() {
         try {
             let total = 0;
-            try { const totalResp = await getData('/api/productos/catalogo/total'); total = (totalResp && typeof totalResp.total === 'number') ? totalResp.total : 0; } catch (e) { console.warn('No se pudo obtener el total de catálogo:', e); }
+            try { const totalResp = await getData(`/api/productos/catalogo/total?_=${Date.now()}`); total = (totalResp && typeof totalResp.total === 'number') ? totalResp.total : 0; } catch (e) { console.warn('No se pudo obtener el total de catálogo:', e); }
             const limit = total && total > 0 ? total : 1000;
-            const url = `/api/productos/catalogo?skip=0&limit=${limit}`;
+            const url = `/api/productos/catalogo?skip=0&limit=${limit}&_=${Date.now()}`;
             const catalogo = await getData(url);
             return Array.isArray(catalogo) ? catalogo : [];
         } catch (error) { console.error('Error al obtener catálogo:', error); return []; }
@@ -850,8 +857,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
             const formData = new FormData(productoForm);
             if (base64Image) { formData.append('imagen_base64', base64Image); }
             const id = productoId.value;
-            if (id) { await updateData(`/api/productos/${id}/`, Object.fromEntries(formData)); try { window.showToast('Producto actualizado exitosamente', 'success'); } catch { alert('Producto actualizado exitosamente'); } }
-            else { await postData('/api/productos/', Object.fromEntries(formData)); try { window.showToast('Producto creado exitosamente', 'success'); } catch { alert('Producto creado exitosamente'); } }
+            if (id) { await updateData(`/api/productos/${id}/`, Object.fromEntries(formData)); try { window.showToast('Producto actualizado exitosamente', 'success'); } catch { alert('Producto actualizado exitosamente'); } try { localStorage.setItem('inventory_updated', String(Date.now())); } catch {} }
+            else { await postData('/api/productos/', Object.fromEntries(formData)); try { window.showToast('Producto creado exitosamente', 'success'); } catch { alert('Producto creado exitosamente'); } try { localStorage.setItem('inventory_updated', String(Date.now())); } catch {} }
             ocultarFormulario(); cargarDatos();
         } catch (error) {
             console.error('Error al guardar producto:', error);
@@ -927,7 +934,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         const modal = document.getElementById('modalConfirmar');
         const idProducto = modal.dataset.productoId;
         if (!idProducto) { try { window.showToast('Error: ID de producto no encontrado', 'error'); } catch { alert('Error: ID de producto no encontrado'); } return; }
-        try { await updateData(`/api/productos/${idProducto}/quitar-catalogo`, {}); try { window.showToast('Producto quitado del catálogo exitosamente', 'success'); } catch { alert('Producto quitado del catálogo exitosamente'); } cerrarModalConfirmar(); cargarDatos(); }
+        try { await updateData(`/api/productos/${idProducto}/quitar-catalogo`, {}); try { window.showToast('Producto quitado del catálogo exitosamente', 'success'); } catch { alert('Producto quitado del catálogo exitosamente'); } try { localStorage.setItem('catalog_updated', String(Date.now())); } catch {} cerrarModalConfirmar(); cargarDatos(); }
         catch (error) { console.error('Error al quitar producto del catálogo:', error); try { window.showToast('Error al quitar del catálogo', 'error'); } catch { alert('Error al quitar del catálogo'); } }
     }
     async function guardarCatalogacion() {
@@ -1005,7 +1012,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         if (editarBase64Image) { data.imagen_base64 = editarBase64Image; }
         const idProducto = document.getElementById('editarProductoId').value;
         const submitEditarBtn = document.querySelector('#editarProductoForm button[type="submit"]'); if (submitEditarBtn) submitEditarBtn.disabled = true;
-        try { const response = await updateData(`/api/productos/catalogo/${idProducto}`, data); if (response) { try { window.showToast('Producto actualizado exitosamente', 'success'); } catch { alert('Producto actualizado exitosamente'); } cerrarEditarModal(); await cargarDatos(); } }
+        try { const response = await updateData(`/api/productos/catalogo/${idProducto}`, data); if (response) { try { window.showToast('Producto actualizado exitosamente', 'success'); } catch { alert('Producto actualizado exitosamente'); } try { localStorage.setItem('catalog_updated', String(Date.now())); } catch {} cerrarEditarModal(); await cargarDatos(); } }
         catch (error) { console.error('Error al actualizar producto:', error); try { window.showToast('Error al actualizar producto', 'error'); } catch { alert('Error al actualizar producto'); } }
         finally { if (submitEditarBtn) submitEditarBtn.disabled = false; }
     }
