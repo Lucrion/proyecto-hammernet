@@ -91,11 +91,32 @@ async def pago_notify(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Payload inválido")
     if not _verify_signature(venta_id, token, status_str, signature):
         raise HTTPException(status_code=400, detail="Firma inválida")
+    from controllers.venta_controller import VentaController
+    from models.venta import VentaDB
     if status_str == "aprobado":
-        from controllers.venta_controller import VentaController
         venta = VentaController.completar_venta(db, venta_id, usuario_admin_rut=None, metodo=None)
         return {"status": "aprobado", "venta": venta}
-    return {"status": status_str}
+    try:
+        venta_db = db.query(VentaDB).filter(VentaDB.id_venta == venta_id).first()
+        rut_usuario = venta_db.rut_usuario if venta_db else None
+        # Revertir inventario para transacción no concretada
+        try:
+            VentaController.cancelar_venta(db, venta_id, rut_usuario=str(rut_usuario or ""))
+        except Exception:
+            pass
+        # Ajustar estado final según resultado del pago
+        venta_db = db.query(VentaDB).filter(VentaDB.id_venta == venta_id).first()
+        if venta_db:
+            if status_str in {"rechazado", "anulado"}:
+                venta_db.estado = "cancelada"
+            else:
+                # TIMEOUT, ERROR, FALLIDO, otros
+                venta_db.estado = "fallida"
+            db.commit()
+        venta_resp = VentaController.obtener_venta_por_id(db, venta_id)
+        return {"status": status_str, "venta": venta_resp}
+    except Exception:
+        return {"status": status_str}
 
 
 @router.post("/simular/notificar")
@@ -151,19 +172,35 @@ async def pago_simular_notify(payload: PagoSimulacionRequest, db: Session = Depe
             "authorization_date": transaction_date,
             "venta": venta,
         }
-    elif status in {"REJECTED", "FAILED"}:
-        ultimo.estado = "rechazado"
+    elif status in {"REJECTED", "FAILED", "ABORTED", "TIMEOUT", "ERROR"}:
+        # Mapear estados del PSP a estados internos
+        if status == "REJECTED":
+            ultimo.estado = "rechazado"
+        elif status == "ABORTED":
+            ultimo.estado = "anulado"
+        elif status in {"FAILED", "TIMEOUT"}:
+            ultimo.estado = "fallido"
         db.commit()
-        return {"status": status, "reason": payload.reason or "Fondos insuficientes"}
-    elif status == "ABORTED":
-        ultimo.estado = "anulado"
-        db.commit()
-        return {"status": "ABORTED"}
-    elif status == "TIMEOUT":
-        ultimo.estado = "fallido"
-        db.commit()
-        return {"status": "TIMEOUT"}
-    elif status == "ERROR":
-        return {"status": "ERROR", "message": payload.message or "API key inválida"}
+        # Revertir inventario y marcar estado de la venta
+        from controllers.venta_controller import VentaController
+        venta_resp = None
+        try:
+            VentaController.cancelar_venta(db, payload.id_venta, rut_usuario=v.rut_usuario if v else "")
+            # Ajustar cancelada vs fallida
+            v2 = db.query(VentaDB).filter(VentaDB.id_venta == payload.id_venta).first()
+            if v2:
+                v2.estado = "cancelada" if status in {"REJECTED", "ABORTED"} else "fallida"
+                db.commit()
+            venta_resp = VentaController.obtener_venta_por_id(db, payload.id_venta)
+        except Exception:
+            pass
+        out = {"status": status}
+        if status == "REJECTED":
+            out["reason"] = payload.reason or "Fondos insuficientes"
+        if status == "ERROR":
+            out["message"] = payload.message or "API key inválida"
+        if venta_resp:
+            out["venta"] = venta_resp
+        return out
     else:
         raise HTTPException(status_code=400, detail="Status no soportado")
