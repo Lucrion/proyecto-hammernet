@@ -442,11 +442,11 @@ try {
 						</p>
 						<p class="text-xs text-gray-500">Cantidad: ${item.cantidad}</p>
 					  </div>
-					  <div class="text-sm font-semibold">$${formatearPrecio(Number(item.precio_venta ?? item.precio) * item.cantidad)}</div>
+                      <div class="text-sm font-semibold">$${formatearPrecio(Math.round(Number(item.precio_venta ?? item.precio ?? 0)) * Number(item.cantidad || 0))}</div>
 					</div>
 				  `).join('');
-		      const subtotal = carrito.reduce((acc, it) => acc + Number(it.precio_venta ?? it.precio) * it.cantidad, 0);
-		      subtotalEl.textContent = `$${formatearPrecio(subtotal)}`;
+              const subtotal = carrito.reduce((acc, it) => acc + Math.round(Number(it.precio_venta ?? it.precio ?? 0)) * Number(it.cantidad || 0), 0);
+              subtotalEl.textContent = `$${formatearPrecio(subtotal)}`;
 		    }
 		    // Actualizar badge si existe
 		    const contador = document.getElementById('carrito-contador');

@@ -506,7 +506,11 @@ class VentaController:
 
             venta.estado = "completada"
             venta.fecha_actualizacion = datetime.now()
+            # No marcar despacho como entregado automáticamente; mantener estado de envío
             if metodo == 'despacho' or venta.metodo_entrega == 'despacho':
+                if not venta.estado_envio:
+                    venta.estado_envio = 'pendiente'
+            elif metodo == 'retiro' or venta.metodo_entrega == 'retiro':
                 venta.estado_envio = 'entregado'
                 venta.fecha_entrega = datetime.now()
             db.commit()

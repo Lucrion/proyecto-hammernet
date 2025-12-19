@@ -36,6 +36,7 @@ import EnvLoader from '../components/EnvLoader.astro';
       }
       await ensureApiBase();
       const API_BASE = window.API_BASE || '/api';
+      const fmtCLP = (n)=> new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(n||0));
       const u = new URL(window.location.href);
       const bo = u.searchParams.get('bo')||'';
       const estado = document.getElementById('estado');
@@ -71,14 +72,14 @@ import EnvLoader from '../components/EnvLoader.astro';
             }
           } catch(e){}
           clienteInfo.textContent = `Cliente: ${cliente || 'Invitado'}`;
-          totalInfo.textContent = `Total: $${Number(data?.total_venta||0).toLocaleString('es-CL')}`;
+          totalInfo.textContent = `Total: ${fmtCLP(data?.total_venta||0)}`;
           show(resumen);
           const detalles = data?.detalles_venta || [];
           itemsList.innerHTML = '';
           detalles.forEach(d=>{
             const li = document.createElement('li');
             const nombre = d?.producto_nombre || `ID ${d?.id_producto}`;
-            li.textContent = `${nombre} · Cant: ${d?.cantidad} · Subtotal: $${Number(d?.subtotal||0).toLocaleString('es-CL')}`;
+            li.textContent = `${nombre} · Cant: ${d?.cantidad} · Subtotal: ${fmtCLP(d?.subtotal || (Number(d?.precio_unitario||0)*Number(d?.cantidad||0)))}`;
             itemsList.appendChild(li);
           });
           show(itemsBox);
@@ -90,7 +91,7 @@ import EnvLoader from '../components/EnvLoader.astro';
         .catch((e)=>{ estado.textContent=''; });
 
       function buildPdfHtml(data, bo, codes){
-        const fmt = (n)=>'$'+Number(n||0).toLocaleString('es-CL');
+        const fmt = (n)=> new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(n||0));
         const fecha = data?.fecha_venta ? new Date(data.fecha_venta).toLocaleString() : '';
         const extractGuest = (obs)=>{ try{ if(typeof obs==='string' && obs.includes('VENTA_INVITADO:')){ const payload = obs.split('VENTA_INVITADO:',1)[1].trim(); const info = JSON.parse(payload); return info || {}; } }catch{} return {}; };
         const guest = extractGuest(data?.observaciones);
