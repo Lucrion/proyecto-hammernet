@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, and_, func, or_
 from fastapi import HTTPException
 from typing import List, Optional
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from decimal import Decimal
 from core.auth import hash_contraseña
 
@@ -22,7 +22,6 @@ from models.pago import PagoDB
 from models.usuario import UsuarioDB
 from models.categoria import CategoriaDB
 from controllers.auditoria_controller import registrar_evento
-import random
 import json
 
 
@@ -678,49 +677,6 @@ class VentaController:
                 "promedio_venta": float(promedio_venta),
                 "ventas_canceladas": ventas_canceladas
             }
-
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
-
-    @staticmethod
-    def aleatorizar_fechas(db: Session, desde: date, hasta: date) -> dict:
-        """
-        Aleatoriza la fecha_venta de todas las ventas en un rango [desde, hasta].
-        """
-        try:
-            start_dt = datetime(desde.year, desde.month, desde.day, 0, 0, 0)
-            end_dt = datetime(hasta.year, hasta.month, hasta.day, 23, 59, 59)
-            if start_dt >= end_dt:
-                raise HTTPException(status_code=400, detail="Rango de fechas inválido")
-
-            ventas = db.query(VentaDB).all()
-            total = 0
-            span_seconds = int((end_dt - start_dt).total_seconds())
-            for v in ventas:
-                rand_sec = random.randint(0, span_seconds)
-                v.fecha_venta = start_dt + timedelta(seconds=rand_sec)
-                v.fecha_actualizacion = datetime.now()
-                total += 1
-            db.commit()
-
-            try:
-                registrar_evento(
-                    db,
-                    entidad_tipo="venta",
-                    entidad_id=None,
-                    accion="aleatorizar_fechas_ventas",
-                    usuario_actor_id=None,
-                    detalle=f"actualizadas={total}, rango={start_dt.isoformat()}–{end_dt.isoformat()}"
-                )
-            except Exception:
-                pass
-
-            return {"ventas_actualizadas": total, "desde": str(desde), "hasta": str(hasta)}
-        except HTTPException:
-            raise
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error al aleatorizar fechas: {str(e)}")
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")

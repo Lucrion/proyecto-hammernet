@@ -175,6 +175,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (nombreUsuarioElement) nombreUsuarioElement.textContent = nombre;
     } catch { if (nombreUsuarioElement && nombreUsuario) nombreUsuarioElement.textContent = nombreUsuario; }
 
+    try {
+        const pageTitleEl = document.getElementById('pageTitle');
+        const initialTitle = (pageTitleEl?.textContent || document.title || '').trim().toLowerCase();
+        const isAdminHome = (location.pathname === '/admin');
+        const isAdminPanelTitle = /panel de administración/i.test(initialTitle);
+        if (isAdminHome || isAdminPanelTitle) {
+            let newTitle = 'Panel de Administración';
+            if (roleNormalized === 'bodeguero') newTitle = 'Panel de bodega';
+            else if (roleNormalized === 'vendedor') newTitle = 'Panel de vendedor';
+            if (pageTitleEl) pageTitleEl.textContent = newTitle;
+            try { document.title = newTitle; } catch {}
+            try { const meta = document.querySelector('meta[name="description"]'); if (meta) meta.setAttribute('content', `${newTitle} - Ferretería Patricio`); } catch {}
+        }
+    } catch {}
+
     function doLogout() {
             try {
                 sessionStorage.removeItem('isLoggedIn');

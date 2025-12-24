@@ -77,21 +77,6 @@ async def obtener_venta_por_id(
         )
     return venta
 
-@router.put("/aleatorizar-fechas")
-async def aleatorizar_fechas_ventas(
-    desde: Optional[date] = Query(None, description="Fecha inicio (YYYY-MM-DD)"),
-    hasta: Optional[date] = Query(None, description="Fecha fin (YYYY-MM-DD)"),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Aleatoriza la fecha_venta de todas las ventas dentro del rango dado (admin requerido)."""
-    if not desde:
-        now = datetime.now()
-        desde = date(now.year, 10, 1)
-    if not hasta:
-        hasta = datetime.now().date()
-    return VentaController.aleatorizar_fechas(db, desde, hasta)
-
 
 @router.put("/{id_venta}/cancelar")
 async def cancelar_venta(

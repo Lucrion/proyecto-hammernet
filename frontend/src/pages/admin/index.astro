@@ -112,7 +112,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Envío</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transacción</th>
                     </tr>
                 </thead>
                 <tbody id="ultimasVentasBody" class="bg-white divide-y divide-gray-200"></tbody>
@@ -139,17 +139,21 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
             </div>
         </div>
             <div class="mb-3 flex items-center gap-2">
-                <span class="text-sm text-gray-600">Ventas por día</span>
+                <span id="ventasTfLabel" class="text-sm text-gray-600">Ventas por día</span>
             </div>
             <div id="apartadoChartVentasPorDia" class="rounded-lg bg-gray-50 mb-6" style="height: 320px; width: 100%"></div>
-            <div class="mb-3 flex items-center gap-2">
-                <span class="text-sm text-gray-600">Top 10 productos más vendidos</span>
-            </div>
-            <div id="apartadoChartVentasTopProductos" class="rounded-lg bg-gray-50 mb-6" style="height: 320px; width: 100%"></div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 role-section-admin-only">
             <div class="mb-3 flex items-center gap-2">
                 <span class="text-sm text-gray-600">Ingresos por categoría</span>
             </div>
             <div id="apartadoChartVentasIngresosCategoria" class="rounded-lg bg-gray-50" style="height: 320px; width: 100%"></div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 role-section-admin-only">
+            <span class="text-sm text-gray-600">Top 10 productos más vendidos</span>
+            <div id="apartadoChartVentasTopProductos" class="rounded-lg bg-gray-50 mb-6" style="height: 320px; width: 100%"></div>
         </div>
 
         <!-- Apartado: Clientes -->
@@ -289,7 +293,7 @@ function formatCurrency(value) {
 }
 function formatDate(value) { try { const d = new Date(value); return d.toLocaleString('es-CL'); } catch { return String(value); } }
 function parseEnvioEstado(venta) { try { if (venta.estado_envio) return String(venta.estado_envio).toLowerCase(); const obs = String(venta.observaciones || ''); const tag = 'ENVIO_ESTADO:'; const idx = obs.indexOf(tag); if (idx >= 0) { const rest = obs.slice(idx + tag.length).trim(); const linea = rest.split('\n')[0].trim(); const val = linea.toLowerCase(); if (['pendiente','preparando','asignado','en camino','entregado','fallido'].includes(val)) return val; } return ''; } catch { return ''; } }
-function envioBadge(v) { const s = String(v || '').toLowerCase().replace('_',' '); let bg = '#e5e7eb', fg = '#374151'; if (s === 'pendiente') { bg='#e5e7eb'; fg='#374151'; } else if (s === 'preparando') { bg='#fef9c3'; fg='#92400e'; } else if (s === 'asignado') { bg='#dbeafe'; fg='#1e40af'; } else if (s === 'en camino' || s === 'en_camino' || s === 'despachado') { bg='#e0e7ff'; fg='#3730a3'; } else if (s === 'entregado') { bg='#dcfce7'; fg='#166534'; } else if (s === 'fallido') { bg='#fee2e2'; fg='#991b1b'; } const label = s || '—'; return `<span style="background:${bg};color:${fg};padding:4px 10px;border-radius:9999px;font-size:0.75rem;font-weight:600">${label}</span>`; }
+function envioBadge(v) { const s = String(v || '').toLowerCase().replace('_',' '); let bg = '#e5e7eb', fg = '#374151'; if (s === 'pendiente') { bg='#e5e7eb'; fg='#374151'; } else if (s === 'preparando') { bg='#fef9c3'; fg='#92400e'; } else if (s === 'asignado') { bg='#dbeafe'; fg='#1e40af'; } else if (s === 'en camino' || s === 'en_camino' || s === 'despachado') { bg='#e0e7ff'; fg='#3730a3'; } else if (s === 'entregado') { bg='#dcfce7'; fg='#166534'; } else if (s === 'fallido') { bg='#fee2e2'; fg='#991b1b'; } const label = s || '—'; return `<span style="background:${bg};color:${fg};padding:4px 10px;border-radius:9999px;font-size:0.75rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;text-align:center;min-width:8rem">${label}</span>`; }
 function renderActividadItem(evt) {
   const iconColor = 'text-blue-600'; const bgColor = 'bg-blue-100'; const entidad = evt.entidad_tipo || 'Evento'; const detalle = evt.detalle || ''; const fecha = formatDate(evt.fecha_evento); const titulo = `${entidad}: ${evt.accion || ''}`;
   return `
@@ -386,11 +390,6 @@ async function cargarDashboard() {
 
 document.addEventListener('DOMContentLoaded', () => {
   try { cargarDashboard(); cargarUltimasVentas(); initApartadosAnalytics(); setupResizeRedraw(); } catch (e) { console.warn('Dashboard no pudo inicializar completamente:', e); }
-  try {
-    window.addEventListener('storage', (e) => {
-      try { if (String(e.key||'') === 'ventas_updated') { refreshDashboardCharts(); } } catch {}
-    });
-  } catch {}
 });
 
 async function ensureGoogleChartsReady() {
@@ -427,7 +426,7 @@ async function cargarUltimasVentas() {
         <td class="px-4 py-3 text-sm">${resolveUserDisplay(v, map)}</td>
         <td class="px-4 py-3 text-sm font-semibold">${fmtPrecio(v.total_venta)}</td>
         <td class="px-4 py-3 text-sm">${envioBadge(parseEnvioEstado(v))}</td>
-        <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-white ${String(v.estado||'').toLowerCase()==='completada' ? 'bg-green-600' : (String(v.estado||'').toLowerCase()==='cancelada' ? 'bg-red-600' : 'bg-yellow-500')}">${v.estado || 'pendiente'}</span></td>
+        <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-white ${String(v.estado||'').toLowerCase()==='completada' ? 'bg-green-600' : (String(v.estado||'').toLowerCase()==='cancelada' ? 'bg-red-600' : 'bg-yellow-500')}" style="display:inline-flex;align-items:center;justify-content:center;text-align:center;min-width:8rem">${v.estado || 'pendiente'}</span></td>
       </tr>`).join('');
   } catch (e) { console.warn('No se pudieron cargar últimas ventas', e); }
 }
@@ -463,10 +462,12 @@ async function initApartadosAnalytics() {
   const vDia = document.getElementById('ventasTfDia'); const vSem = document.getElementById('ventasTfSem'); const vMes = document.getElementById('ventasTfMes');
   if (vDia && vSem && vMes) {
     try { vDia.textContent = 'Día'; vSem.textContent = 'Semana'; vMes.textContent = 'Mes'; } catch {}
-    vDia.onclick = ()=>{ analyticsApartados.ventas.timeframe='dia'; toggleTimeButtons(vDia, vDia, vSem, vMes); drawApartadoVentasPorDia(); };
-    vSem.onclick = ()=>{ analyticsApartados.ventas.timeframe='semana'; toggleTimeButtons(vSem, vDia, vSem, vMes); drawApartadoVentasPorDia(); };
-    vMes.onclick = ()=>{ analyticsApartados.ventas.timeframe='mes'; toggleTimeButtons(vMes, vDia, vSem, vMes); drawApartadoVentasPorDia(); };
+    const setVentasLabel = (tf)=>{ try { const el = document.getElementById('ventasTfLabel'); if (!el) return; el.textContent = tf==='dia' ? 'Ventas por día' : (tf==='semana' ? 'Ventas por semana' : 'Ventas por mes'); } catch {} };
+    vDia.onclick = ()=>{ analyticsApartados.ventas.timeframe='dia'; toggleTimeButtons(vDia, vDia, vSem, vMes); setVentasLabel('dia'); drawApartadoVentasPorDia(); };
+    vSem.onclick = ()=>{ analyticsApartados.ventas.timeframe='semana'; toggleTimeButtons(vSem, vDia, vSem, vMes); setVentasLabel('semana'); drawApartadoVentasPorDia(); };
+    vMes.onclick = ()=>{ analyticsApartados.ventas.timeframe='mes'; toggleTimeButtons(vMes, vDia, vSem, vMes); setVentasLabel('mes'); drawApartadoVentasPorDia(); };
     toggleTimeButtons(vDia, vDia, vSem, vMes);
+    setVentasLabel('dia');
   }
   const cTop = document.getElementById('clientesModeTop'); const cBottom = document.getElementById('clientesModeBottom'); if (cTop) cTop.onclick = ()=>{ analyticsApartados.clientes.mode='top'; toggleModeButtons(cTop, cBottom); drawApartadoClientes(); }; if (cBottom) cBottom.onclick = ()=>{ analyticsApartados.clientes.mode='bottom'; toggleModeButtons(cTop, cBottom); drawApartadoClientes(); }; toggleModeButtons(cTop, cBottom);
   const iTop = document.getElementById('inventarioModeTop'); const iBottom = document.getElementById('inventarioModeBottom'); if (iTop) iTop.onclick = ()=>{ analyticsApartados.inventario.mode='top'; toggleModeButtons(iTop, iBottom); drawApartadoInventario(); }; if (iBottom) iBottom.onclick = ()=>{ analyticsApartados.inventario.mode='bottom'; toggleModeButtons(iTop, iBottom); drawApartadoInventario(); }; toggleModeButtons(iTop, iBottom);
@@ -516,11 +517,10 @@ function buildUserNameMap(list){ const map = new Map(); (Array.isArray(list)?lis
 function resolveUserDisplay(v, map){ try { const id = String(v?.id_usuario || v?.usuario_id || '').trim(); const rut = normalizeRutDigits(v?.rut_usuario || v?.rut || ''); const username = String(v?.usuario || v?.username || '').toLowerCase(); const email = String(v?.email_usuario || '').toLowerCase(); const inline = [v?.usuario_nombre || v?.nombre || '', v?.usuario_apellido || v?.apellido || ''].filter(Boolean).join(' ').trim(); if (inline) return inline; const keys = [ id && `id:${id}`, rut && `rut:${rut}`, username && `user:${username}`, email && `email:${email}` ].filter(Boolean); for (const k of keys){ const val = map?.get?.(k); if (val) return val; } return username || (rut ? `RUT ${rut}` : (String(v?.usuario||'').trim() || 'Invitado')); } catch { return String(v?.usuario||'Invitado'); } }
 async function buildUserMapAndRelabel(){ try { const usuarios = await getData('/api/usuarios/'); const list = Array.isArray(usuarios)?usuarios:[]; const map = buildUserNameMap(list); analyticsState.data.userNameMap = map; const arr = Array.isArray(analyticsState.data.ventasList)?analyticsState.data.ventasList:[]; const porUsuario = {}; arr.forEach(v=>{ const nombre = resolveUserDisplay(v, map); porUsuario[nombre] = (porUsuario[nombre]||0) + 1; }); analyticsState.data.clientes = Object.entries(porUsuario).map(([label,valor])=>({ label, valor })); try { const cont = document.getElementById('ultimasVentasBody'); if (cont && arr.length) { const rows = cont.querySelectorAll('tr'); rows.forEach(row=>{ const first=row.children[0]; const id = first ? String(first.textContent||'').replace('#','').trim() : ''; const venta = arr.find(x=>String(x.id_venta)===id); if (venta) { const cell = row.children[2]; if (cell) cell.textContent = resolveUserDisplay(venta, map); } }); } } catch {} } catch {}
 }
-async function drawApartadoVentasPorDia() { const el = document.getElementById('apartadoChartVentasPorDia'); if (!el) return; try { const tf = analyticsApartados.ventas.timeframe || 'dia'; let ventasDia; try { ventasDia = await getData(`/api/dashboard/charts/ventas_por_dia?tf=${encodeURIComponent(tf)}`); } catch { ventasDia = null; } if (!Array.isArray(ventasDia) || ventasDia.length === 0) { const fallback = buildVentasPorDiaFallback(tf); ventasDia = fallback; } await ensureGoogleChartsReady(); const rows = ventasDia.map(v => [String(v.fecha), Number(v.ingresos || 0), Number(v.cantidad || 0)]); const dataTable = window.google.visualization.arrayToDataTable([ ['Fecha', 'Ingresos', 'Cantidad'], ...rows ]); const options = { legend: { position: 'bottom' }, series: { 0: { targetAxisIndex: 0, color: '#2563eb' }, 1: { targetAxisIndex: 1, color: '#16a34a' } }, vAxes: { 0: { format: 'short' }, 1: { format: '' } }, chartArea: { width: '85%', height: '70%' }, backgroundColor: 'transparent' }; new window.google.visualization.LineChart(el).draw(dataTable, options); } catch (e) { console.warn('[Charts] Error Ventas por día apartado', e); } }
+async function drawApartadoVentasPorDia() { const el = document.getElementById('apartadoChartVentasPorDia'); if (!el) return; try { const tf = analyticsApartados.ventas.timeframe || 'dia'; let ventasDia; try { ventasDia = await getData(`/api/dashboard/charts/ventas_por_dia?tf=${encodeURIComponent(tf)}`); } catch { ventasDia = null; } if (!Array.isArray(ventasDia) || ventasDia.length === 0) { const fallback = buildVentasPorDiaFallback(tf); ventasDia = fallback; } await ensureGoogleChartsReady(); const rows = ventasDia.map(v => [String(v.fecha), Number(v.ingresos || 0), Number(v.cantidad || 0)]); const dataTable = window.google.visualization.arrayToDataTable([ ['Fecha', 'Ingresos', 'Cantidad'], ...rows ]); const options = { legend: { position: 'bottom' }, series: { 0: { targetAxisIndex: 0, color: '#2563eb' }, 1: { targetAxisIndex: 1, color: '#16a34a' } }, vAxes: { 0: { format: 'short' }, 1: { format: '' } }, hAxis: { slantedText: true, slantedTextAngle: 30, textStyle: { color: '#6b7280' } }, chartArea: { width: '88%', height: '70%' }, backgroundColor: 'transparent' }; new window.google.visualization.LineChart(el).draw(dataTable, options); } catch (e) { console.warn('[Charts] Error Ventas por día apartado', e); } }
 function buildVentasPorDiaFallback(tf){ const arr = Array.isArray(analyticsState.data.ventasList)? analyticsState.data.ventasList : []; const now = new Date(); let days = tf==='dia'?2:(tf==='semana'?7:30); const out = []; const start = new Date(now); start.setDate(now.getDate()-(days-1)); start.setHours(0,0,0,0); const buckets = {}; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(start.getDate()+i); const key = d.toISOString().slice(0,10); buckets[key] = { ingresos:0, cantidad:0, fecha: d.toLocaleDateString('es-CL') }; } arr.forEach(v=>{ try { const d = new Date(v.fecha_venta||v.created_at||now); const key = d.toISOString().slice(0,10); if (buckets[key]) { buckets[key].ingresos += Number(v.total_venta||0); buckets[key].cantidad += 1; } } catch {} }); return Object.keys(buckets).sort().map(k=>({ fecha: buckets[k].fecha, ingresos: buckets[k].ingresos, cantidad: buckets[k].cantidad })); }
 function redrawApartados() { try { drawApartadoVentasPorDia(); drawApartadoVentasTopProductos(); drawApartadoVentasIngresosCategoria(); drawApartadoClientes(); drawApartadoInventario(); drawApartadoEnvios(); drawApartadoPagos(); } catch {} }
 function setupResizeRedraw() { let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(redrawApartados, 250); }); }
-async function refreshDashboardCharts(){ try { await cargarDashboard(); await loadAnalyticsData(); redrawApartados(); } catch {} }
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {

@@ -490,7 +490,7 @@ function cargarProductosCompletos(productosAMostrar) {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${producto.nombre || 'Sin nombre'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.marca || 'Sin marca'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${producto.descripcion || 'Sin descripción'}</td>
+            <td class="px-6 py-4 text-sm text-gray-500" style="max-width:20rem; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;" title="${(producto.descripcion || '').replace(/\"/g, '&quot;')}">${producto.descripcion || 'Sin descripción'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <button type="button" data-id="${id ?? ''}" data-index="${idxGlobal}" class="btn-editar-catalogado text-blue-600 hover:text-blue-900 mr-3" title="Editar producto catalogado" onclick="editarProductoCatalogado(this)">
                     <svg class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
