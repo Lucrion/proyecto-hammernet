@@ -440,9 +440,12 @@ try {
 						  <span class="truncate">${item.nombre}</span>
 						  <button class="text-gray-500 hover:text-red-600" aria-label="Quitar" onclick="eliminarItem('${item.id}')">&times;</button>
 						</p>
-						<p class="text-xs text-gray-500">Cantidad: ${item.cantidad}</p>
+                        <div class="flex items-center justify-between text-xs text-gray-500 mt-0.5">
+                          <span class="whitespace-nowrap">Cantidad: ${item.cantidad}</span>
+                          <span class="ml-2 whitespace-nowrap">$${formatearPrecio(Math.round(Number(item.precio_venta ?? item.precio ?? 0)) * Number(item.cantidad || 0))}</span>
+                        </div>
 					  </div>
-                      <div class="text-sm font-semibold ml-auto whitespace-nowrap text-right flex-shrink-0 pr-2">$${formatearPrecio(Math.round(Number(item.precio_venta ?? item.precio ?? 0)) * Number(item.cantidad || 0))}</div>
+                      
 					</div>
 				  `).join('');
               const subtotal = carrito.reduce((acc, it) => acc + Math.round(Number(it.precio_venta ?? it.precio ?? 0)) * Number(it.cantidad || 0), 0);
