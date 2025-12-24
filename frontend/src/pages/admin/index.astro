@@ -386,6 +386,11 @@ async function cargarDashboard() {
 
 document.addEventListener('DOMContentLoaded', () => {
   try { cargarDashboard(); cargarUltimasVentas(); initApartadosAnalytics(); setupResizeRedraw(); } catch (e) { console.warn('Dashboard no pudo inicializar completamente:', e); }
+  try {
+    window.addEventListener('storage', (e) => {
+      try { if (String(e.key||'') === 'ventas_updated') { refreshDashboardCharts(); } } catch {}
+    });
+  } catch {}
 });
 
 async function ensureGoogleChartsReady() {
@@ -515,6 +520,7 @@ async function drawApartadoVentasPorDia() { const el = document.getElementById('
 function buildVentasPorDiaFallback(tf){ const arr = Array.isArray(analyticsState.data.ventasList)? analyticsState.data.ventasList : []; const now = new Date(); let days = tf==='dia'?2:(tf==='semana'?7:30); const out = []; const start = new Date(now); start.setDate(now.getDate()-(days-1)); start.setHours(0,0,0,0); const buckets = {}; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(start.getDate()+i); const key = d.toISOString().slice(0,10); buckets[key] = { ingresos:0, cantidad:0, fecha: d.toLocaleDateString('es-CL') }; } arr.forEach(v=>{ try { const d = new Date(v.fecha_venta||v.created_at||now); const key = d.toISOString().slice(0,10); if (buckets[key]) { buckets[key].ingresos += Number(v.total_venta||0); buckets[key].cantidad += 1; } } catch {} }); return Object.keys(buckets).sort().map(k=>({ fecha: buckets[k].fecha, ingresos: buckets[k].ingresos, cantidad: buckets[k].cantidad })); }
 function redrawApartados() { try { drawApartadoVentasPorDia(); drawApartadoVentasTopProductos(); drawApartadoVentasIngresosCategoria(); drawApartadoClientes(); drawApartadoInventario(); drawApartadoEnvios(); drawApartadoPagos(); } catch {} }
 function setupResizeRedraw() { let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(redrawApartados, 250); }); }
+async function refreshDashboardCharts(){ try { await cargarDashboard(); await loadAnalyticsData(); redrawApartados(); } catch {} }
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
